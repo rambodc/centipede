@@ -1,4 +1,4 @@
-# XRPeg2
+# Centipede
 
 ## APIV2
 
