@@ -1,26 +1,9 @@
 # Centipede
 
-## APIV2
+Welcome to the Centipede Project's official GitHub Repository! Centipede is a highly scalable 3D WebGL web application that harnesses the power of the XRPLedger to enable the development of various decentralized applications.
 
-* **/payment**
-    
-    Creates a transaction payload.
-    
-    ### **GET** /payment/:destination-:feed
+At present, Centipede offers an array of features, such as a digital wallet, escrow services, token issuance, NFTs, and seamless XRP-to-XRP and token-to-token payment capabilities. Our team is currently working on enhancing Centipede's social aspects by incorporating functionalities like contacts, messaging, and video sharing, providing users with a personalized experience.
 
-    *params*
+Furthermore, we are designing CBDC use cases that will be integrated into the system at a later stage. The XRP Ledger serves as the backbone of our entire platform, ensuring its robustness and reliability.
 
-    **destination** (str) : Public key of the wallet
-    **amount** (int) Amount to send in drops
-
-* **/nft**
-    
-    Creates an NFT payload.
-    
-    ### **POST** /nft
-
-    *body*
-
-    **uri** (url): The URI of the NFT, an HTTP/HTTPS URL
-    **tokenTaxon** (int): Token Taxon
-
+We welcome and appreciate any feedback from the community as we strive to improve and expand Centipede. Please don't hesitate to share your thoughts and suggestions with us.
