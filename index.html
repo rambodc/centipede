@@ -2,13 +2,13 @@
 <html lang="en">
 
 <head>
-    <title>Centipede</title>
+    <title>ProjectD</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
-    <meta itemprop="name" content="Centipede v1.1.0">
-    <link rel="shortcut icon" type="image/x-icon" href="/public/assets/favicon.ico">
-    <meta itemprop="description" content="Centipede on XRP Ledger">
+    <meta itemprop="name" content="ProjectD">
+    <meta itemprop="description" content="made with cables">
     <meta itemprop="image" content="screenshot.png">
+    <meta name="description" content="made with cables" />
 
     <style>
         body {
@@ -42,26 +42,9 @@
 <body>
     <canvas id="glcanvas" width="100vw" height="100vh" tabindex="1"></canvas>
 
-    <script type="text/javascript"  src="js/draco_wasm_wrapper.js"></script>
-<script type="text/javascript"  src="js/draco_decoder_wasm.js"></script>
-<script type="text/javascript"  src="js/ammo.wasm.js"></script>
-<script type="text/javascript"  src="js/navigo.js"></script>
-<script type="text/javascript"  src="js/conway-hart.js"></script>
-<script type="text/javascript"  src="js/platform.js"></script>
-
-    <script type="text/javascript" src="js/libs.core.min.js"></script>
-<script type="text/javascript" src="js/cables.min.js"></script>
-<script type="text/javascript" src="js/ops.js"></script>
-
-    <script type="text/javascript"  src="js/vargetset.js"></script>
-<script type="text/javascript"  src="js/ammoworld.js"></script>
-<script type="text/javascript"  src="js/ammodebugdrawer.js"></script>
-<script type="text/javascript"  src="js/cgl_shadermodifier.js"></script>
-<script type="text/javascript"  src="js/cgl_light.js"></script>
-<script type="text/javascript"  src="js/cgl_copytexture.js"></script>
-<script type="text/javascript"  src="js/cgl_wireframes.js"></script>
-<script type="text/javascript"  src="js/interactionneededbutton.js"></script>
-
+    
+    <script type="text/javascript" src="js/patch.js" async></script>
+    
 
     <script>
 
@@ -79,7 +62,7 @@
 
         document.addEventListener('CABLES.jsLoaded', function (event) {
             CABLES.patch = new CABLES.Patch({
-                patchFile: 'js/Centipede_v1.1.0.json',
+                patch: CABLES.exportedPatch,
                 "prefixAssetPath": "",
                 "assetPath": "assets/",
                 "jsPath": "js/",

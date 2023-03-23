@@ -1,6 +1,5 @@
 ## Patch Variables:
 
-* __centipedeObject__ ```Object```
 * __changeEmail__ ```String```
 * __defaultWallet__ ```String```
 * __email__ ```String```
@@ -43,13 +42,6 @@
 * __PageIndex__ ```Number```
 * __PageIndex__ ```Number```
 * __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number``` (default Value: `0`)
 * __PageIndex__ ```Number``` (default Value: `0`)
 * __PageIndex__ ```Number```
 * __PageIndex__ ```Number```
