@@ -9,54 +9,11 @@
 
 * __firstName__ ```String```
 * __forgotPasswordEmail__ ```String```
-* __forgotPasswordEmail__ ```String```
-* __forgotPasswordEmail__ ```String```
 * __height__ ```Number```
 * __IsSignedInTF__ ```Number```
 * __lastName__ ```String```
 * __mouseOver__ ```String```
-* __mouseOver__ ```String```
 * __Orientation__ ```String```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number``` (default Value: `0`)
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number```
-* __PageIndex__ ```Number``` (default Value: `0`)
-* __PageIndex__ ```Number```
 * __PageIndex__ ```Number```
 * __uid__ ```String```
 

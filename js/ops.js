@@ -19,7 +19,6 @@ Ops.Value=Ops.Value || {};
 Ops.Cables=Ops.Cables || {};
 Ops.String=Ops.String || {};
 Ops.Boolean=Ops.Boolean || {};
-Ops.Browser=Ops.Browser || {};
 Ops.Devices=Ops.Devices || {};
 Ops.Gl.GLTF=Ops.Gl.GLTF || {};
 Ops.Physics=Ops.Physics || {};
@@ -27,20 +26,22 @@ Ops.Sidebar=Ops.Sidebar || {};
 Ops.Trigger=Ops.Trigger || {};
 Ops.Website=Ops.Website || {};
 Ops.Gl.Phong=Ops.Gl.Phong || {};
+Ops.Graphics=Ops.Graphics || {};
 Ops.TimeLine=Ops.TimeLine || {};
 Ops.Gl.Matrix=Ops.Gl.Matrix || {};
 Ops.Gl.Meshes=Ops.Gl.Meshes || {};
 Ops.Gl.Shader=Ops.Gl.Shader || {};
 Ops.Gl.CubeMap=Ops.Gl.CubeMap || {};
-Ops.Gl.Geometry=Ops.Gl.Geometry || {};
 Ops.Gl.Textures=Ops.Gl.Textures || {};
 Ops.Math.Compare=Ops.Math.Compare || {};
 Ops.Physics.Ammo=Ops.Physics.Ammo || {};
 Ops.User.rambodc=Ops.User.rambodc || {};
 Ops.Devices.Mouse=Ops.Devices.Mouse || {};
+Ops.Devices.Mobile=Ops.Devices.Mobile || {};
 Ops.Devices.Keyboard=Ops.Devices.Keyboard || {};
 Ops.Gl.ShaderEffects=Ops.Gl.ShaderEffects || {};
 Ops.Gl.TextureEffects=Ops.Gl.TextureEffects || {};
+Ops.Graphics.Geometry=Ops.Graphics.Geometry || {};
 
 
 
@@ -374,6 +375,603 @@ new CABLES.VarGetOpWrapper(op, "number", op.varName, val);
 
 Ops.Vars.VarGetNumber_v2.prototype = new CABLES.Op();
 CABLES.OPS["421f5b52-c0fa-47c4-8b7a-012b9e1c864a"]={f:Ops.Vars.VarGetNumber_v2,objName:"Ops.Vars.VarGetNumber_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Ui.PatchInput
+// 
+// **************************************************************
+
+Ops.Ui.PatchInput = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const dyn = op.addOutPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
+
+function getPatchOp()
+{
+    for (let i in op.patch.ops)
+    {
+        if (op.patch.ops[i].patchId)
+        {
+            if (op.patch.ops[i].patchId.get() == op.uiAttribs.subPatch)
+            {
+                return op.patch.ops[i];
+            }
+        }
+    }
+}
+
+dyn.onLinkChanged = () =>
+{
+    const mySubPatchOp = getPatchOp();
+
+    if (!dyn.links.length || !mySubPatchOp || !mySubPatchOp.addNewInPort) return;
+
+
+    const otherPort = dyn.links[0].getOtherPort(dyn);
+    dyn.removeLinks();
+
+    const newPortName = mySubPatchOp.addNewInPort(otherPort);
+
+    const l = gui.scene().link(
+        otherPort.parent,
+        otherPort.getName(),
+        op,
+        newPortName);
+
+    mySubPatchOp.saveData();
+};
+
+
+};
+
+Ops.Ui.PatchInput.prototype = new CABLES.Op();
+CABLES.OPS["e3f68bc3-892a-4c78-9974-aca25c27025d"]={f:Ops.Ui.PatchInput,objName:"Ops.Ui.PatchInput"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Ui.PatchOutput
+// 
+// **************************************************************
+
+Ops.Ui.PatchOutput = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const dyn = op.addInPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
+
+function getPatchOp()
+{
+    for (let i in op.patch.ops)
+    {
+        if (op.patch.ops[i].patchId)
+        {
+            if (op.patch.ops[i].patchId.get() == op.uiAttribs.subPatch)
+            {
+                return op.patch.ops[i];
+            }
+        }
+    }
+}
+
+dyn.onLinkChanged = () =>
+{
+    const mySubPatchOp = getPatchOp();
+
+    if (!dyn.links.length) return;
+
+    const otherPort = dyn.links[0].getOtherPort(dyn);
+    dyn.removeLinks();
+
+    const newPortName = mySubPatchOp.addNewOutPort(otherPort);
+
+    const l = gui.scene().link(
+        otherPort.parent,
+        otherPort.getName(),
+        op,
+        newPortName);
+
+    mySubPatchOp.saveData();
+};
+
+
+};
+
+Ops.Ui.PatchOutput.prototype = new CABLES.Op();
+CABLES.OPS["851b44cb-5667-4140-9800-5aeb7031f1d7"]={f:Ops.Ui.PatchOutput,objName:"Ops.Ui.PatchOutput"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Ui.SubPatch
+// 
+// **************************************************************
+
+Ops.Ui.SubPatch = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+op.dyn = op.addInPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
+op.dynOut = op.addOutPort(new CABLES.Port(op, "create port out", CABLES.OP_PORT_TYPE_DYNAMIC));
+
+const dataStr = op.addInPort(new CABLES.Port(op, "dataStr", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
+op.patchId = op.addInPort(new CABLES.Port(op, "patchId", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
+
+if (CABLES.UI && CABLES.sandbox.isDevEnv())
+{
+    const inMakeBp = op.inTriggerButton("Create Blueprint");
+    inMakeBp.setUiAttribs({ "hidePort": true });
+
+    inMakeBp.onTriggered = makeBlueprint;
+}
+
+dataStr.setUiAttribs({ "hideParam": true });
+op.patchId.setUiAttribs({ "hideParam": true });
+
+let data = { "ports": [], "portsOut": [] };
+let oldPatchId = CABLES.generateUUID();
+op.patchId.set(oldPatchId);
+getSubPatchInputOp();
+getSubPatchOutputOp();
+
+let dataLoaded = false;
+
+op.saveData = saveData;
+
+op.init = () =>
+{
+    op.setStorage({ "subPatchVer": 1 });
+};
+
+op.patchId.onChange = function ()
+{
+    const oldPatchOps = op.patch.getSubPatchOps(oldPatchId);
+    if (oldPatchOps.length === 2)
+    {
+        if (op.patch.isEditorMode() && CABLES.UI.DEFAULTOPS.isInBlueprint(op)) CABLES.UI.undo.pause();
+        for (let i = 0; i < oldPatchOps.length; i++)
+        {
+            op.patch.deleteOp(oldPatchOps[i].id);
+        }
+        if (op.patch.isEditorMode() && CABLES.UI.DEFAULTOPS.isInBlueprint(op)) CABLES.UI.undo.resume();
+    }
+};
+
+op.onLoaded = function ()
+{
+};
+
+op.onLoadedValueSet = function ()
+{
+    data = JSON.parse(dataStr.get());
+    if (!data)
+    {
+        data = { "ports": [], "portsOut": [] };
+    }
+    setupPorts();
+};
+
+function loadData()
+{
+}
+
+dataStr.onChange = function ()
+{
+    if (dataLoaded) return;
+
+    if (!dataStr.get()) return;
+    try
+    {
+        loadData();
+    }
+    catch (e)
+    {
+        op.logError("cannot load subpatch data...");
+        op.logError(e);
+    }
+};
+
+function saveData()
+{
+    try
+    {
+        dataStr.set(JSON.stringify(data));
+    }
+    catch (e)
+    {
+        op.log(e);
+    }
+}
+
+op.addPortListener = addPortListener;
+function addPortListener(newPort, newPortInPatch)
+{
+    if (!newPort.hasSubpatchLstener)
+    {
+        newPort.hasSubpatchLstener = true;
+        newPort.addEventListener("onUiAttrChange", function (attribs)
+        {
+            if (attribs.title)
+            {
+                let i = 0;
+                for (i = 0; i < data.portsOut.length; i++)
+                    if (data.portsOut[i].name == newPort.name)
+                        data.portsOut[i].title = attribs.title;
+
+                for (i = 0; i < data.ports.length; i++)
+                    if (data.ports[i].name == newPort.name)
+                        data.ports[i].title = attribs.title;
+
+                saveData();
+            }
+        });
+    }
+
+    if (newPort.direction == CABLES.PORT_DIR_IN)
+    {
+        if (newPort.type == CABLES.OP_PORT_TYPE_FUNCTION)
+        {
+            newPort.onTriggered = function ()
+            {
+                if (newPortInPatch.isLinked())
+                    newPortInPatch.trigger();
+            };
+        }
+        else
+        {
+            newPort.onChange = function ()
+            {
+                newPortInPatch.set(newPort.get());
+                if (!newPort.isLinked())
+                {
+                    for (let i = 0; i < data.ports.length; i++)
+                    {
+                        if (data.ports[i].name === newPort.name)
+                        {
+                            data.ports[i].value = newPort.get();
+                        }
+                    }
+                    saveData();
+                }
+            };
+        }
+    }
+}
+
+op.setupPorts = setupPorts;
+function setupPorts()
+{
+    if (!op.patchId.get()) return;
+    const ports = data.ports || [];
+    const portsOut = data.portsOut || [];
+    let i = 0;
+
+    for (i = 0; i < ports.length; i++)
+    {
+        if (!op.getPortByName(ports[i].name))
+        {
+            const newPort = op.addInPort(new CABLES.Port(op, ports[i].name, ports[i].type));
+
+            const patchInputOp = getSubPatchInputOp();
+            const newPortInPatch = patchInputOp.addOutPort(new CABLES.Port(patchInputOp, ports[i].name, ports[i].type));
+
+            newPort.ignoreValueSerialize = true;
+            newPort.setUiAttribs({ "editableTitle": true });
+            if (ports[i].title)
+            {
+                newPort.setUiAttribs({ "title": ports[i].title });
+                newPortInPatch.setUiAttribs({ "title": ports[i].title });
+            }
+            if (ports[i].objType)
+            {
+                newPort.setUiAttribs({ "objType": ports[i].objType });
+                newPortInPatch.setUiAttribs({ "objType": ports[i].objType });
+            }
+            if (ports[i].value)
+            {
+                newPort.set(ports[i].value);
+                newPortInPatch.set(ports[i].value);
+            }
+            addPortListener(newPort, newPortInPatch);
+        }
+    }
+
+    for (i = 0; i < portsOut.length; i++)
+    {
+        if (!op.getPortByName(portsOut[i].name))
+        {
+            const newPortOut = op.addOutPort(new CABLES.Port(op, portsOut[i].name, portsOut[i].type));
+            const patchOutputOp = getSubPatchOutputOp();
+            const newPortOutPatch = patchOutputOp.addInPort(new CABLES.Port(patchOutputOp, portsOut[i].name, portsOut[i].type));
+
+            newPortOut.ignoreValueSerialize = true;
+            newPortOut.setUiAttribs({ "editableTitle": true });
+
+            if (portsOut[i].title)
+            {
+                newPortOut.setUiAttribs({ "title": portsOut[i].title });
+                newPortOutPatch.setUiAttribs({ "title": portsOut[i].title });
+            }
+            if (portsOut[i].objType)
+            {
+                newPortOut.setUiAttribs({ "objType": portsOut[i].objType });
+                newPortOutPatch.setUiAttribs({ "objType": portsOut[i].objType });
+            }
+
+            // addPortListener(newPortOut,newPortOutPatch);
+            addPortListener(newPortOutPatch, newPortOut);
+        }
+    }
+
+    dataLoaded = true;
+}
+
+op.addNewInPort = function (otherPort, type, objType)
+{
+    const newName = "in" + data.ports.length + " " + otherPort.parent.name + " " + otherPort.name;
+
+    const o = { "name": newName, "type": otherPort.type };
+    if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
+
+    data.ports.push(o);
+    setupPorts();
+    return newName;
+};
+
+op.dyn.onLinkChanged = function ()
+{
+    if (op.dyn.isLinked())
+    {
+        const otherPort = op.dyn.links[0].getOtherPort(op.dyn);
+        op.dyn.removeLinks();
+        otherPort.removeLinkTo(op.dyn);
+
+        op.log("dyn link changed!!!");
+
+        // const newName = "in" + data.ports.length + " " + otherPort.parent.name + " " + otherPort.name;
+
+        // const o = { "name": newName, "type": otherPort.type };
+        // if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
+        // data.ports.push(o);
+
+        // setupPorts();
+
+        const newName = op.addNewInPort(otherPort);
+
+        const l = gui.scene().link(
+            otherPort.parent,
+            otherPort.getName(),
+            op,
+            newName
+        );
+
+        dataLoaded = true;
+        saveData();
+    }
+    else
+    {
+        setTimeout(function ()
+        {
+            op.dyn.removeLinks();
+        }, 100);
+    }
+};
+
+op.addNewOutPort = function (otherPort, type, objType)
+{
+    const newName = "out" + data.portsOut.length + " " + otherPort.parent.name + " " + otherPort.name;
+
+    const o = { "name": newName, "type": otherPort.type };
+    if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
+
+    data.portsOut.push(o);
+    setupPorts();
+    return newName;
+};
+
+op.dynOut.onLinkChanged = function ()
+{
+    if (op.dynOut.isLinked())
+    {
+        const otherPort = op.dynOut.links[0].getOtherPort(op.dynOut);
+        op.dynOut.removeLinks();
+        otherPort.removeLinkTo(op.dynOut);
+
+        const newName = op.addNewOutPort(otherPort);
+
+        gui.scene().link(
+            otherPort.parent,
+            otherPort.getName(),
+            op,
+            newName
+        );
+
+        dataLoaded = true;
+        saveData();
+    }
+    else
+    {
+        setTimeout(function ()
+        {
+            op.dynOut.removeLinks();
+        }, 100);
+
+        op.log("dynOut unlinked...");
+    }
+};
+
+function getSubPatchOutputOp()
+{
+    let patchOutputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchOutput");
+
+    if (!patchOutputOP)
+    {
+        op.patch.addOp("Ops.Ui.PatchOutput", { "subPatch": op.patchId.get(), "translate": { "x": 0, "y": 0 } });
+        patchOutputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchOutput");
+        if (!patchOutputOP) op.warn("no patchoutput!");
+    }
+    return patchOutputOP;
+}
+
+function getSubPatchInputOp()
+{
+    let patchInputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchInput");
+
+    if (!patchInputOP)
+    {
+        op.patch.addOp("Ops.Ui.PatchInput", { "subPatch": op.patchId.get(), "translate": { "x": 0, "y": 0 } });
+        patchInputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchInput");
+        if (!patchInputOP) op.warn("no patchinput2!");
+    }
+
+    return patchInputOP;
+}
+
+op.addSubLink = function (p, p2)
+{
+    const num = data.ports.length;
+    const sublPortname = "in" + (num - 1) + " " + p2.parent.name + " " + p2.name;
+
+    if (p.direction == CABLES.PORT_DIR_IN)
+    {
+        gui.scene().link(
+            p.parent,
+            p.getName(),
+            getSubPatchInputOp(),
+            sublPortname
+        );
+    }
+    else
+    {
+        const numOut = data.portsOut.length;
+        gui.scene().link(
+            p.parent,
+            p.getName(),
+            getSubPatchOutputOp(),
+            "out" + (numOut - 1) + " " + p2.parent.name + " " + p2.name
+        );
+    }
+
+    const bounds = gui.patchView.getSubPatchBounds(op.patchId.get());
+
+    getSubPatchInputOp().uiAttr(
+        {
+            "translate":
+            {
+                "x": bounds.minx,
+                "y": bounds.miny - 100
+            }
+        });
+
+    getSubPatchOutputOp().uiAttr(
+        {
+            "translate":
+            {
+                "x": bounds.minx,
+                "y": bounds.maxy + 100
+            }
+        });
+    saveData();
+    return sublPortname;
+};
+
+op.onDelete = function ()
+{
+    for (let i = op.patch.ops.length - 1; i >= 0; i--)
+    {
+        if (op.patch.ops[i] && op.patch.ops[i].uiAttribs && op.patch.ops[i].uiAttribs.subPatch == op.patchId.get())
+        {
+            op.patch.deleteOp(op.patch.ops[i].id);
+        }
+    }
+};
+
+function makeBlueprint()
+{
+    let attribs = {
+        "pasted": true,
+        "translate": {
+            "x": op.uiAttribs.translate.x - 150,
+            "y": op.uiAttribs.translate.y
+        }
+    };
+
+    if (CABLES.UI) attribs.subPatch = gui.patchView.getCurrentSubPatch();
+
+    const bpOp = op.patch.addOp(CABLES.UI.DEFAULTOPNAMES.blueprint, attribs);
+    bpOp.createBlueprint(gui.patchId, op.patchId.get(), true);
+}
+
+op.rebuildListeners = () =>
+{
+    op.log("rebuild listeners...");
+
+    const outop = getSubPatchOutputOp();
+    for (let i = 0; i < outop.portsIn.length; i++)
+    {
+        if (outop.portsIn[i].isLinked())
+        {
+            addPortListener(outop.portsIn[i], this.portsOut[i]);
+        }
+    }
+};
+
+
+};
+
+Ops.Ui.SubPatch.prototype = new CABLES.Op();
+CABLES.OPS["84d9a6f0-ed7a-466d-b386-225ed9e89c60"]={f:Ops.Ui.SubPatch,objName:"Ops.Ui.SubPatch"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.ClearColor
+// 
+// **************************************************************
+
+Ops.Gl.ClearColor = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    render = op.inTrigger("render"),
+    trigger = op.outTrigger("trigger"),
+    r = op.inFloatSlider("r", 0.1),
+    g = op.inFloatSlider("g", 0.1),
+    b = op.inFloatSlider("b", 0.1),
+    a = op.inFloatSlider("a", 1);
+
+r.setUiAttribs({ "colorPick": true });
+
+const cgl = op.patch.cgl;
+
+render.onTriggered = function ()
+{
+    cgl.gl.clearColor(r.get(), g.get(), b.get(), a.get());
+    cgl.gl.clear(cgl.gl.COLOR_BUFFER_BIT | cgl.gl.DEPTH_BUFFER_BIT);
+    trigger.trigger();
+};
+
+
+};
+
+Ops.Gl.ClearColor.prototype = new CABLES.Op();
+CABLES.OPS["19b441eb-9f63-4f35-ba08-b87841517c4d"]={f:Ops.Gl.ClearColor,objName:"Ops.Gl.ClearColor"};
 
 
 
@@ -728,187 +1326,150 @@ CABLES.OPS["5a681c35-78ce-4cb3-9858-bc79c34c6819"]={f:Ops.Sidebar.Sidebar,objNam
 
 // **************************************************************
 // 
-// Ops.Sidebar.Incrementor_v2
+// Ops.Sidebar.TextInput_v2
 // 
 // **************************************************************
 
-Ops.Sidebar.Incrementor_v2 = function()
+Ops.Sidebar.TextInput_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-// inputs
-const parentPort = op.inObject("link");
-const labelPort = op.inString("Label", "Incrementor");
-const inMin = op.inValue("min", 0);
-const inMax = op.inValue("max", 10);
-const inStepsize = op.inValue("stepsize", 1);
-const inDefault = op.inValue("Default", 0);
-const inValues = op.inArray("Values");
-const inSetDefault = op.inTriggerButton("Set Default");
-inSetDefault.onTriggered = setDefaultValue;
+const
+    parentPort = op.inObject("Link"),
+    labelPort = op.inString("Text", "Text"),
+    defaultValuePort = op.inString("Default", ""),
+    inPlaceholder = op.inString("Placeholder", ""),
+    inType = op.inSwitch("Type", ["text", "password"], "text"),
+    inTextArea = op.inBool("TextArea", false),
+    inGreyOut = op.inBool("Grey Out", false),
+    inVisible = op.inBool("Visible", true),
+    inClear = op.inTriggerButton("Clear"),
+    siblingsPort = op.outObject("Children"),
+    valuePort = op.outString("Result", defaultValuePort.get()),
+    outFocus = op.outBool("Focus");
 
-// outputs
-const siblingsPort = op.outObject("childs");
-const outValue = op.outNumber("value");
+const el = document.createElement("div");
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__text-input");
+el.classList.add("sidebar__reloadable");
 
-// vars
-let currentPosition = 0;
-
-const containerEl = document.createElement("div");
-containerEl.dataset.op = op.id;
-containerEl.classList.add("cablesEle");
-containerEl.classList.add("sidebar__item");
 const label = document.createElement("div");
 label.classList.add("sidebar__item-label");
+const labelText = document.createTextNode(labelPort.get());
+label.appendChild(labelText);
+el.appendChild(label);
+
 label.addEventListener("dblclick", function ()
 {
-    outValue.set(inDefault.get());
+    valuePort.set(defaultValuePort.get());
+    input.value = defaultValuePort.get();
 });
-const labelTextEl = document.createTextNode(labelPort.get());
-label.appendChild(labelTextEl);
-containerEl.appendChild(label);
 
-const innerContainer = document.createElement("span");
-innerContainer.classList.add("sidebar__item__right");
+let input = null;
+creatElement();
 
-// value
-const valueEl = document.createElement("span");
-valueEl.style.marginRight = "10px";
+op.toWorkPortsNeedToBeLinked(parentPort);
 
-let valueText = document.createTextNode(inMin.get());
-if (Array.isArray(inValues.get()))
+inTextArea.onChange = creatElement;
+inType.onChange = setAttribs;
+
+function setAttribs()
 {
-    valueText = document.createTextNode(inValues.get()[currentPosition]);
+    input.setAttribute("type", inType.get());
+    input.setAttribute("value", defaultValuePort.get());
+    input.setAttribute("placeholder", inPlaceholder.get());
 }
 
-valueEl.appendChild(valueText);
-innerContainer.appendChild(valueEl);
-
-// previous
-const prevEl = document.createElement("span");
-prevEl.classList.add("sidebar--button");
-prevEl.style.marginRight = "3px";
-const prevInput = document.createElement("div");
-prevInput.classList.add("sidebar__button-input");
-prevInput.classList.add("minus");
-prevEl.appendChild(prevInput);
-prevInput.addEventListener("click", onPrev);
-const prevText = document.createTextNode("-");
-prevInput.appendChild(prevText);
-innerContainer.appendChild(prevEl);
-
-// next
-const nextEl = document.createElement("span");
-nextEl.classList.add("sidebar--button");
-const nextInput = document.createElement("div");
-nextInput.classList.add("sidebar__button-input");
-nextInput.classList.add("plus");
-nextEl.appendChild(nextInput);
-nextInput.addEventListener("click", onNext);
-const nextText = document.createTextNode("+");
-nextInput.appendChild(nextText);
-
-innerContainer.appendChild(nextEl);
-containerEl.appendChild(innerContainer);
-
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
-
-function setDefaultValue()
+function creatElement()
 {
-    inDefault.set(outValue.get());
-    op.refreshParams();
+    if (input)input.remove();
+    if (!inTextArea.get())
+    {
+        input = document.createElement("input");
+    }
+    else
+    {
+        input = document.createElement("textarea");
+        onDefaultValueChanged();
+    }
+
+    input.classList.add("sidebar__text-input-input");
+
+    setAttribs();
+
+    el.appendChild(input);
+    input.addEventListener("input", onInput);
+    input.addEventListener("focus", onFocus);
+    input.addEventListener("blur", onBlur);
 }
+
+const greyOut = document.createElement("div");
+greyOut.classList.add("sidebar__greyout");
+el.appendChild(greyOut);
+greyOut.style.display = "none";
+
+inClear.onTriggered = () =>
+{
+    input.value = "";
+    valuePort.set(input.value);
+};
+
+function onFocus()
+{
+    outFocus.set(true);
+}
+
+function onBlur()
+{
+    outFocus.set(false);
+}
+
+inPlaceholder.onChange = () =>
+{
+    input.setAttribute("placeholder", inPlaceholder.get());
+};
+
+inGreyOut.onChange = function ()
+{
+    greyOut.style.display = inGreyOut.get() ? "block" : "none";
+};
+
+inVisible.onChange = function ()
+{
+    el.style.display = inVisible.get() ? "block" : "none";
+};
 
 // events
 parentPort.onChange = onParentChanged;
-inValues.onChange = onValueChange;
 labelPort.onChange = onLabelTextChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
 op.onDelete = onDelete;
 
-op.onLoaded = op.onInit = function ()
-{
-    if (Array.isArray(inValues.get()))
-    {
-        inDefault.setUiAttribs({ "greyout": true });
-    }
-    else
-    {
-        outValue.set(inDefault.get());
-        valueText.textContent = inDefault.get();
-    }
-};
+// functions
 
-function onValueChange()
+function onInput(ev)
 {
-    const values = inValues.get();
-    let value = inMin.get();
-    if (Array.isArray(values))
-    {
-        value = values[currentPosition];
-        inMin.setUiAttribs({ "greyout": true });
-        inMax.set(values.length - 1);
-        inMax.setUiAttribs({ "greyout": true });
-        inStepsize.setUiAttribs({ "greyout": true });
-        inStepsize.set(1);
-        inDefault.setUiAttribs({ "greyout": true });
-        inDefault.set(0);
-    }
-    else
-    {
-        inMin.setUiAttribs({ "greyout": false });
-        inMax.setUiAttribs({ "greyout": false });
-        inStepsize.setUiAttribs({ "greyout": false });
-        inDefault.setUiAttribs({ "greyout": false });
-    }
-    outValue.set(value);
-    valueText.textContent = value;
+    valuePort.set(ev.target.value);
 }
 
-function onNext()
+function onDefaultValueChanged()
 {
-    const values = inValues.get();
-    let value = 0;
-    if (!Array.isArray(values))
-    {
-        // no array given, increment/decrement according to params
-        const currentValue = outValue.get();
-        value = Math.min(currentValue + inStepsize.get(), inMax.get());
-    }
-    else
-    {
-        // user inputs an array, iterate fields, ignore min/max/stepsize
-        if (currentPosition < values.length - 1)
-        {
-            currentPosition += Math.ceil(inStepsize.get());
-        }
-        value = values[currentPosition];
-    }
-    valueText.textContent = value;
-    outValue.set(value);
+    const defaultValue = defaultValuePort.get();
+    valuePort.set(defaultValue);
+    input.value = defaultValue;
 }
 
-function onPrev()
+function onLabelTextChanged()
 {
-    const values = inValues.get();
-    let value = 0;
-    if (!Array.isArray(values))
+    const labelText = labelPort.get();
+    label.textContent = labelText;
+    if (CABLES.UI)
     {
-        // no array given, increment/decrement according to params
-        const currentValue = outValue.get();
-        value = Math.max(currentValue - inStepsize.get(), inMin.get());
+        op.setTitle("Text Input: " + labelText);
     }
-    else
-    {
-        // user inputs an array, iterate fields, ignore min/max/stepsize
-        if (currentPosition > 0)
-        {
-            currentPosition -= Math.ceil(inStepsize.get());
-        }
-        value = values[currentPosition];
-    }
-    valueText.textContent = value;
-    outValue.set(value);
 }
 
 function onParentChanged()
@@ -917,30 +1478,37 @@ function onParentChanged()
     const parent = parentPort.get();
     if (parent && parent.parentElement)
     {
-        parent.parentElement.appendChild(containerEl);
+        parent.parentElement.appendChild(el);
         siblingsPort.set(parent);
     }
-    else if (containerEl.parentElement)
-    {
-        // detach
-        containerEl.parentElement.removeChild(containerEl);
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
     }
 }
 
-function onLabelTextChanged()
+function showElement(el)
 {
-    const labelText = labelPort.get();
-    label.textContent = labelText;
-
-    if (CABLES.UI)
+    if (el)
     {
-        op.setTitle(labelText);
+        el.style.display = "block";
+    }
+}
+
+function hideElement(el)
+{
+    if (el)
+    {
+        el.style.display = "none";
     }
 }
 
 function onDelete()
 {
-    removeElementFromDOM(containerEl);
+    removeElementFromDOM(el);
 }
 
 function removeElementFromDOM(el)
@@ -954,582 +1522,8 @@ function removeElementFromDOM(el)
 
 };
 
-Ops.Sidebar.Incrementor_v2.prototype = new CABLES.Op();
-CABLES.OPS["13932cbc-2bd4-4b2a-b6e0-cda6df4cec54"]={f:Ops.Sidebar.Incrementor_v2,objName:"Ops.Sidebar.Incrementor_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Vars.VarSetNumber_v2
-// 
-// **************************************************************
-
-Ops.Vars.VarSetNumber_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const val = op.inValueFloat("Value", 0);
-op.varName = op.inDropDown("Variable", [], "", true);
-
-new CABLES.VarSetOpWrapper(op, "number", val, op.varName);
-
-
-};
-
-Ops.Vars.VarSetNumber_v2.prototype = new CABLES.Op();
-CABLES.OPS["b5249226-6095-4828-8a1c-080654e192fa"]={f:Ops.Vars.VarSetNumber_v2,objName:"Ops.Vars.VarSetNumber_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Ui.PatchInput
-// 
-// **************************************************************
-
-Ops.Ui.PatchInput = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const dyn = op.addOutPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
-
-function getPatchOp()
-{
-    for (let i in op.patch.ops)
-    {
-        if (op.patch.ops[i].patchId)
-        {
-            if (op.patch.ops[i].patchId.get() == op.uiAttribs.subPatch)
-            {
-                return op.patch.ops[i];
-            }
-        }
-    }
-}
-
-dyn.onLinkChanged = () =>
-{
-    const mySubPatchOp = getPatchOp();
-
-    if (!dyn.links.length) return;
-
-    const otherPort = dyn.links[0].getOtherPort(dyn);
-    dyn.removeLinks();
-
-    const newPortName = mySubPatchOp.addNewInPort(otherPort);
-
-    const l = gui.scene().link(
-        otherPort.parent,
-        otherPort.getName(),
-        op,
-        newPortName);
-
-    mySubPatchOp.saveData();
-};
-
-
-};
-
-Ops.Ui.PatchInput.prototype = new CABLES.Op();
-CABLES.OPS["e3f68bc3-892a-4c78-9974-aca25c27025d"]={f:Ops.Ui.PatchInput,objName:"Ops.Ui.PatchInput"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Ui.PatchOutput
-// 
-// **************************************************************
-
-Ops.Ui.PatchOutput = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const dyn = op.addInPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
-
-function getPatchOp()
-{
-    for (let i in op.patch.ops)
-    {
-        if (op.patch.ops[i].patchId)
-        {
-            if (op.patch.ops[i].patchId.get() == op.uiAttribs.subPatch)
-            {
-                return op.patch.ops[i];
-            }
-        }
-    }
-}
-
-dyn.onLinkChanged = () =>
-{
-    const mySubPatchOp = getPatchOp();
-
-    if (!dyn.links.length) return;
-
-    const otherPort = dyn.links[0].getOtherPort(dyn);
-    dyn.removeLinks();
-
-    const newPortName = mySubPatchOp.addNewOutPort(otherPort);
-
-    const l = gui.scene().link(
-        otherPort.parent,
-        otherPort.getName(),
-        op,
-        newPortName);
-
-    mySubPatchOp.saveData();
-};
-
-
-};
-
-Ops.Ui.PatchOutput.prototype = new CABLES.Op();
-CABLES.OPS["851b44cb-5667-4140-9800-5aeb7031f1d7"]={f:Ops.Ui.PatchOutput,objName:"Ops.Ui.PatchOutput"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Ui.SubPatch
-// 
-// **************************************************************
-
-Ops.Ui.SubPatch = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-op.dyn = op.addInPort(new CABLES.Port(op, "create port", CABLES.OP_PORT_TYPE_DYNAMIC));
-op.dynOut = op.addOutPort(new CABLES.Port(op, "create port out", CABLES.OP_PORT_TYPE_DYNAMIC));
-
-const dataStr = op.addInPort(new CABLES.Port(op, "dataStr", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
-op.patchId = op.addInPort(new CABLES.Port(op, "patchId", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
-
-if (CABLES.UI && CABLES.sandbox.isDevEnv())
-{
-    const inMakeBp = op.inTriggerButton("Create Blueprint");
-    inMakeBp.setUiAttribs({ "hidePort": true });
-
-    inMakeBp.onTriggered = makeBlueprint;
-}
-
-dataStr.setUiAttribs({ "hideParam": true });
-op.patchId.setUiAttribs({ "hideParam": true });
-
-let data = { "ports": [], "portsOut": [] };
-let oldPatchId = CABLES.generateUUID();
-op.patchId.set(oldPatchId);
-getSubPatchInputOp();
-getSubPatchOutputOp();
-
-let dataLoaded = false;
-
-op.saveData = saveData;
-
-op.patchId.onChange = function ()
-{
-    const oldPatchOps = op.patch.getSubPatchOps(oldPatchId);
-
-    if (oldPatchOps.length == 2)
-    {
-        for (let i = 0; i < oldPatchOps.length; i++)
-        {
-            op.patch.deleteOp(oldPatchOps[i].id);
-        }
-    }
-    else
-    {
-    }
-};
-
-op.onLoaded = function ()
-{
-};
-
-op.onLoadedValueSet = function ()
-{
-    data = JSON.parse(dataStr.get());
-    if (!data)
-    {
-        data = { "ports": [], "portsOut": [] };
-    }
-    setupPorts();
-};
-
-function loadData()
-{
-}
-
-dataStr.onChange = function ()
-{
-    if (dataLoaded) return;
-
-    if (!dataStr.get()) return;
-    try
-    {
-        loadData();
-    }
-    catch (e)
-    {
-        op.logError("cannot load subpatch data...");
-        op.logError(e);
-    }
-};
-
-function saveData()
-{
-    dataStr.set(JSON.stringify(data));
-}
-
-op.addPortListener = addPortListener;
-function addPortListener(newPort, newPortInPatch)
-{
-    if (!newPort.hasSubpatchLstener)
-    {
-        newPort.hasSubpatchLstener = true;
-        newPort.addEventListener("onUiAttrChange", function (attribs)
-        {
-            if (attribs.title)
-            {
-                let i = 0;
-                for (i = 0; i < data.portsOut.length; i++)
-                    if (data.portsOut[i].name == newPort.name)
-                        data.portsOut[i].title = attribs.title;
-
-                for (i = 0; i < data.ports.length; i++)
-                    if (data.ports[i].name == newPort.name)
-                        data.ports[i].title = attribs.title;
-
-                saveData();
-            }
-        });
-    }
-
-    if (newPort.direction == CABLES.PORT_DIR_IN)
-    {
-        if (newPort.type == CABLES.OP_PORT_TYPE_FUNCTION)
-        {
-            newPort.onTriggered = function ()
-            {
-                if (newPortInPatch.isLinked())
-                    newPortInPatch.trigger();
-            };
-        }
-        else
-        {
-            newPort.onChange = function ()
-            {
-                newPortInPatch.set(newPort.get());
-                if (!newPort.isLinked())
-                {
-                    for (let i = 0; i < data.ports.length; i++)
-                    {
-                        if (data.ports[i].name === newPort.name)
-                        {
-                            data.ports[i].value = newPort.get();
-                        }
-                    }
-                    saveData();
-                }
-            };
-        }
-    }
-}
-
-op.setupPorts = setupPorts;
-function setupPorts()
-{
-    if (!op.patchId.get()) return;
-    const ports = data.ports || [];
-    const portsOut = data.portsOut || [];
-    let i = 0;
-
-    for (i = 0; i < ports.length; i++)
-    {
-        if (!op.getPortByName(ports[i].name))
-        {
-            const newPort = op.addInPort(new CABLES.Port(op, ports[i].name, ports[i].type));
-
-            const patchInputOp = getSubPatchInputOp();
-            const newPortInPatch = patchInputOp.addOutPort(new CABLES.Port(patchInputOp, ports[i].name, ports[i].type));
-
-            newPort.ignoreValueSerialize = true;
-            newPort.setUiAttribs({ "editableTitle": true });
-            if (ports[i].title)
-            {
-                newPort.setUiAttribs({ "title": ports[i].title });
-                newPortInPatch.setUiAttribs({ "title": ports[i].title });
-            }
-            if (ports[i].objType)
-            {
-                newPort.setUiAttribs({ "objType": ports[i].objType });
-                newPortInPatch.setUiAttribs({ "objType": ports[i].objType });
-            }
-            if (ports[i].value)
-            {
-                newPort.set(ports[i].value);
-                newPortInPatch.set(ports[i].value);
-            }
-            addPortListener(newPort, newPortInPatch);
-        }
-    }
-
-    for (i = 0; i < portsOut.length; i++)
-    {
-        if (!op.getPortByName(portsOut[i].name))
-        {
-            const newPortOut = op.addOutPort(new CABLES.Port(op, portsOut[i].name, portsOut[i].type));
-            const patchOutputOp = getSubPatchOutputOp();
-            const newPortOutPatch = patchOutputOp.addInPort(new CABLES.Port(patchOutputOp, portsOut[i].name, portsOut[i].type));
-
-            newPortOut.ignoreValueSerialize = true;
-            newPortOut.setUiAttribs({ "editableTitle": true });
-
-            if (portsOut[i].title)
-            {
-                newPortOut.setUiAttribs({ "title": portsOut[i].title });
-                newPortOutPatch.setUiAttribs({ "title": portsOut[i].title });
-            }
-            if (portsOut[i].objType)
-            {
-                newPortOut.setUiAttribs({ "objType": portsOut[i].objType });
-                newPortOutPatch.setUiAttribs({ "objType": portsOut[i].objType });
-            }
-
-            // addPortListener(newPortOut,newPortOutPatch);
-            addPortListener(newPortOutPatch, newPortOut);
-        }
-    }
-
-    dataLoaded = true;
-}
-
-op.addNewInPort = function (otherPort, type, objType)
-{
-    const newName = "in" + data.ports.length + " " + otherPort.parent.name + " " + otherPort.name;
-
-    const o = { "name": newName, "type": otherPort.type };
-    if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
-
-    data.ports.push(o);
-    setupPorts();
-    return newName;
-};
-
-op.dyn.onLinkChanged = function ()
-{
-    if (op.dyn.isLinked())
-    {
-        const otherPort = op.dyn.links[0].getOtherPort(op.dyn);
-        op.dyn.removeLinks();
-        otherPort.removeLinkTo(op.dyn);
-
-        op.log("dyn link changed!!!");
-
-        // const newName = "in" + data.ports.length + " " + otherPort.parent.name + " " + otherPort.name;
-
-        // const o = { "name": newName, "type": otherPort.type };
-        // if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
-        // data.ports.push(o);
-
-        // setupPorts();
-
-        const newName = op.addNewInPort(otherPort);
-
-        const l = gui.scene().link(
-            otherPort.parent,
-            otherPort.getName(),
-            op,
-            newName
-        );
-
-        dataLoaded = true;
-        saveData();
-    }
-    else
-    {
-        setTimeout(function ()
-        {
-            op.dyn.removeLinks();
-        }, 100);
-    }
-};
-
-op.addNewOutPort = function (otherPort, type, objType)
-{
-    const newName = "out" + data.portsOut.length + " " + otherPort.parent.name + " " + otherPort.name;
-
-    const o = { "name": newName, "type": otherPort.type };
-    if (otherPort.uiAttribs.objType)o.objType = otherPort.uiAttribs.objType;
-
-    data.portsOut.push(o);
-    setupPorts();
-    return newName;
-};
-
-op.dynOut.onLinkChanged = function ()
-{
-    if (op.dynOut.isLinked())
-    {
-        const otherPort = op.dynOut.links[0].getOtherPort(op.dynOut);
-        op.dynOut.removeLinks();
-        otherPort.removeLinkTo(op.dynOut);
-
-        const newName = op.addNewOutPort(otherPort);
-
-        gui.scene().link(
-            otherPort.parent,
-            otherPort.getName(),
-            op,
-            newName
-        );
-
-        dataLoaded = true;
-        saveData();
-    }
-    else
-    {
-        setTimeout(function ()
-        {
-            op.dynOut.removeLinks();
-        }, 100);
-
-        op.log("dynOut unlinked...");
-    }
-};
-
-function getSubPatchOutputOp()
-{
-    let patchOutputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchOutput");
-
-    if (!patchOutputOP)
-    {
-        op.patch.addOp("Ops.Ui.PatchOutput", { "subPatch": op.patchId.get(), "translate": { "x": 0, "y": 0 } });
-        patchOutputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchOutput");
-        if (!patchOutputOP) op.warn("no patchoutput!");
-    }
-    return patchOutputOP;
-}
-
-function getSubPatchInputOp()
-{
-    let patchInputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchInput");
-
-    if (!patchInputOP)
-    {
-        op.patch.addOp("Ops.Ui.PatchInput", { "subPatch": op.patchId.get(), "translate": { "x": 0, "y": 0 } });
-        patchInputOP = op.patch.getSubPatchOp(op.patchId.get(), "Ops.Ui.PatchInput");
-        if (!patchInputOP) op.warn("no patchinput2!");
-    }
-
-    return patchInputOP;
-}
-
-op.addSubLink = function (p, p2)
-{
-    const num = data.ports.length;
-    const sublPortname = "in" + (num - 1) + " " + p2.parent.name + " " + p2.name;
-
-    if (p.direction == CABLES.PORT_DIR_IN)
-    {
-        gui.scene().link(
-            p.parent,
-            p.getName(),
-            getSubPatchInputOp(),
-            sublPortname
-        );
-    }
-    else
-    {
-        const numOut = data.portsOut.length;
-        gui.scene().link(
-            p.parent,
-            p.getName(),
-            getSubPatchOutputOp(),
-            "out" + (numOut - 1) + " " + p2.parent.name + " " + p2.name
-        );
-    }
-
-    const bounds = gui.patchView.getSubPatchBounds(op.patchId.get());
-
-    getSubPatchInputOp().uiAttr(
-        {
-            "translate":
-            {
-                "x": bounds.minx,
-                "y": bounds.miny - 100
-            }
-        });
-
-    getSubPatchOutputOp().uiAttr(
-        {
-            "translate":
-            {
-                "x": bounds.minx,
-                "y": bounds.maxy + 100
-            }
-        });
-    saveData();
-    return sublPortname;
-};
-
-op.onDelete = function ()
-{
-    for (let i = op.patch.ops.length - 1; i >= 0; i--)
-    {
-        if (op.patch.ops[i] && op.patch.ops[i].uiAttribs && op.patch.ops[i].uiAttribs.subPatch == op.patchId.get())
-        {
-            op.patch.deleteOp(op.patch.ops[i].id);
-        }
-    }
-};
-
-function makeBlueprint()
-{
-    const bpOp = op.patch.addOp(CABLES.UI.DEFAULTOPNAMES.blueprint);
-
-    bpOp.getPortByName("externalPatchId").set(gui.patchId);
-    bpOp.getPortByName("subPatchId").set(op.patchId.get());
-    bpOp.getPortByName("active").set(true);
-
-    bpOp.uiAttr(
-        {
-            "translate":
-            {
-                "x": op.uiAttribs.translate.x - 150,
-                "y": op.uiAttribs.translate.y
-            }
-        });
-}
-
-op.rebuildListeners = () =>
-{
-    op.log("rebuild listeners...");
-
-    const outop = getSubPatchOutputOp();
-    for (let i = 0; i < outop.portsIn.length; i++)
-    {
-        if (outop.portsIn[i].isLinked())
-        {
-            addPortListener(outop.portsIn[i], this.portsOut[i]);
-        }
-    }
-};
-
-
-};
-
-Ops.Ui.SubPatch.prototype = new CABLES.Op();
-CABLES.OPS["84d9a6f0-ed7a-466d-b386-225ed9e89c60"]={f:Ops.Ui.SubPatch,objName:"Ops.Ui.SubPatch"};
+Ops.Sidebar.TextInput_v2.prototype = new CABLES.Op();
+CABLES.OPS["6538a190-e73c-451b-964e-d010ee267aa9"]={f:Ops.Sidebar.TextInput_v2,objName:"Ops.Sidebar.TextInput_v2"};
 
 
 
@@ -1663,248 +1657,6 @@ CABLES.OPS["5e9c6933-0605-4bf7-8671-a016d917f327"]={f:Ops.Sidebar.Button_v2,objN
 
 // **************************************************************
 // 
-// Ops.Gl.ClearColor
-// 
-// **************************************************************
-
-Ops.Gl.ClearColor = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("render"),
-    trigger = op.outTrigger("trigger"),
-    r = op.inFloatSlider("r", 0.1),
-    g = op.inFloatSlider("g", 0.1),
-    b = op.inFloatSlider("b", 0.1),
-    a = op.inFloatSlider("a", 1);
-
-r.setUiAttribs({ "colorPick": true });
-
-const cgl = op.patch.cgl;
-
-render.onTriggered = function ()
-{
-    cgl.gl.clearColor(r.get(), g.get(), b.get(), a.get());
-    cgl.gl.clear(cgl.gl.COLOR_BUFFER_BIT | cgl.gl.DEPTH_BUFFER_BIT);
-    trigger.trigger();
-};
-
-
-};
-
-Ops.Gl.ClearColor.prototype = new CABLES.Op();
-CABLES.OPS["19b441eb-9f63-4f35-ba08-b87841517c4d"]={f:Ops.Gl.ClearColor,objName:"Ops.Gl.ClearColor"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Sidebar.TextInput_v2
-// 
-// **************************************************************
-
-Ops.Sidebar.TextInput_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    parentPort = op.inObject("Link"),
-    labelPort = op.inString("Text", "Text"),
-    defaultValuePort = op.inString("Default", ""),
-    inPlaceholder = op.inString("Placeholder", ""),
-    inType = op.inSwitch("Type", ["text", "password"], "text"),
-    inTextArea = op.inBool("TextArea", false),
-    inGreyOut = op.inBool("Grey Out", false),
-    inVisible = op.inBool("Visible", true),
-    inClear = op.inTriggerButton("Clear"),
-    siblingsPort = op.outObject("Children"),
-    valuePort = op.outString("Result", defaultValuePort.get()),
-    outFocus = op.outBool("Focus");
-
-const el = document.createElement("div");
-el.dataset.op = op.id;
-el.classList.add("cablesEle");
-el.classList.add("sidebar__item");
-el.classList.add("sidebar__text-input");
-el.classList.add("sidebar__reloadable");
-
-const label = document.createElement("div");
-label.classList.add("sidebar__item-label");
-const labelText = document.createTextNode(labelPort.get());
-label.appendChild(labelText);
-el.appendChild(label);
-
-label.addEventListener("dblclick", function ()
-{
-    valuePort.set(defaultValuePort.get());
-    input.value = defaultValuePort.get();
-});
-
-let input = null;
-creatElement();
-
-op.toWorkPortsNeedToBeLinked(parentPort);
-
-inTextArea.onChange = creatElement;
-inType.onChange = setAttribs;
-
-function setAttribs()
-{
-    input.setAttribute("type", inType.get());
-    input.setAttribute("value", defaultValuePort.get());
-    input.setAttribute("placeholder", inPlaceholder.get());
-}
-
-function creatElement()
-{
-    if (input)input.remove();
-    if (!inTextArea.get())
-    {
-        input = document.createElement("input");
-    }
-    else
-    {
-        input = document.createElement("textarea");
-        onDefaultValueChanged();
-    }
-
-    input.classList.add("sidebar__text-input-input");
-
-    setAttribs();
-
-    el.appendChild(input);
-    input.addEventListener("input", onInput);
-    input.addEventListener("focus", onFocus);
-    input.addEventListener("blur", onBlur);
-}
-
-const greyOut = document.createElement("div");
-greyOut.classList.add("sidebar__greyout");
-el.appendChild(greyOut);
-greyOut.style.display = "none";
-
-inClear.onTriggered = () =>
-{
-    input.value = "";
-};
-
-function onFocus()
-{
-    outFocus.set(true);
-}
-
-function onBlur()
-{
-    outFocus.set(false);
-}
-
-inPlaceholder.onChange = () =>
-{
-    input.setAttribute("placeholder", inPlaceholder.get());
-};
-
-inGreyOut.onChange = function ()
-{
-    greyOut.style.display = inGreyOut.get() ? "block" : "none";
-};
-
-inVisible.onChange = function ()
-{
-    el.style.display = inVisible.get() ? "block" : "none";
-};
-
-// events
-parentPort.onChange = onParentChanged;
-labelPort.onChange = onLabelTextChanged;
-defaultValuePort.onChange = onDefaultValueChanged;
-op.onDelete = onDelete;
-
-// functions
-
-function onInput(ev)
-{
-    valuePort.set(ev.target.value);
-}
-
-function onDefaultValueChanged()
-{
-    const defaultValue = defaultValuePort.get();
-    valuePort.set(defaultValue);
-    input.value = defaultValue;
-}
-
-function onLabelTextChanged()
-{
-    const labelText = labelPort.get();
-    label.textContent = labelText;
-    if (CABLES.UI)
-    {
-        op.setTitle("Text Input: " + labelText);
-    }
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    }
-    else
-    { // detach
-        if (el.parentElement)
-        {
-            el.parentElement.removeChild(el);
-        }
-    }
-}
-
-function showElement(el)
-{
-    if (el)
-    {
-        el.style.display = "block";
-    }
-}
-
-function hideElement(el)
-{
-    if (el)
-    {
-        el.style.display = "none";
-    }
-}
-
-function onDelete()
-{
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(el)
-{
-    if (el && el.parentNode && el.parentNode.removeChild)
-    {
-        el.parentNode.removeChild(el);
-    }
-}
-
-
-};
-
-Ops.Sidebar.TextInput_v2.prototype = new CABLES.Op();
-CABLES.OPS["6538a190-e73c-451b-964e-d010ee267aa9"]={f:Ops.Sidebar.TextInput_v2,objName:"Ops.Sidebar.TextInput_v2"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Ui.Area
 // 
 // **************************************************************
@@ -1944,7 +1696,7 @@ function update()
 {
     if (CABLES.UI)
     {
-        gui.setStateUnsaved();
+        gui.setStateUnsaved({ "op": op });
         op.uiAttr(
             {
                 "comment_title": inTitle.get() || " "
@@ -2899,10 +2651,18 @@ inSearch.onChange = update;
 
 function update()
 {
-    let str = "";
+    op.setUiError("exception", null);
 
-    if (inWhat.get() == "All") str = String(inStr.get()).replace(new RegExp(inSearch.get(), "g"), inRepl.get());
-    else str = String(inStr.get()).replace(inSearch.get(), inRepl.get());
+    let str = "";
+    try
+    {
+        if (inWhat.get() == "All") str = String(inStr.get()).replace(new RegExp(inSearch.get(), "g"), inRepl.get());
+        else str = String(inStr.get()).replace(inSearch.get(), inRepl.get());
+    }
+    catch (e)
+    {
+        op.setUiError("exception", "exception " + e.message);
+    }
 
     outStr.set(str);
 }
@@ -2978,19 +2738,25 @@ CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    exe=op.inTrigger("exe"),
-    boolean=op.inValueBool("boolean",false),
-    triggerThen=op.outTrigger("then"),
-    triggerElse=op.outTrigger("else");
+    exe = op.inTrigger("exe"),
+    boolean = op.inValueBool("boolean", false),
+    triggerThen = op.outTrigger("then"),
+    triggerElse = op.outTrigger("else");
 
-exe.onTriggered=exec;
+exe.onTriggered = exec;
+
+let b = false;
+
+boolean.onChange = () =>
+{
+    b = boolean.get();
+};
 
 function exec()
 {
-    if(boolean.get()) triggerThen.trigger();
+    if (b) triggerThen.trigger();
     else triggerElse.trigger();
 }
-
 
 
 };
@@ -3393,7 +3159,7 @@ let didRotChanged = true;
 
 render.onTriggered = function ()
 {
-    const cg = op.patch.cg;
+    const cg = op.patch.cgl;
 
     let updateMatrix = false;
     if (translationChanged)
@@ -3585,7 +3351,7 @@ function update()
         }
         else
         {
-            if (!loadingId) loadingId = cgl.patch.loading.start("ammoWorld", "ammoWASM");
+            if (!loadingId) loadingId = cgl.patch.loading.start("ammoWorld", "ammoWASM", op);
             return;
         }
     }
@@ -3782,6 +3548,8 @@ const
     inDrawWireframe = op.inBool("Draw Wireframe", true),
     inDrawAABB = op.inBool("Draw AABB", false),
     inDrawContacts = op.inBool("Draw Contact Points", true),
+    inDrawConstraints = op.inBool("Draw Constraints", false),
+
     inIgnClear = op.inBool("Depth", true),
 
     inActive = op.inBool("Active", true),
@@ -3821,6 +3589,16 @@ inRender.onTriggered = () =>
     if (inDrawWireframe.get())debugmode |= 1;
     if (inDrawAABB.get())debugmode |= 2;
     if (inDrawContacts.get())debugmode |= 8;
+    if (inDrawConstraints.get())
+    {
+        debugmode |= 2048;
+        debugmode |= 4096;
+    }
+
+    //       DrawConstraints: 1 << 11, //2048
+    //   DrawConstraintLimits: 1 << 12, //4096
+    //   FastWireframe: 1 << 13, //8192
+    //   DrawNormals: 1 << 14, //16384
 
     outNext.trigger();
 
@@ -3856,109 +3634,40 @@ CABLES.OPS["e4b4f6c9-483b-486e-abbc-fbc4254a65d1"]={f:Ops.Physics.Ammo.AmmoDebug
 
 // **************************************************************
 // 
-// Ops.Devices.Keyboard.KeyPress_v2
+// Ops.Trigger.IsTriggered
 // 
 // **************************************************************
 
-Ops.Devices.Keyboard.KeyPress_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const inArea = op.inValueSelect("Area", ["Canvas", "Document", "Parent Element"], "Canvas");
-const preventDefault = op.inBool("Prevent Default", false);
-const inEnable = op.inBool("Enabled", true);
-const onPress = op.outTrigger("On Press");
-const keyCode = op.outNumber("Key Code");
-const outKey = op.outString("Key");
-
-const cgl = op.patch.cgl;
-let listenerElement = null;
-
-inArea.onChange = inEnable.onChange = () =>
-{
-    if (inEnable.get())
-    {
-        addListeners();
-    }
-    else
-    {
-        removeListeners();
-    }
-};
-
-op.onDelete = () =>
-{
-    removeListeners();
-};
-
-function onKeyPress(e)
-{
-    const keyName = CABLES.keyCodeToName(e.keyCode);
-    op.setUiAttribs({ "extendTitle": keyName });
-    outKey.set(keyName);
-    keyCode.set(e.keyCode);
-    onPress.trigger();
-    if (preventDefault.get()) e.preventDefault();
-}
-
-function addListeners()
-{
-    if (listenerElement) removeListeners();
-
-    listenerElement = cgl.canvas;
-    if (inArea.get() === "Document") listenerElement = document.body;
-    if (inArea.get() === "Parent Element") listenerElement = cgl.canvas.parentElement;
-
-    listenerElement.addEventListener("keydown", onKeyPress);
-}
-
-function removeListeners()
-{
-    if (!listenerElement) return;
-    listenerElement.removeEventListener("keydown", onKeyPress);
-    listenerElement = null;
-}
-
-addListeners();
-
-
-};
-
-Ops.Devices.Keyboard.KeyPress_v2.prototype = new CABLES.Op();
-CABLES.OPS["023d1e35-1231-4c50-a044-4a0e63609ba5"]={f:Ops.Devices.Keyboard.KeyPress_v2,objName:"Ops.Devices.Keyboard.KeyPress_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.String.StringEquals
-// 
-// **************************************************************
-
-Ops.String.StringEquals = function()
+Ops.Trigger.IsTriggered = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    str1 = op.inString("String 1"),
-    str2 = op.inString("String 2"),
-    result = op.outBoolNum("Result");
+    exec = op.inTrigger("Trigger"),
+    next = op.outTrigger("Next"),
+    result = op.outBoolNum("Was Triggered", false);
 
-str1.onChange =
-str2.onChange =
-    function ()
-    {
-        result.set(str1.get() == str2.get());
-    };
+let frameCount = 0;
+
+op.onAnimFrame = function (tt)
+{
+    frameCount++;
+    if (frameCount > 1) result.set(false);
+};
+
+exec.onTriggered = function ()
+{
+    frameCount = 0;
+    result.set(true);
+    next.trigger();
+};
 
 
 };
 
-Ops.String.StringEquals.prototype = new CABLES.Op();
-CABLES.OPS["ef15195a-760b-4ac5-9630-322b0ba7b722"]={f:Ops.String.StringEquals,objName:"Ops.String.StringEquals"};
+Ops.Trigger.IsTriggered.prototype = new CABLES.Op();
+CABLES.OPS["7c96fee9-4c2f-45e1-a41b-096b06d286b8"]={f:Ops.Trigger.IsTriggered,objName:"Ops.Trigger.IsTriggered"};
 
 
 
@@ -3999,266 +3708,25 @@ CABLES.OPS["9989b1c0-1073-4d5f-bfa0-36dd98b66e27"]={f:Ops.Trigger.SetNumberOnTri
 
 // **************************************************************
 // 
-// Ops.Website.InfoURL
+// Ops.Vars.VarSetNumber_v2
 // 
 // **************************************************************
 
-Ops.Website.InfoURL = function()
+Ops.Vars.VarSetNumber_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-const
-    outUrl = op.outString("URL"),
-    outHost = op.outString("Host"),
-    outHash = op.outString("Hash"),
-    outPathname = op.outString("Pathname"),
-    outProtocol = op.outString("Protocol"),
-    outPort = op.outString("Port"),
-    outChangeHash = op.outTrigger("Hash Changed");
+const val = op.inValueFloat("Value", 0);
+op.varName = op.inDropDown("Variable", [], "", true);
 
-op.onDelete = () =>
-{
-    window.removeEventListener("hashchange", hashChange);
-};
-
-window.addEventListener("hashchange", hashChange);
-
-const l = document.location;
-outUrl.set(l.href);
-outHost.set(l.host);
-outHash.set(l.hash);
-outPathname.set(l.pathname);
-outProtocol.set(l.protocol);
-outPort.set(l.port);
-
-function hashChange()
-{
-    const l = document.location;
-    outHash.set(l.hash);
-
-    outChangeHash.trigger();
-}
+new CABLES.VarSetOpWrapper(op, "number", val, op.varName);
 
 
 };
 
-Ops.Website.InfoURL.prototype = new CABLES.Op();
-CABLES.OPS["e72fbd80-f9c7-4572-8b6d-a485ef474b74"]={f:Ops.Website.InfoURL,objName:"Ops.Website.InfoURL"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.String.StringCompose_v3
-// 
-// **************************************************************
-
-Ops.String.StringCompose_v3 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    format=op.inString('Format',"hello $a, $b $c und $d"),
-    a=op.inString('String A','world'),
-    b=op.inString('String B',1),
-    c=op.inString('String C',2),
-    d=op.inString('String D',3),
-    e=op.inString('String E'),
-    f=op.inString('String F'),
-    result=op.outString("Result");
-
-format.onChange=
-    a.onChange=
-    b.onChange=
-    c.onChange=
-    d.onChange=
-    e.onChange=
-    f.onChange=update;
-
-update();
-
-function update()
-{
-    var str=format.get()||'';
-    if(typeof str!='string')
-        str='';
-
-    str = str.replace(/\$a/g, a.get());
-    str = str.replace(/\$b/g, b.get());
-    str = str.replace(/\$c/g, c.get());
-    str = str.replace(/\$d/g, d.get());
-    str = str.replace(/\$e/g, e.get());
-    str = str.replace(/\$f/g, f.get());
-
-    result.set(str);
-}
-
-};
-
-Ops.String.StringCompose_v3.prototype = new CABLES.Op();
-CABLES.OPS["6afea9f4-728d-4f3c-9e75-62ddc1448bf0"]={f:Ops.String.StringCompose_v3,objName:"Ops.String.StringCompose_v3"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Sidebar.SidebarText_v2
-// 
-// **************************************************************
-
-Ops.Sidebar.SidebarText_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// inputs
-const parentPort = op.inObject("link");
-const labelPort = op.inString("Text", "Value");
-const inId = op.inValueString("Id", "");
-
-// outputs
-const siblingsPort = op.outObject("childs");
-
-// vars
-const el = document.createElement("div");
-el.dataset.op = op.id;
-el.classList.add("cablesEle");
-el.classList.add("sidebar__item");
-el.classList.add("sidebar__text");
-const label = document.createElement("div");
-label.classList.add("sidebar__item-label");
-const labelText = document.createElement("div");// document.createTextNode(labelPort.get());
-label.appendChild(labelText);
-el.appendChild(label);
-
-// events
-parentPort.onChange = onParentChanged;
-labelPort.onChange = onLabelTextChanged;
-inId.onChange = onIdChanged;
-op.onDelete = onDelete;
-
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
-
-// functions
-
-function onIdChanged()
-{
-    el.id = inId.get();
-}
-
-function onLabelTextChanged()
-{
-    const labelText = labelPort.get();
-    label.innerHTML = labelText;
-    if (CABLES.UI)
-    {
-        if (labelText && typeof labelText === "string")
-        {
-            op.setTitle("Text: " + labelText.substring(0, 10)); // display first 10 characters of text in op title
-        }
-        else
-        {
-            op.setTitle("Text");
-        }
-    }
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    }
-    else
-    { // detach
-        if (el.parentElement)
-        {
-            el.parentElement.removeChild(el);
-        }
-    }
-}
-
-function showElement(el)
-{
-    if (el)
-    {
-        el.style.display = "block";
-    }
-}
-
-function hideElement(el)
-{
-    if (el)
-    {
-        el.style.display = "none";
-    }
-}
-
-function onDelete()
-{
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(el)
-{
-    if (el && el.parentNode && el.parentNode.removeChild)
-    {
-        el.parentNode.removeChild(el);
-    }
-}
-
-
-};
-
-Ops.Sidebar.SidebarText_v2.prototype = new CABLES.Op();
-CABLES.OPS["cc591cc3-ff23-4817-907c-e5be7d5c059d"]={f:Ops.Sidebar.SidebarText_v2,objName:"Ops.Sidebar.SidebarText_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Trigger.IsTriggered
-// 
-// **************************************************************
-
-Ops.Trigger.IsTriggered = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    exec = op.inTrigger("Trigger"),
-    next = op.outTrigger("Next"),
-    result = op.outBool("Was Triggered", false);
-
-let frameCount = 0;
-
-op.onAnimFrame = function (tt)
-{
-    frameCount++;
-    if (frameCount > 1) result.set(false);
-};
-
-exec.onTriggered = function ()
-{
-    frameCount = 0;
-    result.set(true);
-    next.trigger();
-};
-
-
-};
-
-Ops.Trigger.IsTriggered.prototype = new CABLES.Op();
-CABLES.OPS["7c96fee9-4c2f-45e1-a41b-096b06d286b8"]={f:Ops.Trigger.IsTriggered,objName:"Ops.Trigger.IsTriggered"};
+Ops.Vars.VarSetNumber_v2.prototype = new CABLES.Op();
+CABLES.OPS["b5249226-6095-4828-8a1c-080654e192fa"]={f:Ops.Vars.VarSetNumber_v2,objName:"Ops.Vars.VarSetNumber_v2"};
 
 
 
@@ -4401,8 +3869,7 @@ function parse()
     try
     {
         const obj = JSON.parse(str.get());
-        outObj.set(null);
-        outObj.set(obj);
+        outObj.setRef(obj);
         isValid.set(true);
         op.setUiError("invalidjson", null);
     }
@@ -4450,35 +3917,35 @@ CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    inObj=op.inObject("Object"),
-    inStr=op.inString("name",""),
-    inRemoveNull=op.inBool("Remove Null",false),
-    outObj=op.outObject("Result");
+    inObj = op.inObject("Object"),
+    inStr = op.inString("name", ""),
+    inRemoveNull = op.inBool("Remove Null", false),
+    outObj = op.outObject("Result");
 
-inObj.onChange=
-    inStr.onChange=
-    inRemoveNull.onChange=update;
+inObj.onChange =
+    inStr.onChange =
+    inRemoveNull.onChange = update;
 
 function update()
 {
-    const obj=JSON.parse(JSON.stringify(inObj.get()));
+    const obj = JSON.parse(JSON.stringify(inObj.get()));
 
     filter(obj);
 
-    outObj.set(null);
-    outObj.set(obj);
+    outObj.setRef(obj);
 }
 
 function filter(obj)
 {
-    for(let i in obj)
+    for (let i in obj)
     {
-        if(inStr.get() && i.indexOf(inStr.get())!==0)delete obj[i];
-        if(inRemoveNull.get() && obj[i]===null)delete obj[i];
+        if (inStr.get() && i.indexOf(inStr.get()) !== 0) delete obj[i];
+        if (inRemoveNull.get() && obj[i] === null) delete obj[i];
 
-        if(typeof obj[i] =="object") filter(obj[i]);
+        if (typeof obj[i] == "object") filter(obj[i]);
     }
 }
+
 
 };
 
@@ -4508,7 +3975,7 @@ let router = null;
 let lastHref = null;
 let hashChangeListener = null;
 
-op.onLoaded, op.onCreate = init;
+op.onLoadedValueSet = init;
 
 function init()
 {
@@ -4582,7 +4049,16 @@ function hashChange(event, forceUpdate)
                 let route = routeIn.get();
                 let match = fields[i];
                 hash += "#" + fields[i];
-                const matched = router.matchLocation(route, match);
+                let matched = false;
+                op.setUiError("regex", null);
+                try
+                {
+                    matched = router.matchLocation(route, match);
+                }
+                catch (e)
+                {
+                    op.setUiError("regex", "Failed to parse route string, check documentation. <br>- " + e.message);
+                }
                 if (matched)
                 {
                     if (matched.data)
@@ -4730,9 +4206,10 @@ function update()
         else
         {
             op.setUiError("notiterable", null);
+            let result = data[path];
             const parts = path.split(".");
             op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
-            let result = resolve(path, data);
+            if (!result) result = resolve(path, data);
             if (result === undefined)
             {
                 const errorMsg = "could not find element at path " + path;
@@ -4767,7 +4244,7 @@ function update()
 function resolve(path, obj = self, separator = ".")
 {
     const properties = Array.isArray(path) ? path : path.split(separator);
-    return properties.reduce((prev, curr) => prev && prev[curr], obj);
+    return properties.reduce((prev, curr) => { return prev && prev[curr]; }, obj);
 }
 
 
@@ -4970,6 +4447,8 @@ op.setPortGroup("Rotation", [rotX, rotY, rotZ]);
 op.setPortGroup("Position", [posX, posY, posZ]);
 op.setPortGroup("Scale", [scale]);
 op.setUiAxisPorts(posX, posY, posZ);
+
+op.toWorkPortsNeedToBeLinked(render, trigger);
 
 const vPos = vec3.create();
 const vScale = vec3.create();
@@ -5581,6 +5060,38 @@ CABLES.OPS["334728ca-60a2-4a42-a059-d9b5f3fe4d32"]={f:Ops.Gl.InteractiveRectangl
 
 // **************************************************************
 // 
+// Ops.String.StringEquals
+// 
+// **************************************************************
+
+Ops.String.StringEquals = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    str1 = op.inString("String 1"),
+    str2 = op.inString("String 2"),
+    result = op.outBoolNum("Result");
+
+str1.onChange =
+str2.onChange =
+    function ()
+    {
+        result.set(str1.get() == str2.get());
+    };
+
+
+};
+
+Ops.String.StringEquals.prototype = new CABLES.Op();
+CABLES.OPS["ef15195a-760b-4ac5-9630-322b0ba7b722"]={f:Ops.String.StringEquals,objName:"Ops.String.StringEquals"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.Json.ObjectGetString
 // 
 // **************************************************************
@@ -5634,7 +5145,7 @@ Ops.Gl.Shader.BasicMaterial_v3 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"basicmaterial_frag":"{{MODULES_HEAD}}\n\nIN vec2 texCoord;\n\n#ifdef VERTEX_COLORS\nIN vec4 vertCol;\n#endif\n\n#ifdef HAS_TEXTURES\n    IN vec2 texCoordOrig;\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D tex;\n    #endif\n    #ifdef HAS_TEXTURE_OPACITY\n        UNI sampler2D texOpacity;\n   #endif\n#endif\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n    vec4 col=color;\n\n\n    #ifdef HAS_TEXTURES\n        vec2 uv=texCoord;\n\n        #ifdef CROP_TEXCOORDS\n            if(uv.x<0.0 || uv.x>1.0 || uv.y<0.0 || uv.y>1.0) discard;\n        #endif\n\n        #ifdef HAS_TEXTURE_DIFFUSE\n            col=texture(tex,uv);\n\n            #ifdef COLORIZE_TEXTURE\n                col.r*=color.r;\n                col.g*=color.g;\n                col.b*=color.b;\n            #endif\n        #endif\n        col.a*=color.a;\n        #ifdef HAS_TEXTURE_OPACITY\n            #ifdef TRANSFORMALPHATEXCOORDS\n                uv=texCoordOrig;\n            #endif\n            #ifdef ALPHA_MASK_IALPHA\n                col.a*=1.0-texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_ALPHA\n                col.a*=texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_LUMI\n                col.a*=dot(vec3(0.2126,0.7152,0.0722), texture(texOpacity,uv).rgb);\n            #endif\n            #ifdef ALPHA_MASK_R\n                col.a*=texture(texOpacity,uv).r;\n            #endif\n            #ifdef ALPHA_MASK_G\n                col.a*=texture(texOpacity,uv).g;\n            #endif\n            #ifdef ALPHA_MASK_B\n                col.a*=texture(texOpacity,uv).b;\n            #endif\n            // #endif\n        #endif\n    #endif\n\n    {{MODULE_COLOR}}\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col*=vertCol;\n    #endif\n\n    outColor = col;\n}\n","basicmaterial_vert":"\n{{MODULES_HEAD}}\n\n// OUT vec3 norm;\nOUT vec2 texCoord;\nOUT vec2 texCoordOrig;\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI float diffuseRepeatX;\n    UNI float diffuseRepeatY;\n    UNI float texOffsetX;\n    UNI float texOffsetY;\n#endif\n\n#ifdef VERTEX_COLORS\n    in vec4 attrVertColor;\n    out vec4 vertCol;\n\n#endif\n\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    mat4 mvMatrix;\n\n    norm=attrVertNormal;\n    texCoordOrig=attrTexCoord;\n    texCoord=attrTexCoord;\n    #ifdef HAS_TEXTURES\n        texCoord.x=texCoord.x*diffuseRepeatX+texOffsetX;\n        texCoord.y=(1.0-texCoord.y)*diffuseRepeatY+texOffsetY;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        vertCol=attrVertColor;\n    #endif\n\n    vec4 pos = vec4(vPosition, 1.0);\n\n    #ifdef BILLBOARD\n       vec3 position=vPosition;\n       mvMatrix=viewMatrix*modelMatrix;\n\n       gl_Position = projMatrix * mvMatrix * vec4((\n           position.x * vec3(\n               mvMatrix[0][0],\n               mvMatrix[1][0],\n               mvMatrix[2][0] ) +\n           position.y * vec3(\n               mvMatrix[0][1],\n               mvMatrix[1][1],\n               mvMatrix[2][1]) ), 1.0);\n    #endif\n\n    {{MODULE_VERTEX_POSITION}}\n\n    #ifndef BILLBOARD\n        mvMatrix=viewMatrix * mMatrix;\n    #endif\n\n\n    #ifndef BILLBOARD\n        // gl_Position = projMatrix * viewMatrix * modelMatrix * pos;\n        gl_Position = projMatrix * mvMatrix * pos;\n    #endif\n}\n",};
+const attachments={"basicmaterial_frag":"{{MODULES_HEAD}}\n\nIN vec2 texCoord;\n\n#ifdef VERTEX_COLORS\nIN vec4 vertCol;\n#endif\n\n#ifdef HAS_TEXTURES\n    IN vec2 texCoordOrig;\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D tex;\n    #endif\n    #ifdef HAS_TEXTURE_OPACITY\n        UNI sampler2D texOpacity;\n   #endif\n#endif\n\n\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n    vec4 col=color;\n\n\n    #ifdef HAS_TEXTURES\n        vec2 uv=texCoord;\n\n        #ifdef CROP_TEXCOORDS\n            if(uv.x<0.0 || uv.x>1.0 || uv.y<0.0 || uv.y>1.0) discard;\n        #endif\n\n        #ifdef HAS_TEXTURE_DIFFUSE\n            col=texture(tex,uv);\n\n            #ifdef COLORIZE_TEXTURE\n                col.r*=color.r;\n                col.g*=color.g;\n                col.b*=color.b;\n            #endif\n        #endif\n        col.a*=color.a;\n        #ifdef HAS_TEXTURE_OPACITY\n            #ifdef TRANSFORMALPHATEXCOORDS\n                uv=texCoordOrig;\n            #endif\n            #ifdef ALPHA_MASK_IALPHA\n                col.a*=1.0-texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_ALPHA\n                col.a*=texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_LUMI\n                col.a*=dot(vec3(0.2126,0.7152,0.0722), texture(texOpacity,uv).rgb);\n            #endif\n            #ifdef ALPHA_MASK_R\n                col.a*=texture(texOpacity,uv).r;\n            #endif\n            #ifdef ALPHA_MASK_G\n                col.a*=texture(texOpacity,uv).g;\n            #endif\n            #ifdef ALPHA_MASK_B\n                col.a*=texture(texOpacity,uv).b;\n            #endif\n            // #endif\n        #endif\n    #endif\n\n    {{MODULE_COLOR}}\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col*=vertCol;\n    #endif\n\n    outColor = col;\n}\n","basicmaterial_vert":"\n{{MODULES_HEAD}}\n\nOUT vec2 texCoord;\nOUT vec2 texCoordOrig;\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI float diffuseRepeatX;\n    UNI float diffuseRepeatY;\n    UNI float texOffsetX;\n    UNI float texOffsetY;\n#endif\n\n#ifdef VERTEX_COLORS\n    in vec4 attrVertColor;\n    out vec4 vertCol;\n\n#endif\n\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    mat4 mvMatrix;\n\n    norm=attrVertNormal;\n    texCoordOrig=attrTexCoord;\n    texCoord=attrTexCoord;\n    #ifdef HAS_TEXTURES\n        texCoord.x=texCoord.x*diffuseRepeatX+texOffsetX;\n        texCoord.y=(1.0-texCoord.y)*diffuseRepeatY+texOffsetY;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        vertCol=attrVertColor;\n    #endif\n\n    vec4 pos = vec4(vPosition, 1.0);\n\n    #ifdef BILLBOARD\n       vec3 position=vPosition;\n       mvMatrix=viewMatrix*modelMatrix;\n\n       gl_Position = projMatrix * mvMatrix * vec4((\n           position.x * vec3(\n               mvMatrix[0][0],\n               mvMatrix[1][0],\n               mvMatrix[2][0] ) +\n           position.y * vec3(\n               mvMatrix[0][1],\n               mvMatrix[1][1],\n               mvMatrix[2][1]) ), 1.0);\n    #endif\n\n    {{MODULE_VERTEX_POSITION}}\n\n    #ifndef BILLBOARD\n        mvMatrix=viewMatrix * mMatrix;\n    #endif\n\n\n    #ifndef BILLBOARD\n        // gl_Position = projMatrix * viewMatrix * modelMatrix * pos;\n        gl_Position = projMatrix * mvMatrix * pos;\n    #endif\n}\n",};
 const render = op.inTrigger("render");
 
 const trigger = op.outTrigger("trigger");
@@ -5643,6 +5154,7 @@ const shaderOut = op.outObject("shader", null, "shader");
 shaderOut.ignoreValueSerialize = true;
 
 op.toWorkPortsNeedToBeLinked(render);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
 
 const cgl = op.patch.cgl;
 const shader = new CGL.Shader(cgl, "basicmaterialnew");
@@ -5655,7 +5167,7 @@ shader.setModules(["MODULE_VERTEX_POSITION", "MODULE_COLOR", "MODULE_BEGIN_FRAG"
 
 shader.setSource(attachments.basicmaterial_vert, attachments.basicmaterial_frag);
 
-shaderOut.set(shader);
+shaderOut.setRef(shader);
 
 render.onTriggered = doRender;
 
@@ -5854,6 +5366,8 @@ const
     loaded = op.outBoolNum("Font Available", 0);
 
 const cgl = op.patch.cgl;
+
+op.toWorkPortsNeedToBeLinked(render);
 
 op.setPortGroup("Masking", [inMulTex, inMulTexMask]);
 
@@ -6316,7 +5830,7 @@ const
     filename = op.inUrl("File", [".jpg", ".png", ".webp", ".jpeg", ".avif"]),
     tfilter = op.inSwitch("Filter", ["nearest", "linear", "mipmap"]),
     wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
-    aniso = op.inSwitch("Anisotropic", [0, 1, 2, 4, 8, 16], 0),
+    aniso = op.inSwitch("Anisotropic", ["0", "1", "2", "4", "8", "16"], "0"),
     flip = op.inValueBool("Flip", false),
     unpackAlpha = op.inValueBool("Pre Multiplied Alpha", false),
     active = op.inValueBool("Active", true),
@@ -6328,13 +5842,10 @@ const
     loaded = op.outNumber("Loaded", false),
     loading = op.outNumber("Loading", false);
 
-op.setPortGroup("Size", [width, height]);
-
-unpackAlpha.setUiAttribs({ "hidePort": true });
+const cgl = op.patch.cgl;
 
 op.toWorkPortsNeedToBeLinked(textureOut);
-
-const cgl = op.patch.cgl;
+op.setPortGroup("Size", [width, height]);
 
 let loadedFilename = null;
 let loadingId = null;
@@ -6344,10 +5855,12 @@ let cgl_wrap = CGL.Texture.WRAP_REPEAT;
 let cgl_aniso = 0;
 let timedLoader = 0;
 
-filename.onChange = flip.onChange = function () { reloadSoon(); };
+unpackAlpha.setUiAttribs({ "hidePort": true });
+unpackAlpha.onChange =
+    filename.onChange =
+    flip.onChange = reloadSoon;
 aniso.onChange = tfilter.onChange = onFilterChange;
 wrap.onChange = onWrapChange;
-unpackAlpha.onChange = function () { reloadSoon(); };
 
 tfilter.set("mipmap");
 wrap.set("repeat");
@@ -6367,6 +5880,7 @@ active.onChange = function ()
         width.set(CGL.Texture.getEmptyTexture(cgl).width);
         height.set(CGL.Texture.getEmptyTexture(cgl).height);
         if (tex)tex.delete();
+        op.setUiAttrib({ "extendTitle": "" });
         tex = null;
     }
 };
@@ -6390,7 +5904,8 @@ function realReload(nocache)
 {
     if (!active.get()) return;
     // if (filename.get() === null) return;
-    if (!loadingId)loadingId = cgl.patch.loading.start("textureOp", filename.get());
+    if (loadingId)loadingId = cgl.patch.loading.finished(loadingId);
+    loadingId = cgl.patch.loading.start("textureOp", filename.get(), op);
 
     let url = op.patch.getFilePath(String(filename.get()));
 
@@ -6419,6 +5934,8 @@ function realReload(nocache)
             CGL.Texture.load(cgl, url,
                 function (err, newTex)
                 {
+                    cgl.checkFrameStarted("texture inittexture");
+
                     if (filename.get() != fileToLoad)
                     {
                         cgl.patch.loading.finished(loadingId);
@@ -6431,6 +5948,7 @@ function realReload(nocache)
                         setTempTexture();
                         op.setUiError("urlerror", "could not load texture: \"" + filename.get() + "\"", 2);
                         cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
                         return;
                     }
 
@@ -6445,15 +5963,20 @@ function realReload(nocache)
 
                     if (tex)tex.delete();
                     tex = newTex;
-                    textureOut.set(null);
-                    textureOut.set(tex);
+                    // textureOut.set(null);
+                    textureOut.setRef(tex);
 
                     loading.set(false);
                     loaded.set(true);
 
                     if (inFreeMemory.get()) tex.image = null;
 
-                    cgl.patch.loading.finished(loadingId);
+                    if (loadingId)
+                    {
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                    }
+                    // testTexture();
                 }, {
                     "anisotropic": cgl_aniso,
                     "wrap": cgl_wrap,
@@ -6469,6 +5992,7 @@ function realReload(nocache)
     else
     {
         cgl.patch.loading.finished(loadingId);
+        loadingId = null;
         setTempTexture();
     }
 }
@@ -6479,6 +6003,8 @@ function onFilterChange()
     else if (tfilter.get() == "linear") cgl_filter = CGL.Texture.FILTER_LINEAR;
     else if (tfilter.get() == "mipmap") cgl_filter = CGL.Texture.FILTER_MIPMAP;
     else if (tfilter.get() == "Anisotropic") cgl_filter = CGL.Texture.FILTER_ANISOTROPIC;
+
+    aniso.setUiAttribs({ "greyout": cgl_filter != CGL.Texture.FILTER_MIPMAP });
 
     cgl_aniso = parseFloat(aniso.get());
 
@@ -6503,6 +6029,22 @@ op.onFileChanged = function (fn)
         realReload(true);
     }
 };
+
+// function testTexture()
+// {
+//     cgl.setTexture(0, tex.tex);
+
+//     const filter = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_MIN_FILTER);
+//     const wrap = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_WRAP_S);
+
+//     if (cgl_filter === CGL.Texture.FILTER_MIPMAP && filter != cgl.gl.LINEAR_MIPMAP_LINEAR) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_NEAREST && filter != cgl.gl.NEAREST) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_LINEAR && filter != cgl.gl.LINEAR) console.log("wrong texture filter!", filename.get());
+
+//     if (cgl_wrap === CGL.Texture.WRAP_REPEAT && wrap != cgl.gl.REPEAT) console.log("wrong texture wrap1!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_MIRRORED_REPEAT && wrap != cgl.gl.MIRRORED_REPEAT) console.log("wrong texture wrap2!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_CLAMP_TO_EDGE && wrap != cgl.gl.CLAMP_TO_EDGE) console.log("wrong texture wrap3!", filename.get());
+// }
 
 
 };
@@ -6663,11 +6205,11 @@ CABLES.OPS["5b244b6e-c505-4743-b2cc-8119ef720028"]={f:Ops.Anim.SimpleAnim,objNam
 
 // **************************************************************
 // 
-// Ops.Sequence
+// Ops.Trigger.Sequence
 // 
 // **************************************************************
 
-Ops.Sequence = function()
+Ops.Trigger.Sequence = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -6681,12 +6223,13 @@ const
     triggers = [],
     num = 16;
 
-let updateTimeout = null;
+let
+    updateTimeout = null,
+    connectedOuts = [];
 
 exe.onTriggered = triggerAll;
 cleanup.onTriggered = clean;
-cleanup.setUiAttribs({ "hidePort": true });
-cleanup.setUiAttribs({ "hideParam": true });
+cleanup.setUiAttribs({ "hideParam": true, "hidePort": true });
 
 for (let i = 0; i < num; i++)
 {
@@ -6702,8 +6245,18 @@ for (let i = 0; i < num; i++)
     }
 }
 
+updateConnected();
+
+function updateConnected()
+{
+    connectedOuts.length = 0;
+    for (let i = 0; i < triggers.length; i++)
+        if (triggers[i].links.length > 0) connectedOuts.push(triggers[i]);
+}
+
 function updateButton()
 {
+    updateConnected();
     clearTimeout(updateTimeout);
     updateTimeout = setTimeout(() =>
     {
@@ -6719,7 +6272,8 @@ function updateButton()
 
 function triggerAll()
 {
-    for (let i = 0; i < triggers.length; i++) triggers[i].trigger();
+    // for (let i = 0; i < triggers.length; i++) triggers[i].trigger();
+    for (let i = 0; i < connectedOuts.length; i++) connectedOuts[i].trigger();
 }
 
 function clean()
@@ -6743,13 +6297,14 @@ function clean()
         for (let j = 0; j < removeLinks.length; j++) removeLinks[j].remove();
     }
     updateButton();
+    updateConnected();
 }
 
 
 };
 
-Ops.Sequence.prototype = new CABLES.Op();
-CABLES.OPS["a466bc1f-06e9-4595-8849-bffb9fe22f99"]={f:Ops.Sequence,objName:"Ops.Sequence"};
+Ops.Trigger.Sequence.prototype = new CABLES.Op();
+CABLES.OPS["a466bc1f-06e9-4595-8849-bffb9fe22f99"]={f:Ops.Trigger.Sequence,objName:"Ops.Trigger.Sequence"};
 
 
 
@@ -6791,6 +6346,7 @@ op.setPortGroup("Pivot", [pivotX, pivotY, axis]);
 op.setPortGroup("Size", [width, height]);
 op.setPortGroup("Structure", [nColumns, nRows]);
 op.toWorkPortsNeedToBeLinked(render);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
 
 let mesh = null;
 let needsRebuild = true;
@@ -6942,7 +6498,7 @@ function rebuild()
     geom.tangents = tangents;
     geom.biTangents = biTangents;
 
-    if (numColumns * numRows > 64000)geom.unIndex();
+    // if (numColumns * numRows > 64000)geom.unIndex();
 
     const cgl = op.patch.cgl;
 
@@ -7105,84 +6661,6 @@ exec();
 
 Ops.Trigger.Interval.prototype = new CABLES.Op();
 CABLES.OPS["3e9bae10-38af-4e36-9fcc-35faeeaf57f8"]={f:Ops.Trigger.Interval,objName:"Ops.Trigger.Interval"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Anim.BoolAnim
-// 
-// **************************************************************
-
-Ops.Anim.BoolAnim = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const anim = new CABLES.Anim();
-
-const
-    exe = op.inTrigger("exe"),
-    bool = op.inValueBool("bool"),
-    pease = anim.createPort(op, "easing"),
-    duration = op.inValue("duration", 0.5),
-    dir = op.inValueSelect("Direction", ["Animate Both", "Only True", "Only False"], "Both"),
-    valueFalse = op.inValue("value false", 0),
-    valueTrue = op.inValue("value true", 1),
-    next = op.outTrigger("trigger"),
-    value = op.outNumber("value"),
-    finished = op.outBoolNum("finished"),
-    finishedTrigger = op.outTrigger("Finished Trigger");
-
-const startTime = CABLES.now();
-op.toWorkPortsNeedToBeLinked(exe);
-op.setPortGroup("Animation", [duration, pease]);
-op.setPortGroup("Values", [valueFalse, valueTrue]);
-
-dir.onChange = bool.onChange = valueFalse.onChange = valueTrue.onChange = duration.onChange = setAnim;
-setAnim();
-
-function setAnim()
-{
-    finished.set(false);
-    const now = (CABLES.now() - startTime) / 1000;
-    const oldValue = anim.getValue(now);
-    anim.clear();
-
-    anim.setValue(now, oldValue);
-
-    if (!bool.get())
-    {
-        if (dir.get() != "Only True") anim.setValue(now + duration.get(), valueFalse.get());
-        else anim.setValue(now, valueFalse.get());
-    }
-    else
-    {
-        if (dir.get() != "Only False") anim.setValue(now + duration.get(), valueTrue.get());
-        else anim.setValue(now, valueTrue.get());
-    }
-}
-
-exe.onTriggered = function ()
-{
-    const t = (CABLES.now() - startTime) / 1000;
-    value.set(anim.getValue(t));
-
-    if (anim.hasEnded(t))
-    {
-        if (!finished.get()) finishedTrigger.trigger();
-        finished.set(true);
-    }
-
-    next.trigger();
-};
-
-
-};
-
-Ops.Anim.BoolAnim.prototype = new CABLES.Op();
-CABLES.OPS["06ad9d35-ccf5-4d31-889c-e23fa062588a"]={f:Ops.Anim.BoolAnim,objName:"Ops.Anim.BoolAnim"};
 
 
 
@@ -7609,8 +7087,8 @@ const attachments={};
 const
     trigger = op.inTriggerButton("trigger"),
     reset = op.inTriggerButton("reset"),
-    outBool = op.outBool("result"),
-    inDefault = op.inBool("Default", false);
+    inDefault = op.inBool("Default", false),
+    outBool = op.outBoolNum("result");
 
 let theBool = false;
 
@@ -7962,11 +7440,11 @@ CABLES.OPS["4516be54-9077-490f-a094-83696b9011ba"]={f:Ops.Value.DelayBooleanSimp
 
 // **************************************************************
 // 
-// Ops.Gl.Geometry.GeometryPoints
+// Ops.Graphics.Geometry.GeometryAttributes
 // 
 // **************************************************************
 
-Ops.Gl.Geometry.GeometryPoints = function()
+Ops.Graphics.Geometry.GeometryAttributes = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -8001,8 +7479,8 @@ geometry.onChange = function ()
 
 };
 
-Ops.Gl.Geometry.GeometryPoints.prototype = new CABLES.Op();
-CABLES.OPS["b215118b-de1f-4be9-8890-d07a2ecff010"]={f:Ops.Gl.Geometry.GeometryPoints,objName:"Ops.Gl.Geometry.GeometryPoints"};
+Ops.Graphics.Geometry.GeometryAttributes.prototype = new CABLES.Op();
+CABLES.OPS["b215118b-de1f-4be9-8890-d07a2ecff010"]={f:Ops.Graphics.Geometry.GeometryAttributes,objName:"Ops.Graphics.Geometry.GeometryAttributes"};
 
 
 
@@ -8130,6 +7608,7 @@ const
     pTexCoordRand = op.inValueBool("Scramble Texcoords", true),
     seed = op.inValue("Seed", 1),
     inCoords = op.inArray("Coordinates", 2),
+    inPointSizes = op.inArray("Point sizes", 1),
     vertCols = op.inArray("Vertex Colors", 4);
 
 op.toWorkPortsNeedToBeLinked(arr, exe);
@@ -8150,7 +7629,10 @@ inCoords.onChange =
     pTexCoordRand.onChange = updateTexCoordsPorts;
 vertCols.onChange = updateVertCols;
 numPoints.onChange = updateNumVerts;
-seed.onChange = arr.onChange = vertCols.onLinkChanged = reset;
+inPointSizes.onChange = updatePointSizes;
+
+seed.onChange = arr.onChange = vertCols.onLinkChanged =
+inPointSizes.onLinkChanged = reset;
 
 exe.onTriggered = doRender;
 
@@ -8195,6 +7677,20 @@ function updateTexCoordsPorts()
     needsRebuild = true;
 }
 
+function updatePointSizes()
+{
+    // if(!inPointSizes.isLinked())
+    // {
+    //     geom.setAttribute("attrPointSize",[],1);
+    // }
+
+    if (!inPointSizes.get()) return;
+
+    if (!geom.getAttribute("attrPointSize")) reset();
+
+    if (mesh)mesh.setAttribute("attrPointSize", inPointSizes.get(), 1);
+}
+
 function updateVertCols()
 {
     if (!vertCols.get()) return;
@@ -8224,18 +7720,13 @@ function rebuild()
 
     if (verts.length % 3 !== 0)
     {
-        // if (!showingError)
-        // {
         op.setUiError("div3", "Array length not multiple of 3");
 
-        // op.uiAttr({ "error": "Array length not divisible by 3!" });
-        // showingError = true;
-        // }
         return;
     }
     else op.setUiError("div3", null);
 
-    if (geom.vertices.length == verts.length && mesh && !inCoords.isLinked() && !vertCols.isLinked())
+    if (geom.vertices.length == verts.length && mesh && !inCoords.isLinked() && !vertCols.isLinked() && !geom.getAttribute("attrPointSize"))
     {
         mesh.setAttribute(CGL.SHADERVAR_VERTEX_POSITION, verts, 3);
         geom.vertices = verts;
@@ -8243,6 +7734,8 @@ function rebuild()
 
         return;
     }
+
+    // if (geom.getAttribute("attrPointSize" && inPointSizes.isLinked())) changed = true;
 
     geom.clear();
     let num = verts.length / 3;
@@ -8259,7 +7752,6 @@ function rebuild()
     {
         Math.randomSeed = seed.get();
         texCoords = []; // needed otherwise its using the reference to input incoords port
-        // let genCoords = !inCoords.isLinked();
 
         for (let i = 0; i < num; i++)
         {
@@ -8267,7 +7759,6 @@ function rebuild()
                 geom.vertices[i * 3 + 1] != verts[i * 3 + 1] ||
                 geom.vertices[i * 3 + 2] != verts[i * 3 + 2])
             {
-                // if (genCoords)
                 if (rndTc)
                 {
                     texCoords[i * 2] = Math.seededRandom();
@@ -8284,17 +7775,39 @@ function rebuild()
 
     if (vertCols.get())
     {
-        if (!showingError && vertCols.get().length != num * 4)
+        if (vertCols.get().length != num * 4)
         {
-            op.uiAttr({ "error": "Color array does not have the correct length! (should be " + num * 4 + ")" });
-            showingError = true;
+            op.setUiError("vertColWrongLength", "Color array does not have the correct length! (should be " + num * 4 + ")");
             mesh = null;
             return;
         }
+        else op.setUiError("vertColWrongLength", null);
 
         geom.vertexColors = vertCols.get();
     }
-    else geom.vertexColors = [];
+    else
+    {
+        op.setUiError("vertColWrongLength", null);
+        geom.vertexColors = [];
+    }
+
+    if (inPointSizes.get())
+    {
+        if (inPointSizes.get().length != num)
+        {
+            op.setUiError("pointsizeWrongLength", "Color array does not have the correct length! (should be " + num + ")");
+            mesh = null;
+            return;
+        }
+        else op.setUiError("pointsizeWrongLength", null);
+
+        geom.setAttribute("attrPointSize", inPointSizes.get(), 1);
+    }
+    else
+    {
+        op.setUiError("pointsizeWrongLength", null);
+        geom.setAttribute("attrPointSize", [], 1);
+    }
 
     if (changed)
     {
@@ -8841,7 +8354,7 @@ Ops.Gl.Shader.PointMaterial_v4 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"pointmat_frag":"\n{{MODULES_HEAD}}\n\nUNI vec4 color;\n// IN vec2 pointCoord;\nIN float ps;\n\n#ifdef HAS_TEXTURE_DIFFUSE\n    UNI sampler2D diffTex;\n#endif\n#ifdef HAS_TEXTURE_MASK\n    UNI sampler2D texMask;\n#endif\n#ifdef HAS_TEXTURE_COLORIZE\n    IN vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    IN float opacity;\n#endif\n#ifdef VERTEX_COLORS\n    IN vec4 vertexColor;\n#endif\n\nvoid main()\n{\n    #ifdef FLIP_TEX\n        vec2 pointCoord=vec2(gl_PointCoord.x,(1.0-gl_PointCoord.y));\n    #endif\n    #ifndef FLIP_TEX\n        vec2 pointCoord=gl_PointCoord;\n    #endif\n    {{MODULE_BEGIN_FRAG}}\n\n    if(ps<1.0)discard;\n\n    vec4 col=color;\n\n    #ifdef HAS_TEXTURE_MASK\n        float mask;\n        #ifdef TEXTURE_MASK_R\n            mask=texture(texMask,pointCoord).r;\n        #endif\n        #ifdef TEXTURE_MASK_A\n            mask=texture(texMask,pointCoord).a;\n        #endif\n        #ifdef TEXTURE_MASK_LUMI\n        \tvec3 lumcoeff = vec3(0.299,0.587,0.114);\n        \tmask = dot(texture(texMask,pointCoord).rgb, lumcoeff);\n        #endif\n\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        col=texture(diffTex,pointCoord);\n        #ifdef COLORIZE_TEXTURE\n          col.rgb*=color.rgb;\n        #endif\n    #endif\n    col.a*=color.a;\n\n    {{MODULE_COLOR}}\n\n    #ifdef MAKE_ROUND\n\n        #ifndef MAKE_ROUNDAA\n            if ((gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5) > 0.25) discard; //col.a=0.0;\n        #endif\n\n        #ifdef MAKE_ROUNDAA\n            float circ=(gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5);\n\n            float a=smoothstep(0.25,0.25-fwidth(gl_PointCoord.x),circ);\n            if(a==0.0)discard;\n            col.a=a*color.a;\n        #endif\n    #endif\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    #ifdef TEXTURE_COLORIZE_MUL\n        col*=color;\n    #endif\n\n    #ifdef HAS_TEXTURE_MASK\n        col.a*=mask;\n    #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        col.a*=opacity;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col.rgb = vertexColor.rgb;\n        col.a *= vertexColor.a;\n    #endif\n\n    if (col.a <= 0.0) discard;\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    outColor = col;\n}\n","pointmat_vert":"{{MODULES_HEAD}}\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\n\n#ifdef VERTEX_COLORS\n    IN vec4 attrVertColor;\n    OUT vec4 vertexColor;\n#endif\n\nOUT vec3 norm;\nOUT float ps;\n\nOUT vec2 texCoord;\n\n\n#ifdef HAS_TEXTURES\n#endif\n\n#ifdef HAS_TEXTURE_COLORIZE\n   UNI sampler2D texColorize;\n   OUT vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    UNI sampler2D texOpacity;\n    OUT float opacity;\n#endif\n\n#ifdef HAS_TEXTURE_POINTSIZE\n   UNI sampler2D texPointSize;\n   UNI float texPointSizeMul;\n#endif\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nUNI float pointSize;\nUNI vec3 camPos;\n\nUNI float canvasWidth;\nUNI float canvasHeight;\nUNI float camDistMul;\nUNI float randomSize;\n\nIN float attrVertIndex;\n\n\n\nfloat rand(float n){return fract(sin(n) * 5711.5711123);}\n\n#define POINTMATERIAL\n\nvoid main()\n{\n    norm=attrVertNormal;\n    #ifdef PIXELSIZE\n        float psMul=1.0;\n    #endif\n\n    #ifndef PIXELSIZE\n        float psMul=sqrt(canvasWidth/canvasHeight)+0.00000000001;\n    #endif\n\n    // float sizeMultiply=1.0;\n\n    vec3 tangent=attrTangent;\n    vec3 bitangent=attrBiTangent;\n\n\n    #ifdef VERTEX_COLORS\n        vertexColor=attrVertColor;\n    #endif\n\n    // #ifdef HAS_TEXTURES\n        texCoord=attrTexCoord;\n    // #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        // opacity=texture(texOpacity,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex))).r;\n        opacity=texture(texOpacity,texCoord).r;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        #ifdef RANDOM_COLORIZE\n            colorize=texture(texColorize,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex)));\n        #endif\n        #ifndef RANDOM_COLORIZE\n            colorize=texture(texColorize,texCoord);\n        #endif\n    #endif\n\n\n\n\n\n    mat4 mMatrix=modelMatrix;\n    vec4 pos = vec4( vPosition, 1. );\n\n    gl_PointSize=0.0;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    vec4 model=mMatrix * pos;\n\n    psMul+=rand(texCoord.x*texCoord.y+texCoord.y*3.0+texCoord.x*2.0+attrVertIndex)*randomSize;\n    // psMul*=sizeMultiply;\n\n    float addPointSize=0.0;\n    #ifdef HAS_TEXTURE_POINTSIZE\n\n        #ifdef POINTSIZE_CHAN_R\n            addPointSize=texture(texPointSize,texCoord).r;\n        #endif\n        #ifdef POINTSIZE_CHAN_G\n            addPointSize=texture(texPointSize,texCoord).g;\n        #endif\n        #ifdef POINTSIZE_CHAN_B\n            addPointSize=texture(texPointSize,texCoord).b;\n        #endif\n\n\n        #ifdef DOTSIZEREMAPABS\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n\n            addPointSize=1.0-(distance(addPointSize,0.5)*2.0);\n            // addPointSize=abs(1.0-(distance(addPointSize,0.5)*2.0));\n            addPointSize=addPointSize*addPointSize*addPointSize*2.0;\n\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n        #endif\n\n        addPointSize*=texPointSizeMul;\n\n    #endif\n\n    ps=0.0;\n    #ifndef SCALE_BY_DISTANCE\n        ps = (pointSize+addPointSize) * psMul;\n    #endif\n    #ifdef SCALE_BY_DISTANCE\n        float cameraDist = distance(model.xyz, camPos);\n        ps = ( (pointSize+addPointSize) / cameraDist) * psMul;\n    #endif\n\n    gl_PointSize += ps;\n\n\n    gl_Position = projMatrix * viewMatrix * model;\n}\n",};
+const attachments={"pointmat_frag":"\n{{MODULES_HEAD}}\n\nUNI vec4 color;\n// IN vec2 pointCoord;\nIN float ps;\n\n#ifdef HAS_TEXTURE_DIFFUSE\n    UNI sampler2D diffTex;\n#endif\n#ifdef HAS_TEXTURE_MASK\n    UNI sampler2D texMask;\n#endif\n#ifdef HAS_TEXTURE_COLORIZE\n    IN vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    IN float opacity;\n#endif\n#ifdef VERTEX_COLORS\n    IN vec4 vertexColor;\n#endif\n\nvoid main()\n{\n    #ifdef FLIP_TEX\n        vec2 pointCoord=vec2(gl_PointCoord.x,(1.0-gl_PointCoord.y));\n    #endif\n    #ifndef FLIP_TEX\n        vec2 pointCoord=gl_PointCoord;\n    #endif\n    {{MODULE_BEGIN_FRAG}}\n\n    if(ps<1.0)discard;\n\n    vec4 col=color;\n\n    #ifdef HAS_TEXTURE_MASK\n        float mask;\n        #ifdef TEXTURE_MASK_R\n            mask=texture(texMask,pointCoord).r;\n        #endif\n        #ifdef TEXTURE_MASK_A\n            mask=texture(texMask,pointCoord).a;\n        #endif\n        #ifdef TEXTURE_MASK_LUMI\n        \tvec3 lumcoeff = vec3(0.299,0.587,0.114);\n        \tmask = dot(texture(texMask,pointCoord).rgb, lumcoeff);\n        #endif\n\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        col=texture(diffTex,pointCoord);\n        #ifdef COLORIZE_TEXTURE\n          col.rgb*=color.rgb;\n        #endif\n    #endif\n    col.a*=color.a;\n\n\n    #ifdef MAKE_ROUND\n\n        #ifndef MAKE_ROUNDAA\n            if ((gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5) > 0.25) discard; //col.a=0.0;\n        #endif\n\n        #ifdef MAKE_ROUNDAA\n            float circ=(gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5);\n\n            float a=smoothstep(0.25,0.25-fwidth(gl_PointCoord.x),circ);\n            if(a==0.0)discard;\n            col.a=a*color.a;\n        #endif\n    #endif\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    #ifdef TEXTURE_COLORIZE_MUL\n        col*=color;\n    #endif\n\n    #ifdef HAS_TEXTURE_MASK\n        col.a*=mask;\n    #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        col.a*=opacity;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col.rgb = vertexColor.rgb;\n        col.a *= vertexColor.a;\n    #endif\n\n    if (col.a <= 0.0) discard;\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n}\n","pointmat_vert":"{{MODULES_HEAD}}\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\nIN float attrPointSize;\n\n#ifdef VERTEX_COLORS\n    IN vec4 attrVertColor;\n    OUT vec4 vertexColor;\n#endif\n\nOUT vec3 norm;\nOUT float ps;\n\nOUT vec2 texCoord;\n\n\n#ifdef HAS_TEXTURES\n#endif\n\n#ifdef HAS_TEXTURE_COLORIZE\n   UNI sampler2D texColorize;\n   OUT vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    UNI sampler2D texOpacity;\n    OUT float opacity;\n#endif\n\n#ifdef HAS_TEXTURE_POINTSIZE\n   UNI sampler2D texPointSize;\n   UNI float texPointSizeMul;\n#endif\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nUNI float pointSize;\nUNI vec3 camPos;\n\nUNI float canvasWidth;\nUNI float canvasHeight;\nUNI float camDistMul;\nUNI float randomSize;\n\nIN float attrVertIndex;\n\n\n\nfloat rand(float n){return fract(sin(n) * 5711.5711123);}\n\n#define POINTMATERIAL\n\nvoid main()\n{\n    norm=attrVertNormal;\n    #ifdef PIXELSIZE\n        float psMul=1.0;\n    #endif\n\n    #ifndef PIXELSIZE\n        float psMul=sqrt(canvasWidth/canvasHeight)+0.00000000001;\n    #endif\n\n    // float sizeMultiply=1.0;\n\n    vec3 tangent=attrTangent;\n    vec3 bitangent=attrBiTangent;\n\n\n    #ifdef VERTEX_COLORS\n        vertexColor=attrVertColor;\n    #endif\n\n    // #ifdef HAS_TEXTURES\n        texCoord=attrTexCoord;\n    // #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        // opacity=texture(texOpacity,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex))).r;\n        opacity=texture(texOpacity,texCoord).r;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        #ifdef RANDOM_COLORIZE\n            colorize=texture(texColorize,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex)));\n        #endif\n        #ifndef RANDOM_COLORIZE\n            colorize=texture(texColorize,texCoord);\n        #endif\n    #endif\n\n\n\n\n\n    mat4 mMatrix=modelMatrix;\n    vec4 pos = vec4( vPosition, 1. );\n\n    gl_PointSize=0.0;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    vec4 model=mMatrix * pos;\n\n    psMul+=rand(texCoord.x*texCoord.y+texCoord.y*3.0+texCoord.x*2.0+attrVertIndex)*randomSize;\n    // psMul*=sizeMultiply;\n\n    float addPointSize=0.0;\n    #ifdef HAS_TEXTURE_POINTSIZE\n\n        #ifdef POINTSIZE_CHAN_R\n            addPointSize=texture(texPointSize,texCoord).r;\n        #endif\n        #ifdef POINTSIZE_CHAN_G\n            addPointSize=texture(texPointSize,texCoord).g;\n        #endif\n        #ifdef POINTSIZE_CHAN_B\n            addPointSize=texture(texPointSize,texCoord).b;\n        #endif\n\n\n        #ifdef DOTSIZEREMAPABS\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n\n            addPointSize=1.0-(distance(addPointSize,0.5)*2.0);\n            // addPointSize=abs(1.0-(distance(addPointSize,0.5)*2.0));\n            addPointSize=addPointSize*addPointSize*addPointSize*2.0;\n\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n        #endif\n\n        addPointSize*=texPointSizeMul;\n\n    #endif\n\n    ps=0.0;\n    #ifndef SCALE_BY_DISTANCE\n        ps = (pointSize+addPointSize+attrPointSize) * psMul;\n    #endif\n    #ifdef SCALE_BY_DISTANCE\n        float cameraDist = distance(model.xyz, camPos);\n        ps = ( (pointSize+addPointSize+attrPointSize) / cameraDist) * psMul;\n    #endif\n\n    gl_PointSize += ps;\n\n\n    gl_Position = projMatrix * viewMatrix * model;\n}\n",};
 const cgl = op.patch.cgl;
 
 const
@@ -8881,6 +8394,8 @@ r.setUiAttribs({ "colorPick": true });
 const shader = new CGL.Shader(cgl, "PointMaterial");
 shader.setModules(["MODULE_VERTEX_POSITION", "MODULE_COLOR", "MODULE_BEGIN_FRAG"]);
 shader.define("MAKE_ROUND");
+
+op.toWorkPortsNeedToBeLinked(render);
 
 const
     uniPointSize = new CGL.Uniform(shader, "f", "pointSize", pointSize),
@@ -9879,6 +9394,9 @@ const filename = op.inUrl("file"),
     reloadTrigger = op.inTriggerButton("reload"),
     outData = op.outObject("data"),
     outString = op.outString("response"),
+    outDuration = op.outNumber("Duration MS", 0),
+    outStatus = op.outNumber("Status Code", 0),
+
     isLoading = op.outBoolNum("Is Loading", false),
     outTrigger = op.outTrigger("Loaded");
 
@@ -9898,7 +9416,6 @@ reloadTrigger.onTriggered = function ()
     delayedReload(true);
 };
 
-let loadingId = 0;
 let reloadTimeout = 0;
 
 function delayedReload(force = false)
@@ -9917,9 +9434,9 @@ function reload(addCachebuster, force = false)
     if (!inAutoRequest.get() && !force) return;
     if (!filename.get()) return;
 
-    op.patch.loading.finished(loadingId);
+    // op.patch.loading.finished(loadingId);
 
-    loadingId = op.patch.loading.start("jsonFile", "" + filename.get());
+    const loadingId = op.patch.loading.start("jsonFile", "" + filename.get(), op);
     isLoading.set(true);
 
     op.setUiAttrib({ "extendTitle": CABLES.basename(filename.get()) });
@@ -9934,20 +9451,23 @@ function reload(addCachebuster, force = false)
     op.patch.loading.addAssetLoadingTask(() =>
     {
         const body = inBody.get();
+        const startTime = performance.now();
         httpClient(
             url,
             (err, _data, xhr) =>
             {
+                outDuration.set(Math.round(performance.now() - startTime));
                 outData.set(null);
                 outString.set(null);
-                if (err)
-                {
-                    op.patch.loading.finished(loadingId);
-                    isLoading.set(false);
+                outStatus.set(xhr.status);
 
-                    op.logError(err);
-                    return;
-                }
+                // if (err)
+                // {
+                //     op.logError(err);
+                //     // op.patch.loading.finished(loadingId);
+                //     // isLoading.set(false);
+                //     // return;
+                // }
                 try
                 {
                     let data = _data;
@@ -10034,41 +9554,20 @@ const op=this;
 const attachments={};
 const
     inObj = op.inObject("Object"),
-    inConsole = op.inTriggerButton("console log");
+    inConsole = op.inTriggerButton("console log"),
+    inZoomText = op.inBool("ZoomText", false),
+    inLineNums = op.inBool("Line Numbers", true),
+    inFontSize = op.inFloat("Font Size", 10),
+    inPos = op.inFloatSlider("Scroll", 0);
 
+let lines = [];
 inConsole.setUiAttribs({ "hidePort": true });
 
 op.setUiAttrib({ "height": 200, "width": 400, "resizable": true });
 
-inObj.onLinkChanged = () =>
+inObj.onChange = () =>
 {
-    if (inObj.isLinked())
-    {
-        const p = inObj.links[0].getOtherPort(inObj);
-
-        op.setUiAttrib({ "extendTitle": p.uiAttribs.objType });
-    }
-};
-
-inConsole.onTriggered = () =>
-{
-    console.log(inObj.get());
-};
-
-op.renderVizLayer = (ctx, layer) =>
-{
-    ctx.fillStyle = "#222";
-    ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
-
-    ctx.save();
-    ctx.scale(layer.scale, layer.scale);
-
-    ctx.font = "normal 10px sourceCodePro";
-    ctx.fillStyle = "#ccc";
-    const padding = 10;
-
     let obj = inObj.get();
-
     let str = "???";
 
     if (obj && obj.getInfo)
@@ -10105,7 +9604,6 @@ op.renderVizLayer = (ctx, layer) =>
             if (obj) for (let i in obj)
             {
                 str += "\n" + i + " (" + typeof obj[i] + ")";
-                // console.log(i)
             }
         }
     }
@@ -10117,13 +9615,47 @@ op.renderVizLayer = (ctx, layer) =>
     if (str === undefined)str = "undefined";
     if (str === null)str = "null";
     str = String(str);
-    let lines = str.split("\n");
+    lines = str.split("\n");
+};
 
-    for (let j = 0; j < lines.length; j++)
-        ctx.fillText(lines[j], layer.x / layer.scale + padding, layer.y / layer.scale + ((j + 1) * 12));
+inObj.onLinkChanged = () =>
+{
+    if (inObj.isLinked())
+    {
+        const p = inObj.links[0].getOtherPort(inObj);
+
+        op.setUiAttrib({ "extendTitle": p.uiAttribs.objType });
+    }
+};
+
+inConsole.onTriggered = () =>
+{
+    console.log(inObj.get());
+};
+
+op.renderVizLayer = (ctx, layer, viz) =>
+{
+    ctx.fillStyle = "#222";
+    ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
+
+    ctx.save();
+    ctx.scale(layer.scale, layer.scale);
+
+    // ctx.font = "normal 10px sourceCodePro";
+    // ctx.fillStyle = "#ccc";
+    // const padding = 10;
+
+    viz.renderText(ctx, layer, lines, {
+        "zoomText": inZoomText.get(),
+        "showLineNum": inLineNums.get(),
+        "fontSize": inFontSize.get(),
+        "scroll": inPos.get()
+    });
 
     ctx.restore();
 };
+
+//
 
 
 };
@@ -10147,7 +9679,7 @@ const op=this;
 const attachments={};
 const
     inObj = op.inObject("Object"),
-    inBeautify = op.inValueBool("Beautify"),
+    inBeautify = op.inValueBool("Beautify", true),
     outString = op.outString("Result"),
     outError = op.outBoolNum("Error");
 
@@ -10174,339 +9706,6 @@ function update()
 
 Ops.Json.ObjectStringify_v2.prototype = new CABLES.Op();
 CABLES.OPS["89fc70ea-2350-4a0e-9a24-4efca10cced6"]={f:Ops.Json.ObjectStringify_v2,objName:"Ops.Json.ObjectStringify_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Browser.BrowserInfo_v3
-// 
-// **************************************************************
-
-Ops.Browser.BrowserInfo_v3 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    isMobile = op.outBool("Is Mobile", false),
-    isTouch = op.outBool("Is Touchscreen", false),
-    isIe = op.outBool("Is IE", false),
-    isEdge = op.outBool("Is Edge", false),
-    isChrome = op.outBool("Is Chrome", false),
-    isFirefox = op.outBool("Is Firefox", false),
-    isOpera = op.outBool("Is Opera", false),
-    isSafari = op.outBool("Is Safari", false),
-    isWindows = op.outBool("Is Windows", false),
-    isLinux = op.outBool("Is Linux", false),
-    isMac = op.outBool("Is Mac", false),
-    isIos = op.outBool("Is iOS", false),
-    isAndroid = op.outBool("Is Android", false),
-    isElectron = op.outBool("Is Electron", false),
-    outOS = op.outString("Operating System", ""),
-    outBrowserName = op.outString("Browser Name", ""),
-    outVersion = op.outString("OS Version", ""),
-    outNav = op.outString("Language"),
-    outUA = op.outString("User Agent");
-
-op.setPortGroup("Browsers", [isIe, isEdge, isChrome, isFirefox, isOpera, isSafari]);
-op.setPortGroup("Operating Systems", [isWindows, isLinux, isMac, isIos, isAndroid, isElectron]);
-op.setPortGroup("Textual Information", [outOS, outBrowserName, outNav, outVersion, outUA]);
-const pf = platform;
-
-const osFamily = pf.os.family;
-
-const isOperaBool = pf.name === "Opera";
-const isSafariBool = pf.name === "Safari";
-const isIEBool = pf.name === "IE";
-const isEdgeBool = pf.name === "Microsoft Edge";
-const isChromeBool = pf.name === "Chrome" || pf.name === "Chrome Mobile";
-const isBlinkBool = pf.layout === "Blink";
-const isFirefoxBool = pf.name === "Firefox" || pf.name === "Firefox Mobile" || pf.name === "Firefox for iOS";
-
-const isLinuxBool = osFamily === "Linux"
-    || osFamily === "Ubuntu"
-    || osFamily === "SuSE"
-    || osFamily === "Fedora"
-    || osFamily === "OpenBSD"
-    || osFamily === "Debian"
-    || osFamily === "Red Hat";
-
-const isMacBool = osFamily === "Mac" || osFamily === "Macintosh" || osFamily === "Mac OS X" || osFamily === "OS X";
-const isWindowsBool = osFamily === "Windows" || osFamily === "Windows 98;";
-const isAndroidBool = osFamily === "Android";
-const isIosBool = osFamily === "iOS";
-const isMobileBool = (osFamily === "webOS" // LG mobile phones
-    || osFamily === "Windows Phone"
-    || osFamily === "Android"
-    || osFamily === "iOS")
-    ||
-    (pf.name === "Chrome Mobile"
-    || pf.name === "Firefox for iOS"
-    || pf.name === "Firefox Mobile"
-    || pf.name === "IE Mobile"
-    || pf.name === "Opera Mobile");
-const isElectronBool = pf.name === "Electron";
-
-const isTouchDevice = (
-    ("ontouchstart" in window) ||
-        (navigator.maxTouchPoints > 0) ||
-        (navigator.msMaxTouchPoints > 0));
-
-isMobile.set(isMobileBool);
-isTouch.set(isTouchDevice);
-
-isIe.set(isIEBool);
-isEdge.set(isEdgeBool);
-isChrome.set(isChromeBool);
-isFirefox.set(isFirefoxBool);
-isOpera.set(isOperaBool);
-isSafari.set(isSafariBool);
-
-isMac.set(isMacBool);
-isLinux.set(isLinuxBool);
-isWindows.set(isWindowsBool);
-isIos.set(isIosBool);
-isAndroid.set(isAndroidBool);
-isElectron.set(isElectronBool);
-
-outNav.set(navigator.language || navigator.userLanguage);
-outUA.set(pf.ua);
-outVersion.set(pf.os.version);
-outOS.set(pf.os.toString());
-outBrowserName.set(pf.name);
-
-
-};
-
-Ops.Browser.BrowserInfo_v3.prototype = new CABLES.Op();
-CABLES.OPS["ec3e0121-b2c2-4c31-bbda-a6982080f73f"]={f:Ops.Browser.BrowserInfo_v3,objName:"Ops.Browser.BrowserInfo_v3"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Json.ObjectSetString
-// 
-// **************************************************************
-
-Ops.Json.ObjectSetString = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    inObject=op.inObject("Object"),
-    outObject=op.outObject("Result Object"),
-    inKey=op.inString("Key"),
-    inValue=op.inString("Value");
-
-inObject.onChange=
-    inKey.onChange=
-    inValue.onChange=update;
-
-function update()
-{
-    var obj=inObject.get();
-    if(!obj)obj={};
-
-    obj[inKey.get()]=inValue.get();
-
-    outObject.set(null);
-    outObject.set(obj);
-}
-
-
-};
-
-Ops.Json.ObjectSetString.prototype = new CABLES.Op();
-CABLES.OPS["31f19b25-2ed8-4ac6-84d4-a146da9e3a05"]={f:Ops.Json.ObjectSetString,objName:"Ops.Json.ObjectSetString"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Json.ObjectTrigger
-// 
-// **************************************************************
-
-Ops.Json.ObjectTrigger = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    inTrigger=op.inTriggerButton("Trigger"),
-    inObj=op.inObject("Object"),
-    outTrigger=op.outTrigger("Next"),
-    outObj=op.outObject("Result");
-
-inTrigger.onTriggered=function()
-{
-    outObj.set(null);
-    outObj.set(inObj.get());
-    outTrigger.trigger();
-};
-
-
-};
-
-Ops.Json.ObjectTrigger.prototype = new CABLES.Op();
-CABLES.OPS["e437c074-190f-4adb-8265-3fddea27fe33"]={f:Ops.Json.ObjectTrigger,objName:"Ops.Json.ObjectTrigger"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Json.ObjectGetObjectByPath
-// 
-// **************************************************************
-
-Ops.Json.ObjectGetObjectByPath = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const objectIn = op.inObject("Object");
-const pathIn = op.inString("Path");
-const resultOut = op.outObject("Output");
-const foundOut = op.outBool("Found");
-
-objectIn.onChange = update;
-pathIn.onChange = update;
-
-function update()
-{
-    const data = objectIn.get();
-    const path = pathIn.get();
-    op.setUiError("missing", null);
-    if (data && path)
-    {
-        if (!Array.isArray(data) && !(typeof data === "object"))
-        {
-            foundOut.set(false);
-            op.setUiError("notiterable", "input object of type " + (typeof data) + " is not travesable by path");
-        }
-        else
-        {
-            op.setUiError("notiterable", null);
-            const parts = path.split(".");
-            op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
-            let result = resolve(path, data);
-            if (result === undefined)
-            {
-                const errorMsg = "could not find element at path " + path;
-                foundOut.set(false);
-                result = null;
-                op.setUiError("missing", errorMsg, 2);
-            }
-            else if (Array.isArray(result) || result === null || typeof result !== "object")
-            {
-                const errorMsg = "element at path " + path + " is not an object";
-                foundOut.set(false);
-                result = null;
-                op.setUiError("missing", errorMsg, 2);
-            }
-            else
-            {
-                foundOut.set(true);
-            }
-            resultOut.set(result);
-        }
-    }
-    else
-    {
-        foundOut.set(false);
-    }
-}
-
-function resolve(path, obj = self, separator = ".")
-{
-    const properties = Array.isArray(path) ? path : path.split(separator);
-    return properties.reduce((prev, curr) => prev && prev[curr], obj);
-}
-
-
-};
-
-Ops.Json.ObjectGetObjectByPath.prototype = new CABLES.Op();
-CABLES.OPS["574513c7-472b-433c-bf99-d906d3c737cd"]={f:Ops.Json.ObjectGetObjectByPath,objName:"Ops.Json.ObjectGetObjectByPath"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Json.ObjectSetNumber
-// 
-// **************************************************************
-
-Ops.Json.ObjectSetNumber = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    inObject=op.inObject("Object"),
-    outObject=op.outObject("Result Object"),
-    inKey=op.inString("Key"),
-    inValue=op.inValueFloat("Number");
-
-inObject.onChange=
-    inKey.onChange=
-    inValue.onChange=update;
-
-function update()
-{
-    var obj=inObject.get();
-    if(!obj)obj={};
-
-    obj[inKey.get()]=inValue.get();
-
-    outObject.set(null);
-    outObject.set(obj);
-}
-
-
-};
-
-Ops.Json.ObjectSetNumber.prototype = new CABLES.Op();
-CABLES.OPS["e50fd010-5db1-48a7-91dc-94799ae1cb3b"]={f:Ops.Json.ObjectSetNumber,objName:"Ops.Json.ObjectSetNumber"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Value.Number
-// 
-// **************************************************************
-
-Ops.Value.Number = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    v = op.inValueFloat("value"),
-    result = op.outNumber("result");
-
-v.onChange = exec;
-
-function exec()
-{
-    result.set(Number(v.get()));
-}
-
-
-};
-
-Ops.Value.Number.prototype = new CABLES.Op();
-CABLES.OPS["8fb2bb5d-665a-4d0a-8079-12710ae453be"]={f:Ops.Value.Number,objName:"Ops.Value.Number"};
 
 
 
@@ -10553,12 +9752,13 @@ const
     active = op.inValueBool("Active", true),
     speed = op.inValue("Speed", 0.01),
     inputType = op.inSwitch("Input Type", ["All", "Mouse", "Touch"], "All"),
-    area = op.inSwitch("Area", ["Canvas", "Document"], "Canvas"),
+    area = op.inSwitch("Area", ["Canvas Area", "Canvas", "Document"], "Canvas Area"),
     outDeltaX = op.outNumber("Delta X"),
     outDeltaY = op.outNumber("Delta Y"),
     outDragging = op.outNumber("Is Dragging");
 
 let listenerElement = null;
+let sizeElement = null;
 const absoluteX = 0;
 const absoluteY = 0;
 let pressed = false;
@@ -10566,15 +9766,32 @@ let lastX = 0;
 let lastY = 0;
 let firstMove = true;
 
+inputType.onChange =
 area.onChange = updateArea;
 
 updateArea();
+
+function isHovering(e)
+{
+    if (area.get() === "Canvas Area")
+    {
+        const r = sizeElement.getBoundingClientRect();
+
+        return (
+            e.clientX > r.left &&
+            e.clientX < r.left + r.width &&
+            e.clientY > r.top &&
+            e.clientY < r.top + r.height
+        );
+    }
+    return true;
+}
 
 function onMouseMove(e)
 {
     if (e.touches) e = e.touches[0];
 
-    if (pressed && e)
+    if (pressed && e && isHovering(e))
     {
         if (!firstMove)
         {
@@ -10619,8 +9836,13 @@ function updateArea()
 {
     removeListener();
 
-    if (area.get() == "Document") listenerElement = document;
-    else listenerElement = op.patch.cgl.canvas;
+    if (area.get() == "Canvas Area")
+    {
+        listenerElement = document;
+        sizeElement = op.patch.cgl.canvas;
+    }
+    else if (area.get() == "Document") listenerElement = sizeElement = document;
+    else listenerElement = sizeElement = op.patch.cgl.canvas;
 
     if (active.get())addListener();
 }
@@ -11120,87 +10342,134 @@ CABLES.OPS["7b9626db-536b-4bb4-85c3-95401bc60d1b"]={f:Ops.Devices.Mouse.MouseWhe
 
 // **************************************************************
 // 
-// Ops.Boolean.TriggerOnChangeBoolean
+// Ops.Json.ObjectGetObjectByPath
 // 
 // **************************************************************
 
-Ops.Boolean.TriggerOnChangeBoolean = function()
+Ops.Json.ObjectGetObjectByPath = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const objectIn = op.inObject("Object");
+const pathIn = op.inString("Path");
+const resultOut = op.outObject("Output");
+const foundOut = op.outBool("Found");
+
+objectIn.onChange = update;
+pathIn.onChange = update;
+
+function update()
+{
+    const data = objectIn.get();
+    const path = pathIn.get();
+    op.setUiError("missing", null);
+    if (data && path)
+    {
+        if (!Array.isArray(data) && !(typeof data === "object"))
+        {
+            foundOut.set(false);
+            op.setUiError("notiterable", "input object of type " + (typeof data) + " is not travesable by path");
+        }
+        else
+        {
+            op.setUiError("notiterable", null);
+            const parts = path.split(".");
+            op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
+            let result = resolve(path, data);
+            if (result === undefined)
+            {
+                const errorMsg = "could not find element at path " + path;
+                foundOut.set(false);
+                result = null;
+                op.setUiError("missing", errorMsg, 2);
+            }
+            else if (Array.isArray(result) || result === null || typeof result !== "object")
+            {
+                const errorMsg = "element at path " + path + " is not an object";
+                foundOut.set(false);
+                result = null;
+                op.setUiError("missing", errorMsg, 2);
+            }
+            else
+            {
+                foundOut.set(true);
+            }
+            resultOut.setRef(result);
+        }
+    }
+    else
+    {
+        foundOut.set(false);
+    }
+}
+
+function resolve(path, obj = self, separator = ".")
+{
+    const properties = Array.isArray(path) ? path : path.split(separator);
+    return properties.reduce((prev, curr) => { return prev && prev[curr]; }, obj);
+}
+
+
+};
+
+Ops.Json.ObjectGetObjectByPath.prototype = new CABLES.Op();
+CABLES.OPS["574513c7-472b-433c-bf99-d906d3c737cd"]={f:Ops.Json.ObjectGetObjectByPath,objName:"Ops.Json.ObjectGetObjectByPath"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.StringCompose_v3
+// 
+// **************************************************************
+
+Ops.String.StringCompose_v3 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    inBool = op.inValueBool("Value"),
-    outTrue = op.outTrigger("True"),
-    outFalse = op.outTrigger("False");
+    format=op.inString('Format',"hello $a, $b $c und $d"),
+    a=op.inString('String A','world'),
+    b=op.inString('String B',1),
+    c=op.inString('String C',2),
+    d=op.inString('String D',3),
+    e=op.inString('String E'),
+    f=op.inString('String F'),
+    result=op.outString("Result");
 
-inBool.onChange = function ()
+format.onChange=
+    a.onChange=
+    b.onChange=
+    c.onChange=
+    d.onChange=
+    e.onChange=
+    f.onChange=update;
+
+update();
+
+function update()
 {
-    if (inBool.get()) outTrue.trigger();
-    else outFalse.trigger();
-};
+    var str=format.get()||'';
+    if(typeof str!='string')
+        str='';
 
+    str = str.replace(/\$a/g, a.get());
+    str = str.replace(/\$b/g, b.get());
+    str = str.replace(/\$c/g, c.get());
+    str = str.replace(/\$d/g, d.get());
+    str = str.replace(/\$e/g, e.get());
+    str = str.replace(/\$f/g, f.get());
 
-};
-
-Ops.Boolean.TriggerOnChangeBoolean.prototype = new CABLES.Op();
-CABLES.OPS["dba19c07-e3c4-4971-a991-c9e6212ca1c8"]={f:Ops.Boolean.TriggerOnChangeBoolean,objName:"Ops.Boolean.TriggerOnChangeBoolean"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Trigger.TriggerOnChangeString
-// 
-// **************************************************************
-
-Ops.Trigger.TriggerOnChangeString = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    inval = op.inString("String"),
-    next = op.outTrigger("Changed"),
-    outStr = op.outString("Result");
-
-inval.onChange = function ()
-{
-    outStr.set(inval.get());
-    next.trigger();
-};
-
+    result.set(str);
+}
 
 };
 
-Ops.Trigger.TriggerOnChangeString.prototype = new CABLES.Op();
-CABLES.OPS["319d07e0-5cbe-4bc1-89fb-a934fd41b0c4"]={f:Ops.Trigger.TriggerOnChangeString,objName:"Ops.Trigger.TriggerOnChangeString"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Vars.VarSetObject_v2
-// 
-// **************************************************************
-
-Ops.Vars.VarSetObject_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const val = op.inObject("Value", null);
-op.varName = op.inDropDown("Variable", [], "", true);
-
-new CABLES.VarSetOpWrapper(op, "object", val, op.varName);
-
-
-};
-
-Ops.Vars.VarSetObject_v2.prototype = new CABLES.Op();
-CABLES.OPS["c7608375-5b45-4bca-87ef-d0c5e970779a"]={f:Ops.Vars.VarSetObject_v2,objName:"Ops.Vars.VarSetObject_v2"};
+Ops.String.StringCompose_v3.prototype = new CABLES.Op();
+CABLES.OPS["6afea9f4-728d-4f3c-9e75-62ddc1448bf0"]={f:Ops.String.StringCompose_v3,objName:"Ops.String.StringCompose_v3"};
 
 
 
@@ -12005,6 +11274,8 @@ function removeListeners()
 
 function addCanvasListener()
 {
+    if (!CABLES.UTILS.isNumeric(cgl.canvas.getAttribute("tabindex"))) cgl.canvas.setAttribute("tabindex", 1);
+
     cgl.canvas.addEventListener("keydown", onKeyDown, false);
     cgl.canvas.addEventListener("keyup", onKeyUp, false);
 }
@@ -12173,6 +11444,85 @@ CABLES.OPS["7a78e163-d28c-4f70-a6d0-6d952da79f50"]={f:Ops.Gl.Perspective,objName
 
 // **************************************************************
 // 
+// Ops.Anim.BoolAnim
+// 
+// **************************************************************
+
+Ops.Anim.BoolAnim = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const anim = new CABLES.Anim();
+
+const
+    exe = op.inTrigger("exe"),
+    bool = op.inValueBool("bool"),
+    pease = anim.createPort(op, "easing"),
+    duration = op.inValue("duration", 0.5),
+    dir = op.inValueSelect("Direction", ["Both", "Only True", "Only False"], "Both"),
+    valueFalse = op.inValue("value false", 0),
+    valueTrue = op.inValue("value true", 1),
+    next = op.outTrigger("trigger"),
+    value = op.outNumber("value"),
+    finished = op.outBoolNum("finished"),
+    finishedTrigger = op.outTrigger("Finished Trigger");
+
+const startTime = CABLES.now();
+op.toWorkPortsNeedToBeLinked(exe);
+op.setPortGroup("Animation", [duration, pease]);
+op.setPortGroup("Values", [valueFalse, valueTrue]);
+
+dir.onChange = bool.onChange = valueFalse.onChange = valueTrue.onChange = duration.onChange = setAnim;
+setAnim();
+
+function setAnim()
+{
+    if (dir.get() == "Animate Both")dir.set("Both");
+    finished.set(false);
+    const now = (CABLES.now() - startTime) / 1000;
+    const oldValue = anim.getValue(now);
+    anim.clear();
+
+    anim.setValue(now, oldValue);
+
+    if (!bool.get())
+    {
+        if (dir.get() != "Only True") anim.setValue(now + duration.get(), valueFalse.get());
+        else anim.setValue(now, valueFalse.get());
+    }
+    else
+    {
+        if (dir.get() != "Only False") anim.setValue(now + duration.get(), valueTrue.get());
+        else anim.setValue(now, valueTrue.get());
+    }
+}
+
+exe.onTriggered = function ()
+{
+    const t = (CABLES.now() - startTime) / 1000;
+    value.set(anim.getValue(t));
+
+    if (anim.hasEnded(t))
+    {
+        if (!finished.get()) finishedTrigger.trigger();
+        finished.set(true);
+    }
+
+    next.trigger();
+};
+
+
+};
+
+Ops.Anim.BoolAnim.prototype = new CABLES.Op();
+CABLES.OPS["06ad9d35-ccf5-4d31-889c-e23fa062588a"]={f:Ops.Anim.BoolAnim,objName:"Ops.Anim.BoolAnim"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.Boolean.Not
 // 
 // **************************************************************
@@ -12234,6 +11584,7 @@ const
 
 const cgl = op.patch.cgl;
 op.toWorkPortsNeedToBeLinked(render);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
 
 op.setPortGroup("Mapping", [mapping, mappingBias, inFlipX]);
 op.setPortGroup("Geometry", [width, height, len, center]);
@@ -12265,12 +11616,8 @@ function buildMeshLater()
 
 render.onLinkChanged = function ()
 {
-    if (!render.isLinked())
-    {
-        geomOut.set(null);
-        return;
-    }
-    buildMesh();
+    if (!render.isLinked()) geomOut.set(null);
+    else geomOut.setRef(geom);
 };
 
 render.onTriggered = function ()
@@ -12329,9 +11676,9 @@ function buildMesh()
     else meshvalid = true;
 
     if (mesh)mesh.dispose();
-    mesh = new CGL.Mesh(cgl, geom);
-    geomOut.set(null);
-    geomOut.set(geom);
+    mesh = op.patch.cg.createMesh(geom);
+
+    geomOut.setRef(geom);
 
     needsRebuild = false;
 }
@@ -12343,38 +11690,7 @@ op.onDelete = function ()
 
 function sideMappedCube(geom, x, y, z, nx, ny, nz)
 {
-    geom.vertices = [
-        // Front face
-        nx, ny, z,
-        x, ny, z,
-        x, y, z,
-        nx, y, z,
-        // Back face
-        nx, ny, nz,
-        nx, y, nz,
-        x, y, nz,
-        x, ny, nz,
-        // Top face
-        nx, y, nz,
-        nx, y, z,
-        x, y, z,
-        x, y, nz,
-        // Bottom face
-        nx, ny, nz,
-        x, ny, nz,
-        x, ny, z,
-        nx, ny, z,
-        // Right face
-        x, ny, nz,
-        x, y, nz,
-        x, y, z,
-        x, ny, z,
-        // zeft face
-        nx, ny, nz,
-        nx, ny, z,
-        nx, y, z,
-        nx, y, nz
-    ];
+    addAttribs(geom, x, y, z, nx, ny, nz);
 
     const bias = mappingBias.get();
 
@@ -12418,109 +11734,11 @@ function sideMappedCube(geom, x, y, z, nx, ny, nz)
         fone - bias, 0 + bias,
         fzero + bias, 0 + bias,
     ]);
-
-    geom.vertexNormals = new Float32Array([
-        // Front face
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-
-        // Back face
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-
-        // Top face
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-
-        // Bottom face
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-
-        // Right face
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-
-        // Left face
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0
-    ]);
-    geom.tangents = new Float32Array([
-
-        // front face
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
-        // back face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-        // top face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-        // bottom face
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
-        // right face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
-        // left face
-        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1
-    ]);
-    geom.biTangents = new Float32Array([
-        // front face
-        0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
-        // back face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
-        // top face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
-        // bottom face
-        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
-        // right face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
-        // left face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0
-    ]);
 }
 
 function cubeMappedCube(geom, x, y, z, nx, ny, nz)
 {
-    geom.vertices = [
-        // Front face
-        nx, ny, z,
-        x, ny, z,
-        x, y, z,
-        nx, y, z,
-        // Back face
-        nx, ny, nz,
-        nx, y, nz,
-        x, y, nz,
-        x, ny, nz,
-        // Top face
-        nx, y, nz,
-        nx, y, z,
-        x, y, z,
-        x, y, nz,
-        // Bottom face
-        nx, ny, nz,
-        x, ny, nz,
-        x, ny, z,
-        nx, ny, z,
-        // Right face
-        x, ny, nz,
-        x, y, nz,
-        x, y, z,
-        x, ny, z,
-        // zeft face
-        nx, ny, nz,
-        nx, ny, z,
-        nx, y, z,
-        nx, y, nz
-    ];
+    addAttribs(geom, x, y, z, nx, ny, nz);
 
     const sx = 0.25;
     const sy = 1 / 3;
@@ -12582,8 +11800,44 @@ function cubeMappedCube(geom, x, y, z, nx, ny, nz)
         flipx + sx * 0 + bias, 1.0 - sy * 2 + bias);
 
     geom.setTexCoords(tc);
+}
 
-    geom.vertexNormals = [
+function addAttribs(geom, x, y, z, nx, ny, nz)
+{
+    geom.vertices = [
+        // Front face
+        nx, ny, z,
+        x, ny, z,
+        x, y, z,
+        nx, y, z,
+        // Back face
+        nx, ny, nz,
+        nx, y, nz,
+        x, y, nz,
+        x, ny, nz,
+        // Top face
+        nx, y, nz,
+        nx, y, z,
+        x, y, z,
+        x, y, nz,
+        // Bottom face
+        nx, ny, nz,
+        x, ny, nz,
+        x, ny, z,
+        nx, ny, z,
+        // Right face
+        x, ny, nz,
+        x, y, nz,
+        x, y, z,
+        x, ny, z,
+        // zeft face
+        nx, ny, nz,
+        nx, ny, z,
+        nx, y, z,
+        nx, y, nz
+    ];
+
+    geom.vertexNormals = new Float32Array([
         // Front face
         0.0, 0.0, 1.0,
         0.0, 0.0, 1.0,
@@ -12619,16 +11873,16 @@ function cubeMappedCube(geom, x, y, z, nx, ny, nz)
         -1.0, 0.0, 0.0,
         -1.0, 0.0, 0.0,
         -1.0, 0.0, 0.0
-    ];
+    ]);
     geom.tangents = new Float32Array([
         // front face
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
         // back face
         1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
         // top face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         // bottom face
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
         // right face
         0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
         // left face
@@ -12636,17 +11890,17 @@ function cubeMappedCube(geom, x, y, z, nx, ny, nz)
     ]);
     geom.biTangents = new Float32Array([
         // front face
-        0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0,
+        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
         // back face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
         // top face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         // bottom face
-        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
         // right face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
         // left face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0
+        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1
     ]);
 }
 
@@ -12769,6 +12023,7 @@ function removeBody()
     }
 
     bodies.length = 0;
+    doResetPos = true;
 }
 
 inReset.onTriggered = () =>
@@ -12801,7 +12056,9 @@ function updateBodyMeta()
 function setup()
 {
     if (!inActive.get()) return;
+    if (needsRemove) return;
     doScale = true;
+    doResetPos = true;
 
     removeBody();
 
@@ -12933,6 +12190,7 @@ function setup()
             body.setCollisionFlags(body.getCollisionFlags() | 4);
 
         bodies.push(body);
+        // body.activate();
         // motionStates.push(motionState);
     }
     setPositions();
@@ -12944,6 +12202,8 @@ function setup()
 
     updateParams();
     updateBodyMeta();
+
+    // console.log("add ammobody",inName.get());
 }
 
 function setPositions()
@@ -12957,7 +12217,6 @@ function setPositions()
         if (posArr)
         {
             cgl.pushModelMatrix();
-
             mat4.translate(cgl.mMatrix, cgl.mMatrix, [
                 posArr[i * 3 + 0], posArr[i * 3 + 1], posArr[i * 3 + 2]]);
         }
@@ -12984,6 +12243,7 @@ function renderTransformed()
 {
     if (!bodies.length) return;
     if (!inActive.get()) return;
+    if (!tmpTrans) return;
 
     ping();
 
@@ -12995,12 +12255,10 @@ function renderTransformed()
             if (ms)
             {
                 ms.getWorldTransform(tmpTrans);
+
+                if (!tmpTrans)console.log("no tmpTrans");
                 let p = tmpTrans.getOrigin();
                 let q = tmpTrans.getRotation();
-
-                cgl.pushModelMatrix();
-
-                mat4.identity(cgl.mMatrix);
 
                 let scale = [inSizeX.get(), inSizeY.get(), inSizeZ.get()];
 
@@ -13009,7 +12267,23 @@ function renderTransformed()
                 // if (inShape.get() == "Cylinder") scale = [inRadius.get() * 2, inSizeY.get(), inRadius.get() * 2];
                 if (inShape.get() == "Capsule") scale = [inRadius.get() * 2, inSizeY.get() * 2, inRadius.get() * 2];
 
-                mat4.fromRotationTranslationScale(transMat, [q.x(), q.y(), q.z(), q.w()], [p.x(), p.y(), p.z()], scale);
+                if (isNaN(p.x()) || isNaN(q.x()))
+                {
+                    console.log("ammobody: rot/pos is nan... ", inName.get());
+                    needsRemove = true;
+                    // mat4.fromRotationTranslationScale(transMat, [0, 0, 0, 1], [1, 2, 3], scale);
+                    // doResetPos=true;
+                    // setPositions();
+                    return;
+                }
+                else
+                {
+                    mat4.fromRotationTranslationScale(transMat, [q.x(), q.y(), q.z(), q.w()], [p.x(), p.y(), p.z()], scale);
+                }
+
+                cgl.pushModelMatrix();
+                mat4.identity(cgl.mMatrix);
+
                 mat4.mul(cgl.mMatrix, cgl.mMatrix, transMat);
 
                 transformed.trigger();
@@ -13029,12 +12303,12 @@ function ping()
 function update()
 {
     if (world && bodies.length && bodies[0] && world.getBodyMeta(bodies[0]) == undefined)removeBody();
+    if (world != cgl.frameStore.ammoWorld) removeBody();
     if (needsRemove)
     {
         removeBody();
         needsRemove = false;
     }
-    if (world != cgl.frameStore.ammoWorld) removeBody();
 
     world = cgl.frameStore.ammoWorld;
     if (!world)
@@ -13042,7 +12316,7 @@ function update()
         outRayHit.set(false);
         return;
     }
-    if (!bodies.length) setup(world);
+    if (!bodies.length) setup();
     if (!bodies.length) return;
     if (bodies[0] && inNeverDeactivate.get()) bodies[0].activate(); // body.setActivationState(Ammo.DISABLE_DEACTIVATION); did not work.....
 
@@ -13464,7 +12738,7 @@ Ops.Gl.Phong.PhongMaterial_v6 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"phong_frag":"IN vec3 viewDirection;\nIN vec3 normInterpolated;\nIN vec2 texCoord;\n\n#ifdef ENABLE_FRESNEL\n    IN vec4 cameraSpace_pos;\n#endif\n\n// IN mat3 normalMatrix; // when instancing...\n\n#ifdef HAS_TEXTURE_NORMAL\n    IN mat3 TBN_Matrix; // tangent bitangent normal space transform matrix\n#endif\n\nIN vec3 fragPos;\nIN vec3 v_viewDirection;\n\nUNI vec4 inDiffuseColor;\nUNI vec4 inMaterialProperties;\n\n#ifdef ADD_EMISSIVE_COLOR\n    UNI vec4 inEmissiveColor; // .w = intensity\n#endif\n\n#ifdef ENABLE_FRESNEL\n    UNI mat4 viewMatrix;\n    UNI vec4 inFresnel;\n    UNI vec2 inFresnelWidthExponent;\n#endif\n\n#ifdef ENVMAP_MATCAP\n    IN vec3 viewSpaceNormal;\n    IN vec3 viewSpacePosition;\n#endif\n\nstruct Light {\n    vec3 color;\n    vec3 position;\n    vec3 specular;\n\n\n    // * SPOT LIGHT * //\n    #ifdef HAS_SPOT\n        vec3 conePointAt;\n        #define COSCONEANGLE x\n        #define COSCONEANGLEINNER y\n        #define SPOTEXPONENT z\n        vec3 spotProperties;\n    #endif\n\n    #define INTENSITY x\n    #define ATTENUATION y\n    #define FALLOFF z\n    #define RADIUS w\n    vec4 lightProperties;\n\n    int castLight;\n};\n\n/* CONSTANTS */\n#define NONE -1\n#define ALBEDO x\n#define ROUGHNESS y\n#define SHININESS z\n#define SPECULAR_AMT w\n#define NORMAL x\n#define AO y\n#define SPECULAR z\n#define EMISSIVE w\nconst float PI = 3.1415926535897932384626433832795;\nconst float TWO_PI = (2. * PI);\nconst float EIGHT_PI = (8. * PI);\n\n#define RECIPROCAL_PI 1./PI\n#define RECIPROCAL_PI2 RECIPROCAL_PI/2.\n\n// TEXTURES\n// #ifdef HAS_TEXTURES\n    UNI vec4 inTextureIntensities;\n\n    #ifdef HAS_TEXTURE_ENV\n        #ifdef TEX_FORMAT_CUBEMAP\n            UNI samplerCube texEnv;\n            #ifndef WEBGL1\n                #define SAMPLETEX textureLod\n            #endif\n            #ifdef WEBGL1\n                #define SAMPLETEX textureCubeLodEXT\n            #endif\n        #endif\n\n        #ifdef TEX_FORMAT_EQUIRECT\n            UNI sampler2D texEnv;\n            #ifdef WEBGL1\n                // #extension GL_EXT_shader_texture_lod : enable\n                #ifdef GL_EXT_shader_texture_lod\n                    #define textureLod texture2DLodEXT\n                #endif\n                // #define textureLod texture2D\n            #endif\n\n            #define SAMPLETEX sampleEquirect\n\n            const vec2 invAtan = vec2(0.1591, 0.3183);\n            vec4 sampleEquirect(sampler2D tex,vec3 direction,float lod)\n            {\n                #ifndef WEBGL1\n                    vec3 newDirection = normalize(direction);\n            \t\tvec2 sampleUV;\n            \t\tsampleUV.x = -1. * (atan( direction.z, direction.x ) * RECIPROCAL_PI2 + 0.75);\n            \t\tsampleUV.y = asin( clamp(direction.y, -1., 1.) ) * RECIPROCAL_PI + 0.5;\n                #endif\n\n                #ifdef WEBGL1\n                    vec3 newDirection = normalize(direction);\n                \t\tvec2 sampleUV = vec2(atan(newDirection.z, newDirection.x), asin(newDirection.y+1e-6));\n                        sampleUV *= vec2(0.1591, 0.3183);\n                        sampleUV += 0.5;\n                #endif\n                return textureLod(tex, sampleUV, lod);\n            }\n        #endif\n        #ifdef ENVMAP_MATCAP\n            UNI sampler2D texEnv;\n            #ifdef WEBGL1\n                // #extension GL_EXT_shader_texture_lod : enable\n                #ifdef GL_EXT_shader_texture_lod\n                    #define textureLod texture2DLodEXT\n                #endif\n                // #define textureLod texture2D\n            #endif\n\n\n            // * taken & modified from https://github.com/mrdoob/three.js/blob/dev/src/renderers/shaders/ShaderLib/meshmatcap_frag.glsl.js\n            vec2 getMatCapUV(vec3 viewSpacePosition, vec3 viewSpaceNormal) {\n                vec3 viewDir = normalize(-viewSpacePosition);\n            \tvec3 x = normalize(vec3(viewDir.z, 0.0, - viewDir.x));\n            \tvec3 y = normalize(cross(viewDir, x));\n            \tvec2 uv = vec2(dot(x, viewSpaceNormal), dot(y, viewSpaceNormal)) * 0.495 + 0.5; // 0.495 to remove artifacts caused by undersized matcap disks\n            \treturn uv;\n            }\n        #endif\n\n        UNI float inEnvMapIntensity;\n        UNI float inEnvMapWidth;\n    #endif\n\n    #ifdef HAS_TEXTURE_LUMINANCE_MASK\n        UNI sampler2D texLuminance;\n        UNI float inLuminanceMaskIntensity;\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D texDiffuse;\n    #endif\n\n    #ifdef HAS_TEXTURE_SPECULAR\n        UNI sampler2D texSpecular;\n    #endif\n\n    #ifdef HAS_TEXTURE_NORMAL\n        UNI sampler2D texNormal;\n    #endif\n\n    #ifdef HAS_TEXTURE_AO\n        UNI sampler2D texAO;\n    #endif\n\n    #ifdef HAS_TEXTURE_EMISSIVE\n        UNI sampler2D texEmissive;\n    #endif\n\n    #ifdef HAS_TEXTURE_EMISSIVE_MASK\n        UNI sampler2D texMaskEmissive;\n        UNI float inEmissiveMaskIntensity;\n    #endif\n    #ifdef HAS_TEXTURE_ALPHA\n        UNI sampler2D texAlpha;\n    #endif\n// #endif\n\n{{MODULES_HEAD}}\n\nfloat when_gt(float x, float y) { return max(sign(x - y), 0.0); } // comparator function\nfloat when_lt(float x, float y) { return max(sign(y - x), 0.0); }\nfloat when_eq(float x, float y) { return 1. - abs(sign(x - y)); } // comparator function\nfloat when_neq(float x, float y) { return abs(sign(x - y)); } // comparator function\nfloat when_ge(float x, float y) { return 1.0 - when_lt(x, y); }\nfloat when_le(float x, float y) { return 1.0 - when_gt(x, y); }\n\n#ifdef FALLOFF_MODE_A\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // * original falloff\n        float denom = distance / radius + 1.0;\n        float attenuation = 1.0 / (denom*denom);\n        float t = (attenuation - falloff) / (1.0 - falloff);\n        return max(t, 0.0);\n    }\n#endif\n\n#ifdef FALLOFF_MODE_B\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        float distanceSquared = dot(lightDirection, lightDirection);\n        float factor = distanceSquared * falloff;\n        float smoothFactor = clamp(1. - factor * factor, 0., 1.);\n        float attenuation = smoothFactor * smoothFactor;\n\n        return attenuation * 1. / max(distanceSquared, 0.00001);\n    }\n#endif\n\n#ifdef FALLOFF_MODE_C\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf\n        float falloffNumerator = 1. - pow(distance/radius, 4.);\n        falloffNumerator = clamp(falloffNumerator, 0., 1.);\n        falloffNumerator *= falloffNumerator;\n\n        float denominator = distance*distance + falloff;\n\n        return falloffNumerator/denominator;\n    }\n#endif\n\n#ifdef FALLOFF_MODE_D\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // inverse square falloff, \"physically correct\"\n        return 1.0 / max(distance * distance, 0.0001);\n    }\n#endif\n\n#ifdef ENABLE_FRESNEL\n    float CalculateFresnel(vec3 direction, vec3 normal)\n    {\n        vec3 nDirection = normalize( direction );\n        vec3 nNormal = normalize( mat3(viewMatrix) * normal );\n        vec3 halfDirection = normalize( nNormal + nDirection );\n\n        float cosine = dot( halfDirection, nDirection );\n        float product = max( cosine, 0.0 );\n        float factor = pow(product, inFresnelWidthExponent.y);\n\n        return 5. * factor;\n    }\n#endif\n\n#ifdef CONSERVE_ENERGY\n    // http://www.rorydriscoll.com/2009/01/25/energy-conservation-in-games/\n    // http://www.farbrausch.de/~fg/articles/phong.pdf\n    float EnergyConservation(float shininess) {\n        #ifdef SPECULAR_PHONG\n            return (shininess + 2.)/TWO_PI;\n        #endif\n        #ifdef SPECULAR_BLINN\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n\n        #ifdef SPECULAR_SCHLICK\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n\n        #ifdef SPECULAR_GAUSS\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n    }\n#endif\n\n#ifdef ENABLE_OREN_NAYAR_DIFFUSE\n    float CalculateOrenNayar(vec3 lightDirection, vec3 viewDirection, vec3 normal) {\n        float LdotV = dot(lightDirection, viewDirection);\n        float NdotL = dot(lightDirection, normal);\n        float NdotV = dot(normal, viewDirection);\n\n        float albedo = inMaterialProperties.ALBEDO;\n        albedo *= 1.8;\n        float s = LdotV - NdotL * NdotV;\n        float t = mix(1., max(NdotL, NdotV), step(0., s));\n\n        float roughness = inMaterialProperties.ROUGHNESS;\n        float sigma2 = roughness * roughness;\n        float A = 1. + sigma2 * (albedo / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));\n        float B = 0.45 * sigma2 / (sigma2 + 0.09);\n\n        float factor = albedo * max(0., NdotL) * (A + B * s / t) / PI;\n\n        return factor;\n\n    }\n#endif\n\nvec3 CalculateDiffuseColor(\n    vec3 lightDirection,\n    vec3 viewDirection,\n    vec3 normal,\n    vec3 lightColor,\n    vec3 materialColor,\n    inout float lambert\n) {\n    #ifndef ENABLE_OREN_NAYAR_DIFFUSE\n        lambert = clamp(dot(lightDirection, normal), 0., 1.);\n    #endif\n\n    #ifdef ENABLE_OREN_NAYAR_DIFFUSE\n        lambert = CalculateOrenNayar(lightDirection, viewDirection, normal);\n    #endif\n\n    vec3 diffuseColor = lambert * lightColor * materialColor;\n    return diffuseColor;\n}\n\nvec3 CalculateSpecularColor(\n    vec3 specularColor,\n    float specularCoefficient,\n    float shininess,\n    vec3 lightDirection,\n    vec3 viewDirection,\n    vec3 normal,\n    float lambertian\n) {\n    vec3 resultColor = vec3(0.);\n\n    #ifdef SPECULAR_PHONG\n        vec3 reflectDirection = reflect(-lightDirection, normal);\n        float specularAngle = max(dot(reflectDirection, viewDirection), 0.);\n        float specularFactor = pow(specularAngle, max(0., shininess));\n    resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_BLINN\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = max(dot(halfDirection, normal), 0.);\n        float specularFactor = pow(specularAngle, max(0., shininess));\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_SCHLICK\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = dot(halfDirection, normal);\n        float schlickShininess = max(0., shininess);\n        float specularFactor = specularAngle / (schlickShininess - schlickShininess*specularAngle + specularAngle);\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_GAUSS\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = acos(max(dot(halfDirection, normal), 0.));\n        float exponent = specularAngle * shininess * 0.17;\n        exponent = -(exponent*exponent);\n        float specularFactor = exp(exponent);\n\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef CONSERVE_ENERGY\n        float conserveEnergyFactor = EnergyConservation(shininess);\n        resultColor = conserveEnergyFactor * resultColor;\n    #endif\n\n    return resultColor;\n}\n\n#ifdef HAS_SPOT\n    float CalculateSpotLightEffect(vec3 lightPosition, vec3 conePointAt, float cosConeAngle, float cosConeAngleInner, float spotExponent, vec3 lightDirection) {\n        vec3 spotLightDirection = normalize(lightPosition-conePointAt);\n        float spotAngle = dot(-lightDirection, spotLightDirection);\n        float epsilon = cosConeAngle - cosConeAngleInner;\n\n        float spotIntensity = clamp((spotAngle - cosConeAngle)/epsilon, 0.0, 1.0);\n        spotIntensity = pow(spotIntensity, max(0.01, spotExponent));\n\n        return max(0., spotIntensity);\n    }\n#endif\n\n\n\n{{PHONG_FRAGMENT_HEAD}}\n\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n\n    vec4 col=vec4(0., 0., 0., inDiffuseColor.a);\n    vec3 calculatedColor = vec3(0.);\n    vec3 normal = normalize(normInterpolated);\n    vec3 baseColor = inDiffuseColor.rgb;\n\n    {{MODULE_BASE_COLOR}}\n\n\n    vec3 viewDirection = normalize(v_viewDirection);\n\n    #ifdef DOUBLE_SIDED\n        if(!gl_FrontFacing) normal = normal * -1.0;\n    #endif\n\n    #ifdef HAS_TEXTURES\n        #ifdef HAS_TEXTURE_DIFFUSE\n            baseColor = texture(texDiffuse, texCoord).rgb;\n\n            #ifdef COLORIZE_TEXTURE\n                baseColor *= inDiffuseColor.rgb;\n            #endif\n        #endif\n\n        #ifdef HAS_TEXTURE_NORMAL\n            normal = texture(texNormal, texCoord).rgb;\n            normal = normalize(normal * 2. - 1.);\n            float normalIntensity = inTextureIntensities.NORMAL;\n            normal = normalize(mix(vec3(0., 0., 1.), normal, 2. * normalIntensity));\n            normal = normalize(TBN_Matrix * normal);\n        #endif\n    #endif\n\n    {{PHONG_FRAGMENT_BODY}}\n\n\n\n\n\n\n    #ifdef ENABLE_FRESNEL\n        calculatedColor += inFresnel.rgb * (CalculateFresnel(vec3(cameraSpace_pos), normal) * inFresnel.w * inFresnelWidthExponent.x);\n    #endif\n\n     #ifdef HAS_TEXTURE_ALPHA\n        #ifdef ALPHA_MASK_ALPHA\n            col.a*=texture(texAlpha,texCoord).a;\n        #endif\n        #ifdef ALPHA_MASK_LUMI\n            col.a*= dot(vec3(0.2126,0.7152,0.0722), texture(texAlpha,texCoord).rgb);\n        #endif\n        #ifdef ALPHA_MASK_R\n            col.a*=texture(texAlpha,texCoord).r;\n        #endif\n        #ifdef ALPHA_MASK_G\n            col.a*=texture(texAlpha,texCoord).g;\n        #endif\n        #ifdef ALPHA_MASK_B\n            col.a*=texture(texAlpha,texCoord).b;\n        #endif\n    #endif\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_ENV\n        vec3 luminanceColor = vec3(0.);\n\n        #ifndef ENVMAP_MATCAP\n            float environmentMapWidth = inEnvMapWidth;\n            float glossyExponent = inMaterialProperties.SHININESS;\n            float glossyCoefficient = inMaterialProperties.SPECULAR_AMT;\n\n            vec3 envMapNormal =  normal;\n            vec3 reflectDirection = reflect(normalize(-viewDirection), normal);\n\n            float lambertianCoefficient = dot(viewDirection, reflectDirection); //0.44; // TODO: need prefiltered map for this\n            // lambertianCoefficient = 1.;\n            float specularAngle = max(dot(reflectDirection, viewDirection), 0.);\n            float specularFactor = pow(specularAngle, max(0., inMaterialProperties.SHININESS));\n\n            glossyExponent = specularFactor;\n\n            float maxMIPLevel = 10.;\n            float MIPlevel = log2(environmentMapWidth / 1024. * sqrt(3.)) - 0.5 * log2(glossyExponent + 1.);\n\n            luminanceColor = inEnvMapIntensity * (\n                inDiffuseColor.rgb *\n                SAMPLETEX(texEnv, envMapNormal, maxMIPLevel).rgb\n                +\n                glossyCoefficient * SAMPLETEX(texEnv, reflectDirection, MIPlevel).rgb\n            );\n        #endif\n        #ifdef ENVMAP_MATCAP\n            luminanceColor = inEnvMapIntensity * (\n                texture(texEnv, getMatCapUV(viewSpacePosition, viewSpaceNormal)).rgb\n                //inDiffuseColor.rgb\n                //* textureLod(texEnv, getMatCapUV(envMapNormal), maxMIPLevel).rgb\n                //+\n                //glossyCoefficient * textureLod(texEnv, getMatCapUV(reflectDirection), MIPlevel).rgb\n            );\n        #endif\n\n\n\n        #ifdef HAS_TEXTURE_LUMINANCE_MASK\n            luminanceColor *= texture(texLuminance, texCoord).r * inLuminanceMaskIntensity;\n        #endif\n\n        #ifdef HAS_TEXTURE_AO\n            // luminanceColor *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n            luminanceColor *= texture(texAO, texCoord).g*inTextureIntensities.AO;\n        #endif\n\n        #ifdef ENV_BLEND_ADD\n            calculatedColor.rgb += luminanceColor;\n        #endif\n        #ifdef ENV_BLEND_MUL\n            calculatedColor.rgb *= luminanceColor;\n        #endif\n\n        #ifdef ENV_BLEND_MIX\n            calculatedColor.rgb=mix(luminanceColor,calculatedColor.rgb,luminanceColor);\n        #endif\n\n\n    #endif\n\n    #ifdef ADD_EMISSIVE_COLOR\n        vec3 emissiveRadiance = mix(calculatedColor, inEmissiveColor.rgb, inEmissiveColor.w); // .w = intensity of color;\n\n        #ifdef HAS_TEXTURE_EMISSIVE\n            float emissiveIntensity = inTextureIntensities.EMISSIVE;\n            emissiveRadiance = mix(calculatedColor, texture(texEmissive, texCoord).rgb, emissiveIntensity);\n        #endif\n\n        #ifdef HAS_TEXTURE_EMISSIVE_MASK\n           float emissiveMixValue = mix(1., texture(texMaskEmissive, texCoord).r, inEmissiveMaskIntensity);\n           calculatedColor = mix(calculatedColor, emissiveRadiance, emissiveMixValue);\n        #endif\n\n        #ifndef HAS_TEXTURE_EMISSIVE_MASK\n            calculatedColor = emissiveRadiance;\n        #endif\n    #endif\n\n    col.rgb = clamp(calculatedColor, 0., 1.);\n\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n}\n","phong_vert":"\n{{MODULES_HEAD}}\n\n#define NONE -1\n#define AMBIENT 0\n#define POINT 1\n#define DIRECTIONAL 2\n#define SPOT 3\n\n#define TEX_REPEAT_X x;\n#define TEX_REPEAT_Y y;\n#define TEX_OFFSET_X z;\n#define TEX_OFFSET_Y w;\n\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN float attrVertIndex;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\n\nOUT vec2 texCoord;\nOUT vec3 normInterpolated;\nOUT vec3 fragPos;\n\n#ifdef HAS_TEXTURE_NORMAL\n    OUT mat3 TBN_Matrix; // tangent bitangent normal space transform matrix\n#endif\n\n#ifdef ENABLE_FRESNEL\n    OUT vec4 cameraSpace_pos;\n#endif\n\nOUT vec3 v_viewDirection;\nOUT mat3 normalMatrix;\nOUT mat4 mvMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI vec4 inTextureRepeatOffset;\n#endif\n\nUNI vec3 camPos;\nUNI mat4 projMatrix;\nUNI mat4 viewMatrix;\nUNI mat4 modelMatrix;\n\n#ifdef ENVMAP_MATCAP\n    OUT vec3 viewSpaceNormal;\n    OUT vec3 viewSpacePosition;\n#endif\n\n\nmat3 transposeMat3(mat3 m)\n{\n    return mat3(m[0][0], m[1][0], m[2][0],\n        m[0][1], m[1][1], m[2][1],\n        m[0][2], m[1][2], m[2][2]);\n}\n\nmat3 inverseMat3(mat3 m)\n{\n    float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2];\n    float a10 = m[1][0], a11 = m[1][1], a12 = m[1][2];\n    float a20 = m[2][0], a21 = m[2][1], a22 = m[2][2];\n\n    float b01 = a22 * a11 - a12 * a21;\n    float b11 = -a22 * a10 + a12 * a20;\n    float b21 = a21 * a10 - a11 * a20;\n\n    float det = a00 * b01 + a01 * b11 + a02 * b21;\n\n    return mat3(b01, (-a22 * a01 + a02 * a21), (a12 * a01 - a02 * a11),\n        b11, (a22 * a00 - a02 * a20), (-a12 * a00 + a02 * a10),\n        b21, (-a21 * a00 + a01 * a20), (a11 * a00 - a01 * a10)) / det;\n}\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    vec4 pos=vec4(vPosition,  1.0);\n\n    texCoord=attrTexCoord;\n    texCoord.y = 1. - texCoord.y;\n    vec3 norm=attrVertNormal;\n\n    vec3 tangent = attrTangent;\n    vec3 bitangent = attrBiTangent;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    normalMatrix = transposeMat3(inverseMat3(mat3(mMatrix)));\n    mvMatrix = (viewMatrix * mMatrix);\n\n\n\n    #ifdef ENABLE_FRESNEL\n        cameraSpace_pos = mvMatrix * pos;\n    #endif\n\n    #ifdef HAS_TEXTURES\n        float repeatX = inTextureRepeatOffset.TEX_REPEAT_X;\n        float offsetX = inTextureRepeatOffset.TEX_OFFSET_X;\n        float repeatY = inTextureRepeatOffset.TEX_REPEAT_Y;\n        float offsetY = inTextureRepeatOffset.TEX_OFFSET_Y;\n\n        texCoord.x *= repeatX;\n        texCoord.x += offsetX;\n        texCoord.y *= repeatY;\n        texCoord.y += offsetY;\n    #endif\n\n   normInterpolated = vec3(normalMatrix*norm);\n\n    #ifdef HAS_TEXTURE_NORMAL\n        vec3 normCameraSpace = normalize((vec4(normInterpolated, 0.0)).xyz);\n        vec3 tangCameraSpace = normalize((mMatrix * vec4(tangent, 0.0)).xyz);\n        vec3 bitangCameraSpace = normalize((mMatrix * vec4(bitangent, 0.0)).xyz);\n\n        // re orthogonalization for smoother normals\n        tangCameraSpace = normalize(tangCameraSpace - dot(tangCameraSpace, normCameraSpace) * normCameraSpace);\n        bitangCameraSpace = cross(normCameraSpace, tangCameraSpace);\n\n        TBN_Matrix = mat3(tangCameraSpace, bitangCameraSpace, normCameraSpace);\n    #endif\n\n    fragPos = vec3((mMatrix) * pos);\n    v_viewDirection = normalize(camPos - fragPos);\n    // modelPos=mMatrix*pos;\n\n    #ifdef ENVMAP_MATCAP\n        mat3 viewSpaceNormalMatrix = normalMatrix = transposeMat3(inverseMat3(mat3(mvMatrix)));\n        viewSpaceNormal = normalize(viewSpaceNormalMatrix * norm);\n        viewSpacePosition = vec3(mvMatrix * pos);\n    #endif\n    gl_Position = projMatrix * mvMatrix * pos;\n}\n","snippet_body_ambient_frag":"    // * AMBIENT LIGHT {{LIGHT_INDEX}} *\n    vec3 diffuseColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY*phongLight{{LIGHT_INDEX}}.color;\n    calculatedColor += diffuseColor{{LIGHT_INDEX}};\n","snippet_body_directional_frag":"    // * DIRECTIONAL LIGHT {{LIGHT_INDEX}} *\n\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = normalize(phongLight{{LIGHT_INDEX}}.position);\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                // lightColor{{LIGHT_INDEX}} *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n                lightColor{{LIGHT_INDEX}} *= texture(texAO, texCoord).g, inTextureIntensities.AO;\n\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        vec3 lightModelDiff{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }","snippet_body_point_frag":"// * POINT LIGHT {{LIGHT_INDEX}} *\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n        // * get length before normalization for falloff calculation\n        phongLightDirection{{LIGHT_INDEX}} = normalize(phongLightDirection{{LIGHT_INDEX}});\n        float phongLightDistance{{LIGHT_INDEX}} = length(phongLightDirection{{LIGHT_INDEX}});\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                // lightColor{{LIGHT_INDEX}} *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n                lightColor{{LIGHT_INDEX}} *= texture(texAO, texCoord).g, inTextureIntensities.AO;\n\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n\n        float attenuation{{LIGHT_INDEX}} = CalculateFalloff(\n            phongLightDistance{{LIGHT_INDEX}},\n            phongLightDirection{{LIGHT_INDEX}},\n            phongLight{{LIGHT_INDEX}}.lightProperties.FALLOFF,\n            phongLight{{LIGHT_INDEX}}.lightProperties.RADIUS\n        );\n\n        attenuation{{LIGHT_INDEX}} *= when_gt(phongLambert{{LIGHT_INDEX}}, 0.);\n        combinedColor{{LIGHT_INDEX}} *= attenuation{{LIGHT_INDEX}};\n\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }\n","snippet_body_spot_frag":"    // * SPOT LIGHT {{LIGHT_INDEX}} *\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n        phongLightDirection{{LIGHT_INDEX}} = normalize( phongLightDirection{{LIGHT_INDEX}});\n        float phongLightDistance{{LIGHT_INDEX}} = length(phongLightDirection{{LIGHT_INDEX}});\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                // lightColor{{LIGHT_INDEX}} *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n                lightColor{{LIGHT_INDEX}} *= texture(texAO, texCoord).g, inTextureIntensities.AO;\n\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        float spotIntensity{{LIGHT_INDEX}} = CalculateSpotLightEffect(\n            phongLight{{LIGHT_INDEX}}.position, phongLight{{LIGHT_INDEX}}.conePointAt, phongLight{{LIGHT_INDEX}}.spotProperties.COSCONEANGLE,\n            phongLight{{LIGHT_INDEX}}.spotProperties.COSCONEANGLEINNER, phongLight{{LIGHT_INDEX}}.spotProperties.SPOTEXPONENT,\n            phongLightDirection{{LIGHT_INDEX}}\n        );\n\n        combinedColor{{LIGHT_INDEX}} *= spotIntensity{{LIGHT_INDEX}};\n\n        vec3 lightModelDiff{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n\n        float attenuation{{LIGHT_INDEX}} = CalculateFalloff(\n            phongLightDistance{{LIGHT_INDEX}},\n            phongLightDirection{{LIGHT_INDEX}},\n            phongLight{{LIGHT_INDEX}}.lightProperties.FALLOFF,\n            phongLight{{LIGHT_INDEX}}.lightProperties.RADIUS\n        );\n\n        attenuation{{LIGHT_INDEX}} *= when_gt(phongLambert{{LIGHT_INDEX}}, 0.);\n\n        combinedColor{{LIGHT_INDEX}} *= attenuation{{LIGHT_INDEX}};\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }","snippet_head_frag":"UNI Light phongLight{{LIGHT_INDEX}};\n",};
+const attachments={"phong_frag":"IN vec3 viewDirection;\nIN vec3 normInterpolated;\nIN vec2 texCoord;\n\n#ifdef AO_CHAN_1\n    #ifndef ATTRIB_texCoord1\n        #define ATTRIB_texCoord1\n\n        IN vec2 texCoord1;\n    #endif\n#endif\n\n#ifdef HAS_TEXTURE_AO\nvec2 tcAo;\n#endif\n\n\n\n#ifdef ENABLE_FRESNEL\n    IN vec4 cameraSpace_pos;\n#endif\n\n// IN mat3 normalMatrix; // when instancing...\n\n#ifdef HAS_TEXTURE_NORMAL\n    IN mat3 TBN_Matrix; // tangent bitangent normal space transform matrix\n#endif\n\nIN vec3 fragPos;\nIN vec3 v_viewDirection;\n\nUNI vec4 inDiffuseColor;\nUNI vec4 inMaterialProperties;\n\n#ifdef ADD_EMISSIVE_COLOR\n    UNI vec4 inEmissiveColor; // .w = intensity\n#endif\n\n#ifdef ENABLE_FRESNEL\n    UNI mat4 viewMatrix;\n    UNI vec4 inFresnel;\n    UNI vec2 inFresnelWidthExponent;\n#endif\n\n#ifdef ENVMAP_MATCAP\n    IN vec3 viewSpaceNormal;\n    IN vec3 viewSpacePosition;\n#endif\n\nstruct Light {\n    vec3 color;\n    vec3 position;\n    vec3 specular;\n\n\n    // * SPOT LIGHT * //\n    #ifdef HAS_SPOT\n        vec3 conePointAt;\n        #define COSCONEANGLE x\n        #define COSCONEANGLEINNER y\n        #define SPOTEXPONENT z\n        vec3 spotProperties;\n    #endif\n\n    #define INTENSITY x\n    #define ATTENUATION y\n    #define FALLOFF z\n    #define RADIUS w\n    vec4 lightProperties;\n\n    int castLight;\n};\n\n/* CONSTANTS */\n#define NONE -1\n#define ALBEDO x\n#define ROUGHNESS y\n#define SHININESS z\n#define SPECULAR_AMT w\n#define NORMAL x\n#define AO y\n#define SPECULAR z\n#define EMISSIVE w\nconst float PI = 3.1415926535897932384626433832795;\nconst float TWO_PI = (2. * PI);\nconst float EIGHT_PI = (8. * PI);\n\n#define RECIPROCAL_PI 1./PI\n#define RECIPROCAL_PI2 RECIPROCAL_PI/2.\n\n// TEXTURES\n// #ifdef HAS_TEXTURES\n    UNI vec4 inTextureIntensities;\n\n    #ifdef HAS_TEXTURE_ENV\n        #ifdef TEX_FORMAT_CUBEMAP\n            UNI samplerCube texEnv;\n            #ifndef WEBGL1\n                #define SAMPLETEX textureLod\n            #endif\n            #ifdef WEBGL1\n                #define SAMPLETEX textureCubeLodEXT\n            #endif\n        #endif\n\n        #ifdef TEX_FORMAT_EQUIRECT\n            UNI sampler2D texEnv;\n            #ifdef WEBGL1\n                // #extension GL_EXT_shader_texture_lod : enable\n                #ifdef GL_EXT_shader_texture_lod\n                    #define textureLod texture2DLodEXT\n                #endif\n                // #define textureLod texture2D\n            #endif\n\n            #define SAMPLETEX sampleEquirect\n\n            const vec2 invAtan = vec2(0.1591, 0.3183);\n            vec4 sampleEquirect(sampler2D tex,vec3 direction,float lod)\n            {\n                #ifndef WEBGL1\n                    vec3 newDirection = normalize(direction);\n            \t\tvec2 sampleUV;\n            \t\tsampleUV.x = -1. * (atan( direction.z, direction.x ) * RECIPROCAL_PI2 + 0.75);\n            \t\tsampleUV.y = asin( clamp(direction.y, -1., 1.) ) * RECIPROCAL_PI + 0.5;\n                #endif\n\n                #ifdef WEBGL1\n                    vec3 newDirection = normalize(direction);\n                \t\tvec2 sampleUV = vec2(atan(newDirection.z, newDirection.x), asin(newDirection.y+1e-6));\n                        sampleUV *= vec2(0.1591, 0.3183);\n                        sampleUV += 0.5;\n                #endif\n                return textureLod(tex, sampleUV, lod);\n            }\n        #endif\n        #ifdef ENVMAP_MATCAP\n            UNI sampler2D texEnv;\n            #ifdef WEBGL1\n                // #extension GL_EXT_shader_texture_lod : enable\n                #ifdef GL_EXT_shader_texture_lod\n                    #define textureLod texture2DLodEXT\n                #endif\n                // #define textureLod texture2D\n            #endif\n\n\n            // * taken & modified from https://github.com/mrdoob/three.js/blob/dev/src/renderers/shaders/ShaderLib/meshmatcap_frag.glsl.js\n            vec2 getMatCapUV(vec3 viewSpacePosition, vec3 viewSpaceNormal) {\n                vec3 viewDir = normalize(-viewSpacePosition);\n            \tvec3 x = normalize(vec3(viewDir.z, 0.0, - viewDir.x));\n            \tvec3 y = normalize(cross(viewDir, x));\n            \tvec2 uv = vec2(dot(x, viewSpaceNormal), dot(y, viewSpaceNormal)) * 0.495 + 0.5; // 0.495 to remove artifacts caused by undersized matcap disks\n            \treturn uv;\n            }\n        #endif\n\n        UNI float inEnvMapIntensity;\n        UNI float inEnvMapWidth;\n    #endif\n\n    #ifdef HAS_TEXTURE_LUMINANCE_MASK\n        UNI sampler2D texLuminance;\n        UNI float inLuminanceMaskIntensity;\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D texDiffuse;\n    #endif\n\n    #ifdef HAS_TEXTURE_SPECULAR\n        UNI sampler2D texSpecular;\n    #endif\n\n    #ifdef HAS_TEXTURE_NORMAL\n        UNI sampler2D texNormal;\n    #endif\n\n    #ifdef HAS_TEXTURE_AO\n        UNI sampler2D texAO;\n    #endif\n\n    #ifdef HAS_TEXTURE_EMISSIVE\n        UNI sampler2D texEmissive;\n    #endif\n\n    #ifdef HAS_TEXTURE_EMISSIVE_MASK\n        UNI sampler2D texMaskEmissive;\n        UNI float inEmissiveMaskIntensity;\n    #endif\n    #ifdef HAS_TEXTURE_ALPHA\n        UNI sampler2D texAlpha;\n    #endif\n// #endif\n\n{{MODULES_HEAD}}\n\nfloat when_gt(float x, float y) { return max(sign(x - y), 0.0); } // comparator function\nfloat when_lt(float x, float y) { return max(sign(y - x), 0.0); }\nfloat when_eq(float x, float y) { return 1. - abs(sign(x - y)); } // comparator function\nfloat when_neq(float x, float y) { return abs(sign(x - y)); } // comparator function\nfloat when_ge(float x, float y) { return 1.0 - when_lt(x, y); }\nfloat when_le(float x, float y) { return 1.0 - when_gt(x, y); }\n\n#ifdef FALLOFF_MODE_A\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // * original falloff\n        float denom = distance / radius + 1.0;\n        float attenuation = 1.0 / (denom*denom);\n        float t = (attenuation - falloff) / (1.0 - falloff);\n        return max(t, 0.0);\n    }\n#endif\n\n#ifdef FALLOFF_MODE_B\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        float distanceSquared = dot(lightDirection, lightDirection);\n        float factor = distanceSquared * falloff;\n        float smoothFactor = clamp(1. - factor * factor, 0., 1.);\n        float attenuation = smoothFactor * smoothFactor;\n\n        return attenuation * 1. / max(distanceSquared, 0.00001);\n    }\n#endif\n\n#ifdef FALLOFF_MODE_C\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // https://blog.selfshadow.com/publications/s2013-shading-course/karis/s2013_pbs_epic_notes_v2.pdf\n        float falloffNumerator = 1. - pow(distance/radius, 4.);\n        falloffNumerator = clamp(falloffNumerator, 0., 1.);\n        falloffNumerator *= falloffNumerator;\n\n        float denominator = distance*distance + falloff;\n\n        return falloffNumerator/denominator;\n    }\n#endif\n\n#ifdef FALLOFF_MODE_D\n    float CalculateFalloff(float distance, vec3 lightDirection, float falloff, float radius) {\n        // inverse square falloff, \"physically correct\"\n        return 1.0 / max(distance * distance, 0.0001);\n    }\n#endif\n\n#ifdef ENABLE_FRESNEL\n    float CalculateFresnel(vec3 direction, vec3 normal)\n    {\n        vec3 nDirection = normalize( direction );\n        vec3 nNormal = normalize( mat3(viewMatrix) * normal );\n        vec3 halfDirection = normalize( nNormal + nDirection );\n\n        float cosine = dot( halfDirection, nDirection );\n        float product = max( cosine, 0.0 );\n        float factor = pow(product, inFresnelWidthExponent.y);\n\n        return 5. * factor;\n    }\n#endif\n\n#ifdef CONSERVE_ENERGY\n    // http://www.rorydriscoll.com/2009/01/25/energy-conservation-in-games/\n    // http://www.farbrausch.de/~fg/articles/phong.pdf\n    float EnergyConservation(float shininess) {\n        #ifdef SPECULAR_PHONG\n            return (shininess + 2.)/TWO_PI;\n        #endif\n        #ifdef SPECULAR_BLINN\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n\n        #ifdef SPECULAR_SCHLICK\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n\n        #ifdef SPECULAR_GAUSS\n            return (shininess + 8.)/EIGHT_PI;\n        #endif\n    }\n#endif\n\n#ifdef ENABLE_OREN_NAYAR_DIFFUSE\n    float CalculateOrenNayar(vec3 lightDirection, vec3 viewDirection, vec3 normal) {\n        float LdotV = dot(lightDirection, viewDirection);\n        float NdotL = dot(lightDirection, normal);\n        float NdotV = dot(normal, viewDirection);\n\n        float albedo = inMaterialProperties.ALBEDO;\n        albedo *= 1.8;\n        float s = LdotV - NdotL * NdotV;\n        float t = mix(1., max(NdotL, NdotV), step(0., s));\n\n        float roughness = inMaterialProperties.ROUGHNESS;\n        float sigma2 = roughness * roughness;\n        float A = 1. + sigma2 * (albedo / (sigma2 + 0.13) + 0.5 / (sigma2 + 0.33));\n        float B = 0.45 * sigma2 / (sigma2 + 0.09);\n\n        float factor = albedo * max(0., NdotL) * (A + B * s / t) / PI;\n\n        return factor;\n\n    }\n#endif\n\nvec3 CalculateDiffuseColor(\n    vec3 lightDirection,\n    vec3 viewDirection,\n    vec3 normal,\n    vec3 lightColor,\n    vec3 materialColor,\n    inout float lambert\n) {\n    #ifndef ENABLE_OREN_NAYAR_DIFFUSE\n        lambert = clamp(dot(lightDirection, normal), 0., 1.);\n    #endif\n\n    #ifdef ENABLE_OREN_NAYAR_DIFFUSE\n        lambert = CalculateOrenNayar(lightDirection, viewDirection, normal);\n    #endif\n\n    vec3 diffuseColor = lambert * lightColor * materialColor;\n    return diffuseColor;\n}\n\nvec3 CalculateSpecularColor(\n    vec3 specularColor,\n    float specularCoefficient,\n    float shininess,\n    vec3 lightDirection,\n    vec3 viewDirection,\n    vec3 normal,\n    float lambertian\n) {\n    vec3 resultColor = vec3(0.);\n\n    #ifdef SPECULAR_PHONG\n        vec3 reflectDirection = reflect(-lightDirection, normal);\n        float specularAngle = max(dot(reflectDirection, viewDirection), 0.);\n        float specularFactor = pow(specularAngle, max(0., shininess));\n    resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_BLINN\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = max(dot(halfDirection, normal), 0.);\n        float specularFactor = pow(specularAngle, max(0., shininess));\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_SCHLICK\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = dot(halfDirection, normal);\n        float schlickShininess = max(0., shininess);\n        float specularFactor = specularAngle / (schlickShininess - schlickShininess*specularAngle + specularAngle);\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef SPECULAR_GAUSS\n        vec3 halfDirection = normalize(lightDirection + viewDirection);\n        float specularAngle = acos(max(dot(halfDirection, normal), 0.));\n        float exponent = specularAngle * shininess * 0.17;\n        exponent = -(exponent*exponent);\n        float specularFactor = exp(exponent);\n\n        resultColor = lambertian * specularFactor * specularCoefficient * specularColor;\n    #endif\n\n    #ifdef CONSERVE_ENERGY\n        float conserveEnergyFactor = EnergyConservation(shininess);\n        resultColor = conserveEnergyFactor * resultColor;\n    #endif\n\n    return resultColor;\n}\n\n#ifdef HAS_SPOT\n    float CalculateSpotLightEffect(vec3 lightPosition, vec3 conePointAt, float cosConeAngle, float cosConeAngleInner, float spotExponent, vec3 lightDirection) {\n        vec3 spotLightDirection = normalize(lightPosition-conePointAt);\n        float spotAngle = dot(-lightDirection, spotLightDirection);\n        float epsilon = cosConeAngle - cosConeAngleInner;\n\n        float spotIntensity = clamp((spotAngle - cosConeAngle)/epsilon, 0.0, 1.0);\n        spotIntensity = pow(spotIntensity, max(0.01, spotExponent));\n\n        return max(0., spotIntensity);\n    }\n#endif\n\n\n\n{{PHONG_FRAGMENT_HEAD}}\n\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n\n    vec4 col=vec4(0., 0., 0., inDiffuseColor.a);\n    vec3 calculatedColor = vec3(0.);\n    vec3 normal = normalize(normInterpolated);\n    vec3 baseColor = inDiffuseColor.rgb;\n\n    {{MODULE_BASE_COLOR}}\n\n\n\n    #ifdef AO_CHAN_0\n        vec2 tcAo=texCoord;\n    #endif\n    #ifdef AO_CHAN_1\n        vec2 tcAo=texCoord1;\n    #endif\n\n\n    vec3 viewDirection = normalize(v_viewDirection);\n\n    #ifdef DOUBLE_SIDED\n        if(!gl_FrontFacing) normal = normal * -1.0;\n    #endif\n\n    #ifdef HAS_TEXTURES\n        #ifdef HAS_TEXTURE_DIFFUSE\n            baseColor = texture(texDiffuse, texCoord).rgb;\n\n            #ifdef COLORIZE_TEXTURE\n                baseColor *= inDiffuseColor.rgb;\n            #endif\n        #endif\n\n        #ifdef HAS_TEXTURE_NORMAL\n            normal = texture(texNormal, texCoord).rgb;\n            normal = normalize(normal * 2. - 1.);\n            float normalIntensity = inTextureIntensities.NORMAL;\n            normal = normalize(mix(vec3(0., 0., 1.), normal, 2. * normalIntensity));\n            normal = normalize(TBN_Matrix * normal);\n        #endif\n    #endif\n\n    {{PHONG_FRAGMENT_BODY}}\n\n\n\n\n\n\n    #ifdef ENABLE_FRESNEL\n        calculatedColor += inFresnel.rgb * (CalculateFresnel(vec3(cameraSpace_pos), normal) * inFresnel.w * inFresnelWidthExponent.x);\n    #endif\n\n     #ifdef HAS_TEXTURE_ALPHA\n        #ifdef ALPHA_MASK_ALPHA\n            col.a*=texture(texAlpha,texCoord).a;\n        #endif\n        #ifdef ALPHA_MASK_LUMI\n            col.a*= dot(vec3(0.2126,0.7152,0.0722), texture(texAlpha,texCoord).rgb);\n        #endif\n        #ifdef ALPHA_MASK_R\n            col.a*=texture(texAlpha,texCoord).r;\n        #endif\n        #ifdef ALPHA_MASK_G\n            col.a*=texture(texAlpha,texCoord).g;\n        #endif\n        #ifdef ALPHA_MASK_B\n            col.a*=texture(texAlpha,texCoord).b;\n        #endif\n    #endif\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_ENV\n        vec3 luminanceColor = vec3(0.);\n\n        #ifndef ENVMAP_MATCAP\n            float environmentMapWidth = inEnvMapWidth;\n            float glossyExponent = inMaterialProperties.SHININESS;\n            float glossyCoefficient = inMaterialProperties.SPECULAR_AMT;\n\n            vec3 envMapNormal =  normal;\n            vec3 reflectDirection = reflect(normalize(-viewDirection), normal);\n\n            float lambertianCoefficient = dot(viewDirection, reflectDirection); //0.44; // TODO: need prefiltered map for this\n            // lambertianCoefficient = 1.;\n            float specularAngle = max(dot(reflectDirection, viewDirection), 0.);\n            float specularFactor = pow(specularAngle, max(0., inMaterialProperties.SHININESS));\n\n            glossyExponent = specularFactor;\n\n            float maxMIPLevel = 10.;\n            float MIPlevel = log2(environmentMapWidth / 1024. * sqrt(3.)) - 0.5 * log2(glossyExponent + 1.);\n\n            luminanceColor = inEnvMapIntensity * (\n                inDiffuseColor.rgb *\n                SAMPLETEX(texEnv, envMapNormal, maxMIPLevel).rgb\n                +\n                glossyCoefficient * SAMPLETEX(texEnv, reflectDirection, MIPlevel).rgb\n            );\n        #endif\n        #ifdef ENVMAP_MATCAP\n            luminanceColor = inEnvMapIntensity * (\n                texture(texEnv, getMatCapUV(viewSpacePosition, viewSpaceNormal)).rgb\n                //inDiffuseColor.rgb\n                //* textureLod(texEnv, getMatCapUV(envMapNormal), maxMIPLevel).rgb\n                //+\n                //glossyCoefficient * textureLod(texEnv, getMatCapUV(reflectDirection), MIPlevel).rgb\n            );\n        #endif\n\n\n\n        #ifdef HAS_TEXTURE_LUMINANCE_MASK\n            luminanceColor *= texture(texLuminance, texCoord).r * inLuminanceMaskIntensity;\n        #endif\n\n        #ifdef HAS_TEXTURE_AO\n            luminanceColor *= texture(texAO, tcAo).g*inTextureIntensities.AO;\n        #endif\n\n        #ifdef ENV_BLEND_ADD\n            calculatedColor.rgb += luminanceColor;\n        #endif\n        #ifdef ENV_BLEND_MUL\n            calculatedColor.rgb *= luminanceColor;\n        #endif\n\n        #ifdef ENV_BLEND_MIX\n            calculatedColor.rgb=mix(luminanceColor,calculatedColor.rgb,luminanceColor);\n        #endif\n\n\n    #endif\n\n    #ifdef ADD_EMISSIVE_COLOR\n        vec3 emissiveRadiance = mix(calculatedColor, inEmissiveColor.rgb, inEmissiveColor.w); // .w = intensity of color;\n\n        #ifdef HAS_TEXTURE_EMISSIVE\n            float emissiveIntensity = inTextureIntensities.EMISSIVE;\n            emissiveRadiance = mix(calculatedColor, texture(texEmissive, texCoord).rgb, emissiveIntensity);\n        #endif\n\n        #ifdef HAS_TEXTURE_EMISSIVE_MASK\n           float emissiveMixValue = mix(1., texture(texMaskEmissive, texCoord).r, inEmissiveMaskIntensity);\n           calculatedColor = mix(calculatedColor, emissiveRadiance, emissiveMixValue);\n        #endif\n\n        #ifndef HAS_TEXTURE_EMISSIVE_MASK\n            calculatedColor = emissiveRadiance;\n        #endif\n    #endif\n\n    col.rgb = clamp(calculatedColor, 0., 1.);\n\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n\n}\n","phong_vert":"\n{{MODULES_HEAD}}\n\n#define NONE -1\n#define AMBIENT 0\n#define POINT 1\n#define DIRECTIONAL 2\n#define SPOT 3\n\n#define TEX_REPEAT_X x;\n#define TEX_REPEAT_Y y;\n#define TEX_OFFSET_X z;\n#define TEX_OFFSET_Y w;\n\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN float attrVertIndex;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\n\nOUT vec2 texCoord;\nOUT vec3 normInterpolated;\nOUT vec3 fragPos;\n\n#ifdef AO_CHAN_1\n    #ifndef ATTRIB_attrTexCoord1\n        IN vec2 attrTexCoord1;\n        OUT vec2 texCoord1;\n        #define ATTRIB_attrTexCoord1\n        #define ATTRIB_texCoord1\n    #endif\n#endif\n\n#ifdef HAS_TEXTURE_NORMAL\n    OUT mat3 TBN_Matrix; // tangent bitangent normal space transform matrix\n#endif\n\n#ifdef ENABLE_FRESNEL\n    OUT vec4 cameraSpace_pos;\n#endif\n\nOUT vec3 v_viewDirection;\nOUT mat3 normalMatrix;\nOUT mat4 mvMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI vec4 inTextureRepeatOffset;\n#endif\n\nUNI vec3 camPos;\nUNI mat4 projMatrix;\nUNI mat4 viewMatrix;\nUNI mat4 modelMatrix;\n\n#ifdef ENVMAP_MATCAP\n    OUT vec3 viewSpaceNormal;\n    OUT vec3 viewSpacePosition;\n#endif\n\n\nmat3 transposeMat3(mat3 m)\n{\n    return mat3(m[0][0], m[1][0], m[2][0],\n        m[0][1], m[1][1], m[2][1],\n        m[0][2], m[1][2], m[2][2]);\n}\n\nmat3 inverseMat3(mat3 m)\n{\n    float a00 = m[0][0], a01 = m[0][1], a02 = m[0][2];\n    float a10 = m[1][0], a11 = m[1][1], a12 = m[1][2];\n    float a20 = m[2][0], a21 = m[2][1], a22 = m[2][2];\n\n    float b01 = a22 * a11 - a12 * a21;\n    float b11 = -a22 * a10 + a12 * a20;\n    float b21 = a21 * a10 - a11 * a20;\n\n    float det = a00 * b01 + a01 * b11 + a02 * b21;\n\n    return mat3(b01, (-a22 * a01 + a02 * a21), (a12 * a01 - a02 * a11),\n        b11, (a22 * a00 - a02 * a20), (-a12 * a00 + a02 * a10),\n        b21, (-a21 * a00 + a01 * a20), (a11 * a00 - a01 * a10)) / det;\n}\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    vec4 pos=vec4(vPosition,  1.0);\n\n    texCoord=attrTexCoord;\n    texCoord.y = 1. - texCoord.y;\n\n    #ifdef ATTRIB_texCoord1\n        texCoord1=attrTexCoord1;\n    #endif\n\n    vec3 norm=attrVertNormal;\n    vec3 tangent = attrTangent;\n    vec3 bitangent = attrBiTangent;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    normalMatrix = transposeMat3(inverseMat3(mat3(mMatrix)));\n    mvMatrix = (viewMatrix * mMatrix);\n\n\n\n    #ifdef ENABLE_FRESNEL\n        cameraSpace_pos = mvMatrix * pos;\n    #endif\n\n    #ifdef HAS_TEXTURES\n        float repeatX = inTextureRepeatOffset.TEX_REPEAT_X;\n        float offsetX = inTextureRepeatOffset.TEX_OFFSET_X;\n        float repeatY = inTextureRepeatOffset.TEX_REPEAT_Y;\n        float offsetY = inTextureRepeatOffset.TEX_OFFSET_Y;\n\n        texCoord.x *= repeatX;\n        texCoord.x += offsetX;\n        texCoord.y *= repeatY;\n        texCoord.y += offsetY;\n    #endif\n\n   normInterpolated = vec3(normalMatrix*norm);\n\n    #ifdef HAS_TEXTURE_NORMAL\n        vec3 normCameraSpace = normalize((vec4(normInterpolated, 0.0)).xyz);\n        vec3 tangCameraSpace = normalize((mMatrix * vec4(tangent, 0.0)).xyz);\n        vec3 bitangCameraSpace = normalize((mMatrix * vec4(bitangent, 0.0)).xyz);\n\n        // re orthogonalization for smoother normals\n        tangCameraSpace = normalize(tangCameraSpace - dot(tangCameraSpace, normCameraSpace) * normCameraSpace);\n        bitangCameraSpace = cross(normCameraSpace, tangCameraSpace);\n\n        TBN_Matrix = mat3(tangCameraSpace, bitangCameraSpace, normCameraSpace);\n    #endif\n\n    fragPos = vec3((mMatrix) * pos);\n    v_viewDirection = normalize(camPos - fragPos);\n    // modelPos=mMatrix*pos;\n\n    #ifdef ENVMAP_MATCAP\n        mat3 viewSpaceNormalMatrix = normalMatrix = transposeMat3(inverseMat3(mat3(mvMatrix)));\n        viewSpaceNormal = normalize(viewSpaceNormalMatrix * norm);\n        viewSpacePosition = vec3(mvMatrix * pos);\n    #endif\n    gl_Position = projMatrix * mvMatrix * pos;\n}\n","snippet_body_ambient_frag":"    // * AMBIENT LIGHT {{LIGHT_INDEX}} *\n    vec3 diffuseColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY*phongLight{{LIGHT_INDEX}}.color;\n    calculatedColor += diffuseColor{{LIGHT_INDEX}};\n","snippet_body_directional_frag":"    // * DIRECTIONAL LIGHT {{LIGHT_INDEX}} *\n\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = normalize(phongLight{{LIGHT_INDEX}}.position);\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                // lightColor{{LIGHT_INDEX}} *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n                lightColor{{LIGHT_INDEX}} *= texture(texAO, tcAo).g, inTextureIntensities.AO;\n\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        vec3 lightModelDiff{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }","snippet_body_point_frag":"// * POINT LIGHT {{LIGHT_INDEX}} *\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n        // * get length before normalization for falloff calculation\n        phongLightDirection{{LIGHT_INDEX}} = normalize(phongLightDirection{{LIGHT_INDEX}});\n        float phongLightDistance{{LIGHT_INDEX}} = length(phongLightDirection{{LIGHT_INDEX}});\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                lightColor{{LIGHT_INDEX}} -= (1.0-texture(texAO, tcAo).g)* (inTextureIntensities.AO);\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n\n        float attenuation{{LIGHT_INDEX}} = CalculateFalloff(\n            phongLightDistance{{LIGHT_INDEX}},\n            phongLightDirection{{LIGHT_INDEX}},\n            phongLight{{LIGHT_INDEX}}.lightProperties.FALLOFF,\n            phongLight{{LIGHT_INDEX}}.lightProperties.RADIUS\n        );\n\n        attenuation{{LIGHT_INDEX}} *= when_gt(phongLambert{{LIGHT_INDEX}}, 0.);\n        combinedColor{{LIGHT_INDEX}} *= attenuation{{LIGHT_INDEX}};\n\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }\n","snippet_body_spot_frag":"    // * SPOT LIGHT {{LIGHT_INDEX}} *\n    if (phongLight{{LIGHT_INDEX}}.castLight == 1) {\n        vec3 phongLightDirection{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n        phongLightDirection{{LIGHT_INDEX}} = normalize( phongLightDirection{{LIGHT_INDEX}});\n        float phongLightDistance{{LIGHT_INDEX}} = length(phongLightDirection{{LIGHT_INDEX}});\n\n        float phongLambert{{LIGHT_INDEX}} = 1.; // inout variable\n\n        vec3 lightColor{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.color;\n        vec3 lightSpecular{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.specular;\n\n        #ifdef HAS_TEXTURES\n            #ifdef HAS_TEXTURE_AO\n                // lightColor{{LIGHT_INDEX}} *= mix(vec3(1.), texture(texAO, texCoord).rgb, inTextureIntensities.AO);\n                lightColor{{LIGHT_INDEX}} *= texture(texAO, texCoord).g, inTextureIntensities.AO;\n\n            #endif\n\n            #ifdef HAS_TEXTURE_SPECULAR\n                lightSpecular{{LIGHT_INDEX}} *= mix(1., texture(texSpecular, texCoord).r, inTextureIntensities.SPECULAR);\n            #endif\n        #endif\n\n        vec3 diffuseColor{{LIGHT_INDEX}} = CalculateDiffuseColor(phongLightDirection{{LIGHT_INDEX}}, viewDirection, normal, lightColor{{LIGHT_INDEX}}, baseColor, phongLambert{{LIGHT_INDEX}});\n        vec3 specularColor{{LIGHT_INDEX}} = CalculateSpecularColor(\n            lightSpecular{{LIGHT_INDEX}},\n            inMaterialProperties.SPECULAR_AMT,\n            inMaterialProperties.SHININESS,\n            phongLightDirection{{LIGHT_INDEX}},\n            viewDirection,\n            normal,\n            phongLambert{{LIGHT_INDEX}}\n        );\n\n        vec3 combinedColor{{LIGHT_INDEX}} = (diffuseColor{{LIGHT_INDEX}} + specularColor{{LIGHT_INDEX}});\n\n        float spotIntensity{{LIGHT_INDEX}} = CalculateSpotLightEffect(\n            phongLight{{LIGHT_INDEX}}.position, phongLight{{LIGHT_INDEX}}.conePointAt, phongLight{{LIGHT_INDEX}}.spotProperties.COSCONEANGLE,\n            phongLight{{LIGHT_INDEX}}.spotProperties.COSCONEANGLEINNER, phongLight{{LIGHT_INDEX}}.spotProperties.SPOTEXPONENT,\n            phongLightDirection{{LIGHT_INDEX}}\n        );\n\n        combinedColor{{LIGHT_INDEX}} *= spotIntensity{{LIGHT_INDEX}};\n\n        vec3 lightModelDiff{{LIGHT_INDEX}} = phongLight{{LIGHT_INDEX}}.position - fragPos.xyz;\n\n        float attenuation{{LIGHT_INDEX}} = CalculateFalloff(\n            phongLightDistance{{LIGHT_INDEX}},\n            phongLightDirection{{LIGHT_INDEX}},\n            phongLight{{LIGHT_INDEX}}.lightProperties.FALLOFF,\n            phongLight{{LIGHT_INDEX}}.lightProperties.RADIUS\n        );\n\n        attenuation{{LIGHT_INDEX}} *= when_gt(phongLambert{{LIGHT_INDEX}}, 0.);\n\n        combinedColor{{LIGHT_INDEX}} *= attenuation{{LIGHT_INDEX}};\n\n        combinedColor{{LIGHT_INDEX}} *= phongLight{{LIGHT_INDEX}}.lightProperties.INTENSITY;\n        calculatedColor += combinedColor{{LIGHT_INDEX}};\n    }","snippet_head_frag":"UNI Light phongLight{{LIGHT_INDEX}};\n",};
 const cgl = op.patch.cgl;
 
 const attachmentFragmentHead = attachments.snippet_head_frag;
@@ -13519,6 +12793,7 @@ inAlbedo.setUiAttribs({ "greyout": true });
 inRoughness.setUiAttribs({ "greyout": true });
 inDiffuseR.setUiAttribs({ "colorPick": true });
 op.setPortGroup("Oren-Nayar Diffuse", [inToggleOrenNayar, inAlbedo, inRoughness]);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
 
 inToggleOrenNayar.onChange = function ()
 {
@@ -13684,6 +12959,7 @@ const inTextureOffsetY = op.inFloat("Texture Offset Y", 0);
 const inSpecularIntensity = op.inFloatSlider("Specular Intensity", 1);
 const inNormalIntensity = op.inFloatSlider("Normal Map Intensity", 0.5);
 const inAoIntensity = op.inFloatSlider("AO Intensity", 1);
+const inAoChannel = op.inSwitch("AO UV Channel", ["1", "2"], 1);
 const inEmissiveIntensity = op.inFloatSlider("Emissive Intensity", 1);
 const inEmissiveMaskIntensity = op.inFloatSlider("Emissive Mask Intensity", 1);
 const inEnvMapIntensity = op.inFloatSlider("Env Map Intensity", 1);
@@ -13700,6 +12976,10 @@ const discardTransPxl = op.inValueBool("Discard Transparent Pixels");
 discardTransPxl.setUiAttribs({ "hidePort": true });
 
 op.setPortGroup("Opacity Texture", [alphaMaskSource, discardTransPxl]);
+
+inAoChannel.onChange =
+    inEnvMapBlend.onChange =
+    alphaMaskSource.onChange = updateDefines;
 
 const outTrigger = op.outTrigger("Trigger Out");
 const shaderOut = op.outObject("Shader", null, "shader");
@@ -14054,10 +13334,10 @@ function updateDefines()
     shader.toggleDefine("ALPHA_MASK_R", alphaMaskSource.get() == "R");
     shader.toggleDefine("ALPHA_MASK_G", alphaMaskSource.get() == "G");
     shader.toggleDefine("ALPHA_MASK_B", alphaMaskSource.get() == "B");
-}
 
-inEnvMapBlend.onChange = updateDefines;
-alphaMaskSource.onChange = updateDefines;
+    shader.toggleDefine("AO_CHAN_0", inAoChannel.get() == "1");
+    shader.toggleDefine("AO_CHAN_1", inAoChannel.get() == "2");
+}
 
 function updateAlphaTexture()
 {
@@ -15951,682 +15231,62 @@ CABLES.OPS["b3b36238-4592-4e11-afe3-8361c4fd6be5"]={f:Ops.Boolean.Or,objName:"Op
 
 // **************************************************************
 // 
-// Ops.Sidebar.Slider_v3
+// Ops.Value.Number
 // 
 // **************************************************************
 
-Ops.Sidebar.Slider_v3 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// constants
-const STEP_DEFAULT = 0.00001;
-
-// inputs
-const parentPort = op.inObject("link");
-const labelPort = op.inString("Text", "Slider");
-const minPort = op.inValue("Min", 0);
-const maxPort = op.inValue("Max", 1);
-const stepPort = op.inValue("Step", STEP_DEFAULT);
-const labelSuffix = op.inString("Suffix", "");
-
-const inGreyOut = op.inBool("Grey Out", false);
-const inVisible = op.inBool("Visible", true);
-
-const inputValuePort = op.inValue("Input", 0.5);
-const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
-const reset = op.inTriggerButton("Reset");
-
-let parent = null;
-
-const defaultValuePort = op.inValue("Default", 0.5);
-defaultValuePort.setUiAttribs({ "hidePort": true, "greyout": true });
-
-// outputs
-const siblingsPort = op.outObject("childs");
-const valuePort = op.outNumber("Result", defaultValuePort.get());
-
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
-op.setPortGroup("Range", [minPort, maxPort, stepPort]);
-op.setPortGroup("Display", [inGreyOut, inVisible]);
-
-// vars
-const el = document.createElement("div");
-el.addEventListener("dblclick", function ()
-{
-    valuePort.set(parseFloat(defaultValuePort.get()));
-    inputValuePort.set(parseFloat(defaultValuePort.get()));
-});
-
-el.dataset.op = op.id;
-el.classList.add("cablesEle");
-
-el.classList.add("sidebar__item");
-el.classList.add("sidebar__slider");
-el.classList.add("sidebar__reloadable");
-
-op.patch.on("sidebarStylesChanged", () => { updateActiveTrack(); });
-
-const label = document.createElement("div");
-label.classList.add("sidebar__item-label");
-
-const greyOut = document.createElement("div");
-greyOut.classList.add("sidebar__greyout");
-el.appendChild(greyOut);
-greyOut.style.display = "none";
-
-const labelText = document.createTextNode(labelPort.get());
-label.appendChild(labelText);
-el.appendChild(label);
-
-const value = document.createElement("input");
-value.value = defaultValuePort.get();
-value.classList.add("sidebar__text-input-input");
-value.setAttribute("type", "text");
-value.oninput = onTextInputChanged;
-el.appendChild(value);
-
-const suffixEle = document.createElement("span");
-// setValueFieldValue(defaultValuePort).get();
-// value.setAttribute("type", "text");
-// value.oninput = onTextInputChanged;
-
-el.appendChild(suffixEle);
-
-labelSuffix.onChange = () =>
-{
-    suffixEle.innerHTML = labelSuffix.get();
-};
-
-const inputWrapper = document.createElement("div");
-inputWrapper.classList.add("sidebar__slider-input-wrapper");
-el.appendChild(inputWrapper);
-
-const activeTrack = document.createElement("div");
-activeTrack.classList.add("sidebar__slider-input-active-track");
-inputWrapper.appendChild(activeTrack);
-const input = document.createElement("input");
-input.classList.add("sidebar__slider-input");
-input.setAttribute("min", minPort.get());
-input.setAttribute("max", maxPort.get());
-input.setAttribute("type", "range");
-input.setAttribute("step", stepPort.get());
-input.setAttribute("value", defaultValuePort.get());
-input.style.display = "block"; /* needed because offsetWidth returns 0 otherwise */
-inputWrapper.appendChild(input);
-
-updateActiveTrack();
-input.addEventListener("input", onSliderInput);
-
-// events
-parentPort.onChange = onParentChanged;
-labelPort.onChange = onLabelTextChanged;
-inputValuePort.onChange = onInputValuePortChanged;
-defaultValuePort.onChange = onDefaultValueChanged;
-setDefaultValueButtonPort.onTriggered = onSetDefaultValueButtonPress;
-minPort.onChange = onMinPortChange;
-maxPort.onChange = onMaxPortChange;
-stepPort.onChange = stepPortChanged;
-op.onDelete = onDelete;
-
-// op.onLoadedValueSet=function()
-op.onLoaded = op.onInit = function ()
-{
-    if (op.patch.config.sidebar)
-    {
-        op.patch.config.sidebar[labelPort.get()];
-        valuePort.set(op.patch.config.sidebar[labelPort.get()]);
-    }
-    else
-    {
-        valuePort.set(parseFloat(defaultValuePort.get()));
-        inputValuePort.set(parseFloat(defaultValuePort.get()));
-        // onInputValuePortChanged();
-    }
-};
-
-reset.onTriggered = function ()
-{
-    const newValue = parseFloat(defaultValuePort.get());
-    valuePort.set(newValue);
-    setValueFieldValue(newValue);
-    setInputFieldValue(newValue);
-    inputValuePort.set(newValue);
-    updateActiveTrack();
-};
-
-inGreyOut.onChange = function ()
-{
-    greyOut.style.display = inGreyOut.get() ? "block" : "none";
-};
-
-inVisible.onChange = function ()
-{
-    el.style.display = inVisible.get() ? "block" : "none";
-};
-
-function onTextInputChanged(ev)
-{
-    let newValue = parseFloat(ev.target.value);
-    if (isNaN(newValue)) newValue = 0;
-    const min = minPort.get();
-    const max = maxPort.get();
-    if (newValue < min) { newValue = min; }
-    else if (newValue > max) { newValue = max; }
-    // setInputFieldValue(newValue);
-    valuePort.set(newValue);
-    updateActiveTrack();
-    inputValuePort.set(newValue);
-    op.refreshParams();
-}
-
-function onInputValuePortChanged()
-{
-    let newValue = parseFloat(inputValuePort.get());
-    const minValue = minPort.get();
-    const maxValue = maxPort.get();
-    if (newValue > maxValue) { newValue = maxValue; }
-    else if (newValue < minValue) { newValue = minValue; }
-    setValueFieldValue(newValue);
-    setInputFieldValue(newValue);
-    valuePort.set(newValue);
-    updateActiveTrack();
-}
-
-function onSetDefaultValueButtonPress()
-{
-    let newValue = parseFloat(inputValuePort.get());
-    const minValue = minPort.get();
-    const maxValue = maxPort.get();
-    if (newValue > maxValue) { newValue = maxValue; }
-    else if (newValue < minValue) { newValue = minValue; }
-    setValueFieldValue(newValue);
-    setInputFieldValue(newValue);
-    valuePort.set(newValue);
-    defaultValuePort.set(newValue);
-    op.refreshParams();
-
-    updateActiveTrack();
-}
-
-function onSliderInput(ev)
-{
-    ev.preventDefault();
-    ev.stopPropagation();
-    setValueFieldValue(ev.target.value);
-    const inputFloat = parseFloat(ev.target.value);
-    valuePort.set(inputFloat);
-    inputValuePort.set(inputFloat);
-    op.refreshParams();
-
-    updateActiveTrack();
-    return false;
-}
-
-function stepPortChanged()
-{
-    const step = stepPort.get();
-    input.setAttribute("step", step);
-    updateActiveTrack();
-}
-
-function updateActiveTrack(val)
-{
-    let valueToUse = parseFloat(input.value);
-    if (typeof val !== "undefined") valueToUse = val;
-    let availableWidth = activeTrack.parentElement.getBoundingClientRect().width || 220;
-    if (parent) availableWidth = parseInt(getComputedStyle(parent.parentElement).getPropertyValue("--sidebar-width")) - 20;
-
-    const trackWidth = CABLES.map(
-        valueToUse,
-        parseFloat(input.min),
-        parseFloat(input.max),
-        0,
-        availableWidth - 16 /* subtract slider thumb width */
-    );
-    activeTrack.style.width = trackWidth + "px";
-}
-
-function onMinPortChange()
-{
-    const min = minPort.get();
-    input.setAttribute("min", min);
-    updateActiveTrack();
-}
-
-function onMaxPortChange()
-{
-    const max = maxPort.get();
-    input.setAttribute("max", max);
-    updateActiveTrack();
-}
-
-function onDefaultValueChanged()
-{
-    const defaultValue = defaultValuePort.get();
-    valuePort.set(parseFloat(defaultValue));
-    onMinPortChange();
-    onMaxPortChange();
-    setInputFieldValue(defaultValue);
-    setValueFieldValue(defaultValue);
-
-    updateActiveTrack(defaultValue); // needs to be passed as argument, is this async?
-}
-
-function onLabelTextChanged()
-{
-    const labelText = labelPort.get();
-    label.textContent = labelText;
-    if (CABLES.UI) op.setTitle("Slider: " + labelText);
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    }
-    else if (el.parentElement) el.parentElement.removeChild(el);
-
-    updateActiveTrack();
-}
-
-function setValueFieldValue(v)
-{
-    value.value = v;
-}
-
-function setInputFieldValue(v)
-{
-    input.value = v;
-}
-
-function showElement(el)
-{
-    if (el)el.style.display = "block";
-}
-
-function hideElement(el)
-{
-    if (el)el.style.display = "none";
-}
-
-function onDelete()
-{
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(el)
-{
-    if (el && el.parentNode && el.parentNode.removeChild) el.parentNode.removeChild(el);
-}
-
-
-};
-
-Ops.Sidebar.Slider_v3.prototype = new CABLES.Op();
-CABLES.OPS["74730122-5cba-4d0d-b610-df334ec6220a"]={f:Ops.Sidebar.Slider_v3,objName:"Ops.Sidebar.Slider_v3"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Sidebar.DropDown_v2
-// 
-// **************************************************************
-
-Ops.Sidebar.DropDown_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// inputs
-const parentPort = op.inObject("Link");
-const labelPort = op.inString("Text", "Value");
-const valuesPort = op.inArray("Values");
-const defaultValuePort = op.inString("Default", "");
-const inGreyOut = op.inBool("Grey Out", false);
-const inVisible = op.inBool("Visible", true);
-const inSize = op.inInt("Lines", 1);
-const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
-setDefaultValueButtonPort.onTriggered = setDefault;
-
-// outputs
-const siblingsPort = op.outObject("Children");
-const valuePort = op.outString("Result", defaultValuePort.get());
-const outIndex = op.outNumber("Index");
-
-defaultValuePort.setUiAttribs({ "title": "Input" });
-
-// vars
-const el = document.createElement("div");
-el.addEventListener("dblclick", function ()
-{
-    valuePort.set(defaultValuePort.get());
-    const optionElements = input.querySelectorAll("option");
-    optionElements.forEach(function (optionElement, index)
-    {
-        if (optionElement.value.trim() === defaultValuePort.get())
-        {
-            optionElement.selected = true;
-            outIndex.set(index);
-        }
-        else
-        {
-            optionElement.removeAttribute("selected");
-        }
-    });
-});
-
-el.dataset.op = op.id;
-el.classList.add("cablesEle");
-el.classList.add("sidebar__item");
-el.classList.add("sidebar__select");
-el.classList.add("sidebar__reloadable");
-
-const label = document.createElement("div");
-label.classList.add("sidebar__item-label");
-const labelText = document.createTextNode(labelPort.get());
-label.appendChild(labelText);
-el.appendChild(label);
-const input = document.createElement("select");
-
-input.classList.add("sidebar__select-select");
-el.appendChild(input);
-input.addEventListener("input", onInput);
-
-const greyOut = document.createElement("div");
-greyOut.classList.add("sidebar__greyout");
-el.appendChild(greyOut);
-greyOut.style.display = "none";
-
-inGreyOut.onChange = function ()
-{
-    greyOut.style.display = inGreyOut.get() ? "block" : "none";
-};
-
-inVisible.onChange = function ()
-{
-    el.style.display = inVisible.get() ? "block" : "none";
-};
-
-// events
-parentPort.onChange = onParentChanged;
-labelPort.onChange = onLabelTextChanged;
-defaultValuePort.onChange = onDefaultValueChanged;
-op.onDelete = onDelete;
-valuesPort.onChange = onValuesPortChange;
-
-let options = [];
-// functions
-
-inSize.onChange = () =>
-{
-    input.setAttribute("size", inSize.get());
-};
-
-op.onLoaded = function ()
-{
-    valuePort.set(defaultValuePort.get());
-};
-
-function onValuesPortChange()
-{
-    // remove all children
-    while (input.lastChild)
-    {
-        input.removeChild(input.lastChild);
-    }
-    options = valuesPort.get();
-    const defaultValue = defaultValuePort.get();
-    if (options)
-    {
-        options.forEach(function (option)
-        {
-            const optionEl = document.createElement("option");
-
-            optionEl.setAttribute("value", option);
-            if (option === defaultValue || option === valuePort.get())
-            {
-                optionEl.setAttribute("selected", "");
-            }
-            const textEl = document.createTextNode(option);
-            optionEl.appendChild(textEl);
-            input.appendChild(optionEl);
-        });
-    }
-    else
-    {
-        valuePort.set("");
-    }
-
-    outIndex.set(0);
-    setSelectedProperty(); /* set the selected property for the default value */
-}
-
-let finalIndex = 0;
-function setSelectedProperty(defaultinput)
-{
-    const optionElements = input.querySelectorAll("option");
-
-    let finalEle = null;
-
-    optionElements.forEach(function (optionElement, index)
-    {
-        if (optionElement.value.trim() === valuePort.get())
-        {
-            finalEle = optionElement;
-            finalIndex = index;
-        }
-        optionElement.removeAttribute("selected");
-    });
-
-    if (defaultinput)
-    {
-        const defaultItem = defaultValuePort.get() + "".trim();
-
-        optionElements.forEach(function (optionElement, index)
-        {
-            if (optionElement.value.trim() === defaultItem)
-            {
-                finalEle = optionElement;
-                finalIndex = index;
-            }
-
-            optionElement.removeAttribute("selected");
-        });
-    }
-
-    if (finalEle) finalEle.setAttribute("selected", "");
-    outIndex.set(finalIndex);
-}
-
-function onInput(ev)
-{
-    valuePort.set(ev.target.value);
-    outIndex.set(options.indexOf(ev.target.value));
-    setSelectedProperty();
-}
-
-function onDefaultValueChanged()
-{
-    const defaultValue = defaultValuePort.get();
-    valuePort.set(defaultValue);
-    input.value = defaultValue;
-    setSelectedProperty();
-}
-
-function onLabelTextChanged()
-{
-    const lblText = labelPort.get();
-    label.textContent = lblText;
-    if (CABLES.UI)
-    {
-        op.setTitle("Dropdown: " + lblText);
-    }
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    }
-    else
-    { // detach
-        if (el.parentElement)
-        {
-            el.parentElement.removeChild(el);
-        }
-    }
-}
-
-function showElement(ele)
-{
-    if (ele)
-    {
-        ele.style.display = "block";
-    }
-    setSelectedProperty();
-}
-
-function hideElement(ele)
-{
-    if (ele)
-    {
-        ele.style.display = "none";
-    }
-}
-
-function onDelete()
-{
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(ele)
-{
-    if (ele && ele.parentNode && ele.parentNode.removeChild)
-    {
-        ele.parentNode.removeChild(ele);
-    }
-}
-
-function setDefault()
-{
-    defaultValuePort.set(input.value);
-    op.refreshParams();
-}
-
-
-};
-
-Ops.Sidebar.DropDown_v2.prototype = new CABLES.Op();
-CABLES.OPS["7b3f93d6-4de1-41fd-aa26-e74c8285c662"]={f:Ops.Sidebar.DropDown_v2,objName:"Ops.Sidebar.DropDown_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Array.Array_v3
-// 
-// **************************************************************
-
-Ops.Array.Array_v3 = function()
+Ops.Value.Number = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    inLength = op.inValueInt("Array length", 10),
-    modeSelect = op.inSwitch("Mode select", ["Number", "1,2,3,4", "0-1"], "Number"),
-    inDefaultValue = op.inValueFloat("Default Value"),
-    inReverse=op.inBool("Reverse",false),
-    outArr = op.outArray("Array"),
-    outArrayLength = op.outNumber("Array length out");
+    v = op.inValueFloat("value"),
+    result = op.outNumber("result");
 
-let arr = [];
-let selectIndex = 0;
-const MODE_NUMBER = 0;
-const MODE_1_TO_4 = 1;
-const MODE_0_TO_1 = 2;
+v.onChange = exec;
 
-modeSelect.onChange = onFilterChange;
-
-inReverse.onChange =
-    inDefaultValue.onChange =
-    inLength.onChange = reset;
-
-onFilterChange();
-reset();
-
-function onFilterChange()
+function exec()
 {
-    let selectedMode = modeSelect.get();
-    if (selectedMode === "Number") selectIndex = MODE_NUMBER;
-    else if (selectedMode === "1,2,3,4") selectIndex = MODE_1_TO_4;
-    else if (selectedMode === "0-1") selectIndex = MODE_0_TO_1;
-
-    inDefaultValue.setUiAttribs({ "greyout": selectIndex !== MODE_NUMBER });
-
-    op.setUiAttrib({ "extendTitle": modeSelect.get() });
-
-    reset();
-}
-
-function reset()
-{
-    arr.length = 0;
-
-    let arrLength = inLength.get();
-    let valueForArray = inDefaultValue.get();
-    let i;
-
-    // mode 0 - fill all array values with one number
-    if (selectIndex === MODE_NUMBER)
-    {
-        for (i = 0; i < arrLength; i++)
-        {
-            arr[i] = valueForArray;
-        }
-    }
-    // mode 1 Continuous number array - increments up to array length
-    else if (selectIndex === MODE_1_TO_4)
-    {
-        for (i = 0; i < arrLength; i++)
-        {
-            arr[i] = i;
-        }
-    }
-    // mode 2 Normalized array
-    else if (selectIndex === MODE_0_TO_1)
-    {
-        for (i = 0; i < arrLength; i++)
-        {
-            arr[i] = i / (arrLength-1);
-        }
-    }
-
-    if(inReverse.get())arr=arr.reverse();
-
-    outArr.set(null);
-    outArr.set(arr);
-    outArrayLength.set(arr.length);
+    result.set(Number(v.get()));
 }
 
 
 };
 
-Ops.Array.Array_v3.prototype = new CABLES.Op();
-CABLES.OPS["e4d31a46-bf64-42a8-be34-4cbb2bbc2600"]={f:Ops.Array.Array_v3,objName:"Ops.Array.Array_v3"};
+Ops.Value.Number.prototype = new CABLES.Op();
+CABLES.OPS["8fb2bb5d-665a-4d0a-8079-12710ae453be"]={f:Ops.Value.Number,objName:"Ops.Value.Number"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Trigger.TriggerOnChangeString
+// 
+// **************************************************************
+
+Ops.Trigger.TriggerOnChangeString = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inval = op.inString("String"),
+    next = op.outTrigger("Changed"),
+    outStr = op.outString("Result");
+
+inval.onChange = function ()
+{
+    outStr.set(inval.get());
+    next.trigger();
+};
+
+
+};
+
+Ops.Trigger.TriggerOnChangeString.prototype = new CABLES.Op();
+CABLES.OPS["319d07e0-5cbe-4bc1-89fb-a934fd41b0c4"]={f:Ops.Trigger.TriggerOnChangeString,objName:"Ops.Trigger.TriggerOnChangeString"};
 
 
 
@@ -16705,7 +15365,7 @@ function updateName()
             new CABLES.UI.ModalDialog({
                 "prompt": true,
                 "title": "New Trigger",
-                "text": "enter a name for the new trigger",
+                "text": "Enter a name for the new trigger",
                 "promptValue": "",
                 "promptOk": (str) =>
                 {
@@ -16838,6 +15498,125 @@ CABLES.OPS["0816c999-f2db-466b-9777-2814573574c5"]={f:Ops.Trigger.TriggerReceive
 
 // **************************************************************
 // 
+// Ops.Sidebar.SidebarText_v2
+// 
+// **************************************************************
+
+Ops.Sidebar.SidebarText_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// inputs
+const parentPort = op.inObject("link");
+const labelPort = op.inString("Text", "Value");
+const inId = op.inValueString("Id", "");
+
+// outputs
+const siblingsPort = op.outObject("childs");
+
+// vars
+const el = document.createElement("div");
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__text");
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+const labelText = document.createElement("div");// document.createTextNode(labelPort.get());
+label.appendChild(labelText);
+el.appendChild(label);
+
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+inId.onChange = onIdChanged;
+op.onDelete = onDelete;
+
+op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+
+// functions
+
+function onIdChanged()
+{
+    el.id = inId.get();
+}
+
+function onLabelTextChanged()
+{
+    const labelText = labelPort.get();
+    label.innerHTML = labelText;
+    if (CABLES.UI)
+    {
+        if (labelText && typeof labelText === "string")
+        {
+            op.setTitle("Text: " + labelText.substring(0, 10)); // display first 10 characters of text in op title
+        }
+        else
+        {
+            op.setTitle("Text");
+        }
+    }
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function showElement(el)
+{
+    if (el)
+    {
+        el.style.display = "block";
+    }
+}
+
+function hideElement(el)
+{
+    if (el)
+    {
+        el.style.display = "none";
+    }
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(el)
+{
+    if (el && el.parentNode && el.parentNode.removeChild)
+    {
+        el.parentNode.removeChild(el);
+    }
+}
+
+
+};
+
+Ops.Sidebar.SidebarText_v2.prototype = new CABLES.Op();
+CABLES.OPS["cc591cc3-ff23-4817-907c-e5be7d5c059d"]={f:Ops.Sidebar.SidebarText_v2,objName:"Ops.Sidebar.SidebarText_v2"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.Boolean.MonoFlop
 // 
 // **************************************************************
@@ -16890,42 +15669,44 @@ CABLES.OPS["3a4b0a78-4172-41c7-8248-95cb0856ecc8"]={f:Ops.Boolean.MonoFlop,objNa
 
 // **************************************************************
 // 
-// Ops.Gl.Meshes.RectangleRounded
+// Ops.Gl.Meshes.RectangleRounded_v2
 // 
 // **************************************************************
 
-Ops.Gl.Meshes.RectangleRounded = function()
+Ops.Gl.Meshes.RectangleRounded_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-const render = op.inTrigger('render');
-const inSegments = op.inValueInt('Segments', 24);
-const trigger = op.outTrigger('trigger');
-const sizeW = op.inValueFloat('width', 1);
-const sizeH = op.inValueFloat('height', 1);
-const borderRadius = op.inValueSlider('border radius', 0.5);
+const render = op.inTrigger("render");
+const inSegments = op.inValueInt("Segments", 24);
+const trigger = op.outTrigger("trigger");
+const sizeW = op.inValueFloat("width", 1);
+const sizeH = op.inValueFloat("height", 1);
+const borderRadius = op.inValueSlider("border radius", 0.5);
 
-const geom = new CGL.Geometry('triangle');
-const geomOut = op.outObject('geometry');
+const geom = new CGL.Geometry("triangle");
+const geomOut = op.outObject("geometry");
 
 geomOut.ignoreValueSerialize = true;
 
-op.setPortGroup('Size', [sizeW, sizeH, borderRadius, inSegments]);
+op.toWorkPortsNeedToBeLinked(render);
+op.setPortGroup("Size", [sizeW, sizeH, borderRadius, inSegments]);
 
-const inTopLeftCorner = op.inValueBool('Top Left', true);
-const inTopRightCorner = op.inValueBool('Top Right', true);
-const inBottomLeftCorner = op.inValueBool('Bottom Left', true);
-const inBottomRightCorner = op.inValueBool('Bottom Right', true);
+const inTopLeftCorner = op.inValueBool("Top Left", true);
+const inTopRightCorner = op.inValueBool("Top Right", true);
+const inBottomLeftCorner = op.inValueBool("Bottom Left", true);
+const inBottomRightCorner = op.inValueBool("Bottom Right", true);
 const CORNER_PORTS = [inTopLeftCorner, inTopRightCorner, inBottomLeftCorner, inBottomRightCorner];
-CORNER_PORTS.forEach((port) => {
-  port.onChange = create;
+CORNER_PORTS.forEach((port) =>
+{
+    port.onChange = create;
 });
 
-op.setPortGroup('Round Corner', CORNER_PORTS);
+op.setPortGroup("Round Corner", CORNER_PORTS);
 
-const draw = op.inValueBool('Draw', true);
-op.setPortGroup('Draw', [draw]);
+const draw = op.inValueBool("Draw", true);
+op.setPortGroup("Draw", [draw]);
 
 const cgl = op.patch.cgl;
 let mesh = null;
@@ -16936,221 +15717,242 @@ inSegments.onChange = create;
 
 create();
 
-render.onTriggered = function () {
-  if (draw.get()) mesh.render(cgl.getShader());
-  trigger.trigger();
+render.onTriggered = function ()
+{
+    if (draw.get()) mesh.render(cgl.getShader());
+    trigger.trigger();
 };
 
-function create() {
-  const w = Math.abs(sizeW.get());
-  const h = Math.abs(sizeH.get());
+function create()
+{
+    const w = Math.abs(sizeW.get());
+    const h = Math.abs(sizeH.get());
 
-  const r = w < h ? (borderRadius.get() * w) / 2 : (borderRadius.get() * h) / 2;
+    const r = w < h ? (borderRadius.get() * w) / 2 : (borderRadius.get() * h) / 2;
 
-  const wi = w - 2 * r;
-  const hi = h - 2 * r;
-  const wiHalf = wi / 2;
-  const hiHalf = hi / 2;
+    const wi = w - 2 * r;
+    const hi = h - 2 * r;
+    const wiHalf = wi / 2;
+    const hiHalf = hi / 2;
 
-  const segments = Math.abs(inSegments.get() || 1);
+    const segments = Math.abs(inSegments.get() || 1);
 
-  const topLeftCircleMiddle = [-1 * wiHalf, hiHalf, 0];
-  const bottomLeftCircleMiddle = [-1 * wiHalf, -1 * hiHalf, 0];
-  const topRightCircleMiddle = [wiHalf, hiHalf, 0];
-  const bottomRightCircleMiddle = [wiHalf, -1 * hiHalf, 0];
+    const topLeftCircleMiddle = [-1 * wiHalf, hiHalf, 0];
+    const bottomLeftCircleMiddle = [-1 * wiHalf, -1 * hiHalf, 0];
+    const topRightCircleMiddle = [wiHalf, hiHalf, 0];
+    const bottomRightCircleMiddle = [wiHalf, -1 * hiHalf, 0];
 
-  const circleVerts = [];
-  let lastX = 0;
-  let lastY = 0;
+    const circleVerts = [];
+    let lastX = 0;
+    let lastY = 0;
 
-  // top left circle
-  if (inTopLeftCorner.get()) {
-    for (let i = 0; i <= segments; i += 1) {
-      const x = topLeftCircleMiddle[0] + (0 - r * Math.cos((i * Math.PI) / 2 / segments));
-      const y = topLeftCircleMiddle[1] + r * Math.sin((i * Math.PI) / 2 / segments);
+    // top left circle
+    if (inTopLeftCorner.get())
+    {
+        for (let i = 0; i <= segments; i += 1)
+        {
+            const x = topLeftCircleMiddle[0] + (0 - r * Math.cos((i * Math.PI) / 2 / segments));
+            const y = topLeftCircleMiddle[1] + r * Math.sin((i * Math.PI) / 2 / segments);
 
-      circleVerts.push(x, y, 0);
+            circleVerts.push(x, y, 0);
 
-      if (i > 1) {
-        circleVerts.push(lastX, lastY, 0);
-      }
+            if (i > 1)
+            {
+                circleVerts.push(lastX, lastY, 0);
+            }
 
-      if (i <= segments - 1) circleVerts.push(...topLeftCircleMiddle);
+            if (i <= segments - 1) circleVerts.push(...topLeftCircleMiddle);
 
-      lastX = x;
-      lastY = y;
+            lastX = x;
+            lastY = y;
+        }
     }
-  } else {
-    circleVerts.push(...topLeftCircleMiddle);
-    circleVerts.push(-wiHalf, hiHalf + r, 0);
-    circleVerts.push(-wiHalf - r, hiHalf + r, 0);
+    else
+    {
+        circleVerts.push(...topLeftCircleMiddle);
+        circleVerts.push(-wiHalf, hiHalf + r, 0);
+        circleVerts.push(-wiHalf - r, hiHalf + r, 0);
 
-    circleVerts.push(...topLeftCircleMiddle);
-    circleVerts.push(-wiHalf - r, hiHalf + r, 0);
-    circleVerts.push(-wiHalf - r, hiHalf, 0);
-  }
+        circleVerts.push(...topLeftCircleMiddle);
+        circleVerts.push(-wiHalf - r, hiHalf + r, 0);
+        circleVerts.push(-wiHalf - r, hiHalf, 0);
+    }
 
-  if (inTopRightCorner.get()) {
+    if (inTopRightCorner.get())
+    {
     // top right circle
-    for (let i = 0; i <= segments; i += 1) {
-      const x = topRightCircleMiddle[0] + r * Math.cos((i * Math.PI) / 2 / segments);
-      const y = topRightCircleMiddle[1] + r * Math.sin((i * Math.PI) / 2 / segments);
+        for (let i = 0; i <= segments; i += 1)
+        {
+            const x = topRightCircleMiddle[0] + r * Math.cos((i * Math.PI) / 2 / segments);
+            const y = topRightCircleMiddle[1] + r * Math.sin((i * Math.PI) / 2 / segments);
 
-      if (i > 1) {
-        circleVerts.push(...topRightCircleMiddle, lastX, lastY, 0);
-      }
+            if (i > 1)
+            {
+                circleVerts.push(...topRightCircleMiddle, lastX, lastY, 0);
+            }
 
-      circleVerts.push(x, y, 0);
+            circleVerts.push(x, y, 0);
 
-      if (i === segments - 1) circleVerts.push(...topRightCircleMiddle);
+            if (i === segments - 1) circleVerts.push(...topRightCircleMiddle);
 
-      lastX = x;
-      lastY = y;
+            lastX = x;
+            lastY = y;
+        }
     }
-  } else {
-    circleVerts.push(...topRightCircleMiddle);
-    circleVerts.push(wiHalf + r, hiHalf, 0);
-    circleVerts.push(wiHalf + r, hiHalf + r, 0);
+    else
+    {
+        circleVerts.push(...topRightCircleMiddle);
+        circleVerts.push(wiHalf + r, hiHalf, 0);
+        circleVerts.push(wiHalf + r, hiHalf + r, 0);
 
-    circleVerts.push(...topRightCircleMiddle);
-    circleVerts.push(wiHalf + r, hiHalf + r, 0);
-    circleVerts.push(wiHalf, hiHalf + r, 0);
-  }
+        circleVerts.push(...topRightCircleMiddle);
+        circleVerts.push(wiHalf + r, hiHalf + r, 0);
+        circleVerts.push(wiHalf, hiHalf + r, 0);
+    }
 
-  if (inBottomRightCorner.get()) {
+    if (inBottomRightCorner.get())
+    {
     // bottom right circle
-    for (let i = 0; i <= segments; i += 1) {
-      const x = bottomRightCircleMiddle[0] + r * Math.cos((i * Math.PI) / 2 / segments);
-      const y = bottomRightCircleMiddle[1] + r * -1 * Math.sin((i * Math.PI) / 2 / segments);
+        for (let i = 0; i <= segments; i += 1)
+        {
+            const x = bottomRightCircleMiddle[0] + r * Math.cos((i * Math.PI) / 2 / segments);
+            const y = bottomRightCircleMiddle[1] + r * -1 * Math.sin((i * Math.PI) / 2 / segments);
 
-      circleVerts.push(x, y, 0);
+            circleVerts.push(x, y, 0);
 
-      if (i > 1) {
-        circleVerts.push(lastX, lastY, 0);
-      }
+            if (i > 1)
+            {
+                circleVerts.push(lastX, lastY, 0);
+            }
 
-      if (i <= segments - 1) circleVerts.push(...bottomRightCircleMiddle);
+            if (i <= segments - 1) circleVerts.push(...bottomRightCircleMiddle);
 
-      lastX = x;
-      lastY = y;
+            lastX = x;
+            lastY = y;
+        }
     }
-  } else {
-    circleVerts.push(...bottomRightCircleMiddle);
-    circleVerts.push(wiHalf + r, -hiHalf - r, 0);
-    circleVerts.push(wiHalf + r, -hiHalf, 0);
+    else
+    {
+        circleVerts.push(...bottomRightCircleMiddle);
+        circleVerts.push(wiHalf + r, -hiHalf - r, 0);
+        circleVerts.push(wiHalf + r, -hiHalf, 0);
 
-    circleVerts.push(...bottomRightCircleMiddle);
-    circleVerts.push(wiHalf, -hiHalf - r, 0);
-    circleVerts.push(wiHalf + r, -hiHalf - r, 0);
-  }
+        circleVerts.push(...bottomRightCircleMiddle);
+        circleVerts.push(wiHalf, -hiHalf - r, 0);
+        circleVerts.push(wiHalf + r, -hiHalf - r, 0);
+    }
 
-  if (inBottomLeftCorner.get()) {
+    if (inBottomLeftCorner.get())
+    {
     // bottom left circle
-    for (let i = 0; i <= segments; i += 1) {
-      const x = bottomLeftCircleMiddle[0] + r * -1 * Math.cos((i * Math.PI) / 2 / segments);
-      const y = bottomLeftCircleMiddle[1] + r * -1 * Math.sin((i * Math.PI) / 2 / segments);
+        for (let i = 0; i <= segments; i += 1)
+        {
+            const x = bottomLeftCircleMiddle[0] + r * -1 * Math.cos((i * Math.PI) / 2 / segments);
+            const y = bottomLeftCircleMiddle[1] + r * -1 * Math.sin((i * Math.PI) / 2 / segments);
 
-      if (i > 1) {
-        circleVerts.push(lastX, lastY, 0);
-      }
+            if (i > 1)
+            {
+                circleVerts.push(lastX, lastY, 0);
+            }
 
-      circleVerts.push(x, y, 0);
+            circleVerts.push(x, y, 0);
 
-      if (i <= segments - 1) circleVerts.push(...bottomLeftCircleMiddle);
+            if (i <= segments - 1) circleVerts.push(...bottomLeftCircleMiddle);
 
-      lastX = x;
-      lastY = y;
+            lastX = x;
+            lastY = y;
+        }
     }
-  } else {
-    circleVerts.push(...bottomLeftCircleMiddle);
-    circleVerts.push(-wiHalf - r, -hiHalf - r, 0);
-    circleVerts.push(-wiHalf, -hiHalf - r, 0);
+    else
+    {
+        circleVerts.push(...bottomLeftCircleMiddle);
+        circleVerts.push(-wiHalf - r, -hiHalf - r, 0);
+        circleVerts.push(-wiHalf, -hiHalf - r, 0);
 
-    circleVerts.push(...bottomLeftCircleMiddle);
-    circleVerts.push(-wiHalf - r, -hiHalf, 0);
-    circleVerts.push(-wiHalf - r, -hiHalf - r, 0);
-  }
+        circleVerts.push(...bottomLeftCircleMiddle);
+        circleVerts.push(-wiHalf - r, -hiHalf, 0);
+        circleVerts.push(-wiHalf - r, -hiHalf - r, 0);
+    }
 
-  geom.vertices = [
-        //inner rectangle
+    geom.vertices = [
+        // inner rectangle
 
-        -1*wiHalf, -hiHalf, 0,
+        -1 * wiHalf, -hiHalf, 0,
         wiHalf, hiHalf, 0,
-        -1*wiHalf, hiHalf, 0,
+        -1 * wiHalf, hiHalf, 0,
 
-
-        -1*wiHalf, -1*hiHalf,0,
-        wiHalf, -1*hiHalf, 0,
+        -1 * wiHalf, -1 * hiHalf, 0,
+        wiHalf, -1 * hiHalf, 0,
         wiHalf, hiHalf, 0,
 
-    // left rectangle
+        // left rectangle
 
-      -1*wiHalf-r, -1*hiHalf, 0,
-      -1*wiHalf, -1*hiHalf, 0,
-      -1*wiHalf-r, hiHalf, 0,
+        -1 * wiHalf - r, -1 * hiHalf, 0,
+        -1 * wiHalf, -1 * hiHalf, 0,
+        -1 * wiHalf - r, hiHalf, 0,
 
-      -1*wiHalf-r, hiHalf, 0,
-      -1*wiHalf, -1*hiHalf, 0,
-      -1*wiHalf, hiHalf, 0,
+        -1 * wiHalf - r, hiHalf, 0,
+        -1 * wiHalf, -1 * hiHalf, 0,
+        -1 * wiHalf, hiHalf, 0,
 
         // top rectangle
 
-      -1*wiHalf, hiHalf, 0,
-      wiHalf, hiHalf+r, 0,
-      -1*wiHalf, hiHalf+r, 0,
+        -1 * wiHalf, hiHalf, 0,
+        wiHalf, hiHalf + r, 0,
+        -1 * wiHalf, hiHalf + r, 0,
 
-      wiHalf, hiHalf + r, 0,
-      -1*wiHalf, hiHalf, 0,
-      wiHalf, hiHalf, 0,
+        wiHalf, hiHalf + r, 0,
+        -1 * wiHalf, hiHalf, 0,
+        wiHalf, hiHalf, 0,
 
-      // bottom rectangle
-      -1*wiHalf, -1*hiHalf, 0,
-      -1*wiHalf, -1*hiHalf-r, 0,
-      wiHalf, -1*hiHalf-r, 0,
+        // bottom rectangle
+        -1 * wiHalf, -1 * hiHalf, 0,
+        -1 * wiHalf, -1 * hiHalf - r, 0,
+        wiHalf, -1 * hiHalf - r, 0,
 
-      wiHalf, -1*hiHalf, 0,
-      -1*wiHalf, -1*hiHalf, 0,
-      wiHalf, -1*hiHalf-r, 0,
+        wiHalf, -1 * hiHalf, 0,
+        -1 * wiHalf, -1 * hiHalf, 0,
+        wiHalf, -1 * hiHalf - r, 0,
 
-      // right rectangle
+        // right rectangle
 
-      wiHalf+r, hiHalf, 0,
-      wiHalf, hiHalf, 0,
-      wiHalf+r, -1*hiHalf, 0,
+        wiHalf + r, hiHalf, 0,
+        wiHalf, hiHalf, 0,
+        wiHalf + r, -1 * hiHalf, 0,
 
-      wiHalf+r, -1*hiHalf, 0,
-      wiHalf, hiHalf, 0,
-      wiHalf, -1*hiHalf, 0,
+        wiHalf + r, -1 * hiHalf, 0,
+        wiHalf, hiHalf, 0,
+        wiHalf, -1 * hiHalf, 0,
         ...circleVerts
-    ]
+    ];
 
     geom.texCoords = [];
-  const wAbs = Math.abs(w);
-  const hAbs = Math.abs(h);
+    const wAbs = Math.abs(w);
+    const hAbs = Math.abs(h);
 
-  for (let i = 0; i < geom.vertices.length; i += 3) {
-    geom.texCoords[(i / 3) * 2 + 0] = Math.abs(geom.vertices[i + 0] / -wAbs - 0.5);
-    geom.texCoords[(i / 3) * 2 + 1] = Math.abs(geom.vertices[i + 1] / hAbs - 0.5);
-  }
+    for (let i = 0; i < geom.vertices.length; i += 3)
+    {
+        geom.texCoords[(i / 3) * 2 + 0] = Math.abs(geom.vertices[i + 0] / -wAbs - 0.5);
+        geom.texCoords[(i / 3) * 2 + 1] = Math.abs(geom.vertices[i + 1] / hAbs - 0.5);
+    }
 
+    geom.vertexNormals = geom.vertices.map((vert, i) => { return (i % 3 === 2 ? 1.0 : 0.0); });
+    geom.tangents = geom.vertices.map((vert, i) => { return (i % 3 === 0 ? -1.0 : 0.0); });
+    geom.biTangents = geom.vertices.map((vert, i) => { return (i % 3 === 1 ? -1.0 : 0.0); });
 
-  geom.vertexNormals = geom.vertices.map((vert, i) => (i % 3 === 2 ? 1.0 : 0.0));
-  geom.tangents = geom.vertices.map((vert, i) => (i % 3 === 0 ? -1.0 : 0.0));
-  geom.biTangents = geom.vertices.map((vert, i) => (i % 3 === 1 ? -1.0 : 0.0));
-
-  if (geom.vertices.length == 0) return;
-  if (mesh) mesh.dispose();
-  mesh = null;
-  mesh = new CGL.Mesh(cgl, geom);
-  geomOut.set(null);
-  geomOut.set(geom);
+    if (geom.vertices.length == 0) return;
+    if (mesh) mesh.dispose();
+    mesh = null;
+    mesh = new CGL.Mesh(cgl, geom);
+    geomOut.set(null);
+    geomOut.set(geom);
 }
 
 
 };
 
-Ops.Gl.Meshes.RectangleRounded.prototype = new CABLES.Op();
-CABLES.OPS["86c99074-4929-44d0-a826-49e7f8bdf5c4"]={f:Ops.Gl.Meshes.RectangleRounded,objName:"Ops.Gl.Meshes.RectangleRounded"};
+Ops.Gl.Meshes.RectangleRounded_v2.prototype = new CABLES.Op();
+CABLES.OPS["86c99074-4929-44d0-a826-49e7f8bdf5c4"]={f:Ops.Gl.Meshes.RectangleRounded_v2,objName:"Ops.Gl.Meshes.RectangleRounded_v2"};
 
 
 
@@ -17256,8 +16058,6 @@ function updateAspectRatio()
     }
 }
 
-alphaSrc.set("alpha channel");
-
 //
 // texture flip
 //
@@ -17354,7 +16154,7 @@ function doRender()
 
         if (imgTex && tex)
         {
-            if (tex.textureType != imgTex.textureType && (tex.textureType != CGL.Texture.TYPE_FLOAT || imgTex.textureType != CGL.Texture.TYPE_FLOAT))
+            if (tex.textureType != imgTex.textureType && (tex.textureType == CGL.Texture.TYPE_FLOAT))
                 op.setUiError("textypediff", "Drawing 32bit texture into an 8 bit can result in data/precision loss", 1);
             else
                 op.setUiError("textypediff", null);
@@ -17408,11 +16208,12 @@ Ops.Gl.TextureEffects.ImageCompose_v3 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"imgcomp_frag":"IN vec2 texCoord;\nUNI vec4 bgColor;\nUNI sampler2D tex;\n\nvoid main()\n{\n\n    #ifndef USE_TEX\n        outColor=bgColor;\n    #endif\n    #ifdef USE_TEX\n        outColor=texture(tex,texCoord);\n    #endif\n\n\n\n}\n",};
+const attachments={"imgcomp_frag":"IN vec2 texCoord;\nUNI vec4 bgColor;\nUNI sampler2D tex;\n#ifdef USE_UVTEX\nUNI sampler2D UVTex;\n#endif\n\nvoid main()\n{\n\n    #ifndef USE_TEX\n        outColor=bgColor;\n    #endif\n    #ifdef USE_TEX\n        #ifndef USE_UVTEX\n        outColor=texture(tex,texCoord);\n        #else\n        outColor=texture(tex,texture(UVTex,texCoord).xy);\n        #endif\n    #endif\n\n\n\n}\n",};
 const
     cgl = op.patch.cgl,
     render = op.inTrigger("Render"),
     inTex = op.inTexture("Base Texture"),
+    inUVTex = op.inTexture("UV Texture"),
     inSize = op.inSwitch("Size", ["Auto", "Manual"], "Auto"),
     width = op.inValueInt("Width", 640),
     height = op.inValueInt("Height", 480),
@@ -17437,6 +16238,8 @@ op.setPortGroup("Texture Parameters", [inWrap, inFilter, inPixel]);
 r.setUiAttribs({ "colorPick": true });
 op.setPortGroup("Color", [r, g, b, a]);
 
+op.toWorkPortsNeedToBeLinked(render);
+
 const prevViewPort = [0, 0, 0, 0];
 let effect = null;
 let tex = null;
@@ -17444,6 +16247,7 @@ let reInitEffect = true;
 let isFloatTex = false;
 let copyShader = null;
 let copyShaderTexUni = null;
+let copyShaderUVTexUni = null;
 let copyShaderRGBAUni = null;
 
 inWrap.onChange =
@@ -17451,7 +16255,8 @@ inWrap.onChange =
     inPixel.onChange = reInitLater;
 
 inTex.onLinkChanged =
-inSize.onChange = updateUi;
+inSize.onChange =
+inUVTex.onChange = updateUi;
 
 render.onTriggered =
     op.preRender = doRender;
@@ -17541,6 +16346,7 @@ function updateResolution()
         texOut.set(CGL.Texture.getEmptyTexture(cgl));
         texOut.set(tex);
         updateResolutionInfo();
+        checkTypes();
     }
 }
 
@@ -17569,6 +16375,7 @@ function updateResolutionInfo()
 function updateDefines()
 {
     if (copyShader)copyShader.toggleDefine("USE_TEX", inTex.isLinked());
+    if (copyShader)copyShader.toggleDefine("USE_UVTEX", inUVTex.isLinked());
 }
 
 function updateUi()
@@ -17590,6 +16397,16 @@ function updateUi()
 
     updateResolutionInfo();
     updateDefines();
+    checkTypes();
+}
+
+function checkTypes()
+{
+    if (tex)
+        if (inTex.isLinked() && inTex.get() && tex.textureType != inTex.get().textureType && (tex.textureType != CGL.Texture.TYPE_FLOAT || inTex.get().textureType == CGL.Texture.TYPE_FLOAT))
+            op.setUiError("textypediff", "Drawing 32bit texture into an 8 bit can result in data/precision loss", 1);
+        else
+            op.setUiError("textypediff", null);
 }
 
 op.preRender = () =>
@@ -17604,6 +16421,7 @@ function copyTexture()
         copyShader = new CGL.Shader(cgl, "copytextureshader");
         copyShader.setSource(copyShader.getDefaultVertexShader(), attachments.imgcomp_frag);
         copyShaderTexUni = new CGL.Uniform(copyShader, "t", "tex", 0);
+        copyShaderUVTexUni = new CGL.Uniform(copyShader, "t", "UVTex", 1);
         copyShaderRGBAUni = new CGL.Uniform(copyShader, "4f", "bgColor", r, g, b, a);
         updateDefines();
     }
@@ -17612,6 +16430,7 @@ function copyTexture()
     cgl.currentTextureEffect.bind();
 
     if (inTex.get()) cgl.setTexture(0, inTex.get().tex);
+    if (inUVTex.get()) cgl.setTexture(1, inUVTex.get().tex);
 
     cgl.currentTextureEffect.finish();
     cgl.popShader();
@@ -17643,9 +16462,9 @@ function doRender()
 
     trigger.trigger();
 
-    texOut.set(CGL.Texture.getEmptyTexture(cgl));
+    // texOut.set(CGL.Texture.getEmptyTexture(cgl));
 
-    texOut.set(effect.getCurrentSourceTexture());
+    texOut.setRef(effect.getCurrentSourceTexture());
 
     effect.endEffect();
 
@@ -17847,11 +16666,11 @@ CABLES.OPS["e640619f-235c-4543-bbf8-b358e0283180"]={f:Ops.Trigger.TriggerCounter
 
 // **************************************************************
 // 
-// Ops.Array.ParseArray_v2
+// Ops.Array.StringToArray_v2
 // 
 // **************************************************************
 
-Ops.Array.ParseArray_v2 = function()
+Ops.Array.StringToArray_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -17931,16 +16750,16 @@ function parse()
         }
     }
 
-    arr.set(null);
-    arr.set(r);
+    // arr.set(null);
+    arr.setRef(r);
     parsed.trigger();
 }
 
 
 };
 
-Ops.Array.ParseArray_v2.prototype = new CABLES.Op();
-CABLES.OPS["c974de41-4ce4-4432-b94d-724741109c71"]={f:Ops.Array.ParseArray_v2,objName:"Ops.Array.ParseArray_v2"};
+Ops.Array.StringToArray_v2.prototype = new CABLES.Op();
+CABLES.OPS["c974de41-4ce4-4432-b94d-724741109c71"]={f:Ops.Array.StringToArray_v2,objName:"Ops.Array.StringToArray_v2"};
 
 
 
@@ -18387,7 +17206,7 @@ const
 
 inval.onChange = function ()
 {
-    outArr.set(inval.get());
+    outArr.setRef(inval.get());
     next.trigger();
 };
 
@@ -18439,7 +17258,7 @@ CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 // inputs
-const parentPort = op.inObject("link");
+const parentPort = op.inObject("link", "element");
 const labelPort = op.inString("Text", "Select File:");
 const inId = op.inValueString("Id", "");
 const inVisible = op.inBool("Visible", true);
@@ -18619,435 +17438,681 @@ CABLES.OPS["c99d271e-aa5e-4a9d-a4d3-4c5137c189e8"]={f:Ops.Sidebar.LocalFileToDat
 
 // **************************************************************
 // 
-// Ops.String.SubString_v2
+// Ops.Sidebar.Slider_v3
 // 
 // **************************************************************
 
-Ops.String.SubString_v2 = function()
+Ops.Sidebar.Slider_v3 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-const
-    inStr=op.inString("String","cables"),
-    inStart=op.inValueInt("Start",0),
-    inEnd=op.inValueInt("End",4),
-    result=op.outString("Result");
+// constants
+const STEP_DEFAULT = 0.00001;
 
-inStr.onChange=
-    inStart.onChange=
-    inEnd.onChange=update;
+// inputs
+const parentPort = op.inObject("link");
+const labelPort = op.inString("Text", "Slider");
+const minPort = op.inValue("Min", 0);
+const maxPort = op.inValue("Max", 1);
+const stepPort = op.inValue("Step", STEP_DEFAULT);
+const labelSuffix = op.inString("Suffix", "");
 
-update();
+const inGreyOut = op.inBool("Grey Out", false);
+const inVisible = op.inBool("Visible", true);
 
-function update()
+const inputValuePort = op.inValue("Input", 0.5);
+const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
+const reset = op.inTriggerButton("Reset");
+
+let parent = null;
+
+const defaultValuePort = op.inValue("Default", 0.5);
+defaultValuePort.setUiAttribs({ "hidePort": true, "greyout": true });
+
+// outputs
+const siblingsPort = op.outObject("childs");
+const valuePort = op.outNumber("Result", defaultValuePort.get());
+
+op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+op.setPortGroup("Range", [minPort, maxPort, stepPort]);
+op.setPortGroup("Display", [inGreyOut, inVisible]);
+
+// vars
+const el = document.createElement("div");
+el.addEventListener("dblclick", function ()
 {
-    var start=inStart.get();
-    var end=inEnd.get();
-    var str=inStr.get()+'';
-    result.set( str.substring(start,end) );
+    valuePort.set(parseFloat(defaultValuePort.get()));
+    inputValuePort.set(parseFloat(defaultValuePort.get()));
+});
+
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__slider");
+el.classList.add("sidebar__reloadable");
+
+op.patch.on("sidebarStylesChanged", () => { updateActiveTrack(); });
+
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+
+const greyOut = document.createElement("div");
+greyOut.classList.add("sidebar__greyout");
+el.appendChild(greyOut);
+greyOut.style.display = "none";
+
+const labelText = document.createTextNode(labelPort.get());
+label.appendChild(labelText);
+el.appendChild(label);
+
+const value = document.createElement("input");
+value.value = defaultValuePort.get();
+value.classList.add("sidebar__text-input-input");
+value.setAttribute("type", "text");
+value.oninput = onTextInputChanged;
+el.appendChild(value);
+
+const suffixEle = document.createElement("span");
+// setValueFieldValue(defaultValuePort).get();
+// value.setAttribute("type", "text");
+// value.oninput = onTextInputChanged;
+
+el.appendChild(suffixEle);
+
+labelSuffix.onChange = () =>
+{
+    suffixEle.innerHTML = labelSuffix.get();
+};
+
+const inputWrapper = document.createElement("div");
+inputWrapper.classList.add("sidebar__slider-input-wrapper");
+el.appendChild(inputWrapper);
+
+const activeTrack = document.createElement("div");
+activeTrack.classList.add("sidebar__slider-input-active-track");
+inputWrapper.appendChild(activeTrack);
+const input = document.createElement("input");
+input.classList.add("sidebar__slider-input");
+input.setAttribute("min", minPort.get());
+input.setAttribute("max", maxPort.get());
+input.setAttribute("type", "range");
+input.setAttribute("step", stepPort.get());
+input.setAttribute("value", defaultValuePort.get());
+input.style.display = "block"; /* needed because offsetWidth returns 0 otherwise */
+inputWrapper.appendChild(input);
+
+updateActiveTrack();
+input.addEventListener("input", onSliderInput);
+
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+inputValuePort.onChange = onInputValuePortChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
+setDefaultValueButtonPort.onTriggered = onSetDefaultValueButtonPress;
+minPort.onChange = onMinPortChange;
+maxPort.onChange = onMaxPortChange;
+stepPort.onChange = stepPortChanged;
+op.onDelete = onDelete;
+
+// op.onLoadedValueSet=function()
+op.onLoaded = op.onInit = function ()
+{
+    if (op.patch.config.sidebar)
+    {
+        op.patch.config.sidebar[labelPort.get()];
+        valuePort.set(op.patch.config.sidebar[labelPort.get()]);
+    }
+    else
+    {
+        valuePort.set(parseFloat(defaultValuePort.get()));
+        inputValuePort.set(parseFloat(defaultValuePort.get()));
+        // onInputValuePortChanged();
+    }
+};
+
+reset.onTriggered = function ()
+{
+    const newValue = parseFloat(defaultValuePort.get());
+    valuePort.set(newValue);
+    setValueFieldValue(newValue);
+    setInputFieldValue(newValue);
+    inputValuePort.set(newValue);
+    updateActiveTrack();
+};
+
+inGreyOut.onChange = function ()
+{
+    greyOut.style.display = inGreyOut.get() ? "block" : "none";
+};
+
+inVisible.onChange = function ()
+{
+    el.style.display = inVisible.get() ? "block" : "none";
+};
+
+function onTextInputChanged(ev)
+{
+    let newValue = parseFloat(ev.target.value);
+    if (isNaN(newValue)) newValue = 0;
+    const min = minPort.get();
+    const max = maxPort.get();
+    if (newValue < min) { newValue = min; }
+    else if (newValue > max) { newValue = max; }
+    // setInputFieldValue(newValue);
+    valuePort.set(newValue);
+    updateActiveTrack();
+    inputValuePort.set(newValue);
+    op.refreshParams();
 }
 
+function onInputValuePortChanged()
+{
+    let newValue = parseFloat(inputValuePort.get());
+    const minValue = minPort.get();
+    const maxValue = maxPort.get();
+    if (newValue > maxValue) { newValue = maxValue; }
+    else if (newValue < minValue) { newValue = minValue; }
+    // setValueFieldValue(newValue);
+    setInputFieldValue(newValue);
+    valuePort.set(newValue);
+    updateActiveTrack();
+}
+
+function onSetDefaultValueButtonPress()
+{
+    let newValue = parseFloat(inputValuePort.get());
+    const minValue = minPort.get();
+    const maxValue = maxPort.get();
+    if (newValue > maxValue) { newValue = maxValue; }
+    else if (newValue < minValue) { newValue = minValue; }
+    setValueFieldValue(newValue);
+    setInputFieldValue(newValue);
+    valuePort.set(newValue);
+    defaultValuePort.set(newValue);
+    op.refreshParams();
+
+    updateActiveTrack();
+}
+
+function onSliderInput(ev)
+{
+    ev.preventDefault();
+    ev.stopPropagation();
+    setValueFieldValue(ev.target.value);
+    const inputFloat = parseFloat(ev.target.value);
+    valuePort.set(inputFloat);
+    inputValuePort.set(inputFloat);
+    op.refreshParams();
+
+    updateActiveTrack();
+    return false;
+}
+
+function stepPortChanged()
+{
+    const step = stepPort.get();
+    input.setAttribute("step", step);
+    updateActiveTrack();
+}
+
+function updateActiveTrack(val)
+{
+    let valueToUse = parseFloat(input.value);
+    if (typeof val !== "undefined") valueToUse = val;
+    let availableWidth = activeTrack.parentElement.getBoundingClientRect().width || 220;
+    if (parent) availableWidth = parseInt(getComputedStyle(parent.parentElement).getPropertyValue("--sidebar-width")) - 20;
+
+    const trackWidth = CABLES.map(
+        valueToUse,
+        parseFloat(input.min),
+        parseFloat(input.max),
+        0,
+        availableWidth - 16 /* subtract slider thumb width */
+    );
+    activeTrack.style.width = trackWidth + "px";
+}
+
+function onMinPortChange()
+{
+    const min = minPort.get();
+    input.setAttribute("min", min);
+    updateActiveTrack();
+}
+
+function onMaxPortChange()
+{
+    const max = maxPort.get();
+    input.setAttribute("max", max);
+    updateActiveTrack();
+}
+
+function onDefaultValueChanged()
+{
+    const defaultValue = defaultValuePort.get();
+    valuePort.set(parseFloat(defaultValue));
+    onMinPortChange();
+    onMaxPortChange();
+    setInputFieldValue(defaultValue);
+    setValueFieldValue(defaultValue);
+
+    updateActiveTrack(defaultValue); // needs to be passed as argument, is this async?
+}
+
+function onLabelTextChanged()
+{
+    const labelText = labelPort.get();
+    label.textContent = labelText;
+    if (CABLES.UI) op.setTitle("Slider: " + labelText);
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else if (el.parentElement) el.parentElement.removeChild(el);
+
+    updateActiveTrack();
+}
+
+function setValueFieldValue(v)
+{
+    value.value = v;
+}
+
+function setInputFieldValue(v)
+{
+    input.value = v;
+}
+
+function showElement(el)
+{
+    if (el)el.style.display = "block";
+}
+
+function hideElement(el)
+{
+    if (el)el.style.display = "none";
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(el)
+{
+    if (el && el.parentNode && el.parentNode.removeChild) el.parentNode.removeChild(el);
+}
+
+
 };
 
-Ops.String.SubString_v2.prototype = new CABLES.Op();
-CABLES.OPS["6e994ba8-01d1-4da6-98b4-af7e822a2e6c"]={f:Ops.String.SubString_v2,objName:"Ops.String.SubString_v2"};
+Ops.Sidebar.Slider_v3.prototype = new CABLES.Op();
+CABLES.OPS["74730122-5cba-4d0d-b610-df334ec6220a"]={f:Ops.Sidebar.Slider_v3,objName:"Ops.Sidebar.Slider_v3"};
 
 
 
 
 // **************************************************************
 // 
-// Ops.Value.DelayedValue
+// Ops.Sidebar.DropDown_v2
 // 
 // **************************************************************
 
-Ops.Value.DelayedValue = function()
+Ops.Sidebar.DropDown_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-const
-    exe = op.inTrigger("Update"),
-    v = op.inValue("Value", 0),
-    delay = op.inValue("Delay", 0.5),
-    result = op.outNumber("Result", 0),
-    clear = op.inValueBool("Clear on Change", false);
+// inputs
+const parentPort = op.inObject("Link");
+const labelPort = op.inString("Text", "Value");
+const valuesPort = op.inArray("Values");
+const defaultValuePort = op.inString("Default", "");
+const inGreyOut = op.inBool("Grey Out", false);
+const inVisible = op.inBool("Visible", true);
+const inSize = op.inInt("Lines", 1);
+const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
+setDefaultValueButtonPort.onTriggered = setDefault;
 
-const anim = new CABLES.Anim();
-anim.createPort(op, "easing", function () {}).set("absolute");
+// outputs
+const siblingsPort = op.outObject("Children");
+const valuePort = op.outString("Result", defaultValuePort.get());
+const outIndex = op.outNumber("Index");
 
-exe.onTriggered = function ()
+defaultValuePort.setUiAttribs({ "title": "Input" });
+
+// vars
+const el = document.createElement("div");
+el.addEventListener("dblclick", function ()
 {
-    result.set(anim.getValue(op.patch.freeTimer.get()) || 0);
-};
-
-v.onChange = function ()
-{
-    const current = anim.getValue(op.patch.freeTimer.get());
-    const t = op.patch.freeTimer.get();
-
-    if (clear.get()) anim.clear(t);
-
-    anim.setValue(t + delay.get(), v.get());
-
-    let lastKey = 0;
-    for (let i = 0; i < anim.keys.length; i++)
+    valuePort.set(defaultValuePort.get());
+    const optionElements = input.querySelectorAll("option");
+    optionElements.forEach(function (optionElement, index)
     {
-        if (anim.keys[i].time < t)lastKey = i;
-    }
-    if (lastKey > 2) anim.keys.splice(0, lastKey);
-};
-
-
-};
-
-Ops.Value.DelayedValue.prototype = new CABLES.Op();
-CABLES.OPS["8e7741e0-0b1b-40f3-a62c-ac8a8828dffb"]={f:Ops.Value.DelayedValue,objName:"Ops.Value.DelayedValue"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Math.MathExpression
-// 
-// **************************************************************
-
-Ops.Math.MathExpression = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const inA = op.inFloat("A", 0);
-const inB = op.inFloat("B", 1);
-const inC = op.inFloat("C", 2);
-const inD = op.inFloat("D", 3);
-op.setPortGroup("Parameters", [inA, inB, inC, inD]);
-const inExpression = op.inString("Expression", "a*(b+c+d)");
-op.setPortGroup("Expression", [inExpression]);
-const outResult = op.outNumber("Result");
-const outExpressionIsValid = op.outBool("Expression Valid");
-
-let currentFunction = inExpression.get();
-let functionValid = false;
-
-const createFunction = () =>
-{
-    try
-    {
-        currentFunction = new Function("m", "a", "b", "c", "d", `with(m) { return ${inExpression.get()} }`);
-        functionValid = true;
-        evaluateFunction();
-        outExpressionIsValid.set(functionValid);
-    }
-    catch (e)
-    {
-        functionValid = false;
-        outExpressionIsValid.set(functionValid);
-        if (e instanceof ReferenceError || e instanceof SyntaxError) return;
-    }
-};
-
-const evaluateFunction = () =>
-{
-    if (functionValid)
-    {
-        outResult.set(currentFunction(Math, inA.get(), inB.get(), inC.get(), inD.get()));
-        if (!inExpression.get()) outResult.set(0);
-    }
-
-    outExpressionIsValid.set(functionValid);
-};
-
-
-inA.onChange = inB.onChange = inC.onChange = inD.onChange = evaluateFunction;
-inExpression.onChange = createFunction;
-createFunction();
-
-
-};
-
-Ops.Math.MathExpression.prototype = new CABLES.Op();
-CABLES.OPS["d2343a1e-64ea-45b2-99ed-46e167bbdcd3"]={f:Ops.Math.MathExpression,objName:"Ops.Math.MathExpression"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Gl.Meshes.Grid
-// 
-// **************************************************************
-
-Ops.Gl.Meshes.Grid = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("Render"),
-    inNum = op.inValue("Num", 10),
-    inSpacing = op.inValue("Spacing", 1),
-    inCenter = op.inBool("Center", true),
-    next = op.outTrigger("Next");
-
-const cgl = op.patch.cgl;
-let mesh = null;
-
-inCenter.onChange =
-    inNum.onChange =
-    inSpacing.onChange = function ()
-    {
-        if (mesh)mesh.dispose();
-        mesh = null;
-    };
-
-function init()
-{
-    const geomStepsOne = new CGL.Geometry(op.name);
-    const geomX = new CGL.Geometry(op.name);
-
-    const space = inSpacing.get();
-    const num = Math.floor(inNum.get());
-    const l = space * num / 2;
-
-    const tc = [];
-
-    let start = -num / 2;
-    let end = num / 2 + 1;
-
-    for (let i = start; i < end; i++)
-    {
-        geomStepsOne.vertices.push(-l);
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(l);
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(-l);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(l);
-        geomStepsOne.vertices.push(0);
-
-        tc.push(0, 0);
-        tc.push(0, 0);
-        tc.push(0, 0);
-        tc.push(0, 0);
-    }
-
-    if (!inCenter.get())
-    {
-        for (let i = 0; i < geomStepsOne.vertices.length; i += 3)
+        if (optionElement.value.trim() === defaultValuePort.get())
         {
-            geomStepsOne.vertices[i + 0] += l;
-            geomStepsOne.vertices[i + 1] += l;
+            optionElement.selected = true;
+            outIndex.set(index);
+        }
+        else
+        {
+            optionElement.removeAttribute("selected");
+        }
+    });
+});
+
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__select");
+el.classList.add("sidebar__reloadable");
+
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+const labelText = document.createTextNode(labelPort.get());
+label.appendChild(labelText);
+el.appendChild(label);
+const input = document.createElement("select");
+
+input.classList.add("sidebar__select-select");
+el.appendChild(input);
+input.addEventListener("input", onInput);
+
+const greyOut = document.createElement("div");
+greyOut.classList.add("sidebar__greyout");
+el.appendChild(greyOut);
+greyOut.style.display = "none";
+
+inGreyOut.onChange = function ()
+{
+    greyOut.style.display = inGreyOut.get() ? "block" : "none";
+};
+
+inVisible.onChange = function ()
+{
+    el.style.display = inVisible.get() ? "block" : "none";
+};
+
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
+op.onDelete = onDelete;
+valuesPort.onChange = onValuesPortChange;
+
+let options = [];
+// functions
+
+inSize.onChange = () =>
+{
+    input.setAttribute("size", inSize.get());
+};
+
+op.onLoaded = function ()
+{
+    valuePort.set(defaultValuePort.get());
+};
+
+function onValuesPortChange()
+{
+    // remove all children
+    while (input.lastChild)
+    {
+        input.removeChild(input.lastChild);
+    }
+    options = valuesPort.get();
+    const defaultValue = defaultValuePort.get();
+    if (options)
+    {
+        options.forEach(function (option)
+        {
+            const optionEl = document.createElement("option");
+
+            optionEl.setAttribute("value", option);
+            if (option === defaultValue || option === valuePort.get())
+            {
+                optionEl.setAttribute("selected", "");
+            }
+            const textEl = document.createTextNode(option);
+            optionEl.appendChild(textEl);
+            input.appendChild(optionEl);
+        });
+    }
+    else
+    {
+        valuePort.set("");
+    }
+
+    outIndex.set(0);
+    setSelectedProperty(); /* set the selected property for the default value */
+}
+
+let finalIndex = 0;
+function setSelectedProperty(defaultinput)
+{
+    const optionElements = input.querySelectorAll("option");
+
+    let finalEle = null;
+
+    optionElements.forEach(function (optionElement, index)
+    {
+        if (optionElement.value.trim() === valuePort.get())
+        {
+            finalEle = optionElement;
+            finalIndex = index;
+        }
+        optionElement.removeAttribute("selected");
+    });
+
+    if (defaultinput)
+    {
+        const defaultItem = defaultValuePort.get() + "".trim();
+
+        optionElements.forEach(function (optionElement, index)
+        {
+            if (optionElement.value.trim() === defaultItem)
+            {
+                finalEle = optionElement;
+                finalIndex = index;
+            }
+
+            optionElement.removeAttribute("selected");
+        });
+    }
+
+    if (finalEle) finalEle.setAttribute("selected", "");
+    outIndex.set(finalIndex);
+}
+
+function onInput(ev)
+{
+    valuePort.set(ev.target.value);
+    outIndex.set(options.indexOf(ev.target.value));
+    setSelectedProperty();
+}
+
+function onDefaultValueChanged()
+{
+    const defaultValue = defaultValuePort.get();
+    valuePort.set(defaultValue);
+    input.value = defaultValue;
+    setSelectedProperty();
+}
+
+function onLabelTextChanged()
+{
+    const lblText = labelPort.get();
+    label.textContent = lblText;
+    if (CABLES.UI)
+    {
+        op.setTitle("Dropdown: " + lblText);
+    }
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function showElement(ele)
+{
+    if (ele)
+    {
+        ele.style.display = "block";
+    }
+    setSelectedProperty();
+}
+
+function hideElement(ele)
+{
+    if (ele)
+    {
+        ele.style.display = "none";
+    }
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(ele)
+{
+    if (ele && ele.parentNode && ele.parentNode.removeChild)
+    {
+        ele.parentNode.removeChild(ele);
+    }
+}
+
+function setDefault()
+{
+    defaultValuePort.set(input.value);
+    op.refreshParams();
+}
+
+
+};
+
+Ops.Sidebar.DropDown_v2.prototype = new CABLES.Op();
+CABLES.OPS["7b3f93d6-4de1-41fd-aa26-e74c8285c662"]={f:Ops.Sidebar.DropDown_v2,objName:"Ops.Sidebar.DropDown_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Array.Array_v3
+// 
+// **************************************************************
+
+Ops.Array.Array_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inLength = op.inValueInt("Array length", 10),
+    modeSelect = op.inSwitch("Mode select", ["Number", "1,2,3,4", "0-1"], "Number"),
+    inDefaultValue = op.inValueFloat("Default Value"),
+    inReverse = op.inBool("Reverse", false),
+    outArr = op.outArray("Array"),
+    outArrayLength = op.outNumber("Array length out");
+
+let arr = [];
+let selectIndex = 0;
+const MODE_NUMBER = 0;
+const MODE_1_TO_4 = 1;
+const MODE_0_TO_1 = 2;
+
+modeSelect.onChange = onFilterChange;
+
+inReverse.onChange =
+    inDefaultValue.onChange =
+    inLength.onChange = reset;
+
+onFilterChange();
+reset();
+
+function onFilterChange()
+{
+    let selectedMode = modeSelect.get();
+    if (selectedMode === "Number") selectIndex = MODE_NUMBER;
+    else if (selectedMode === "1,2,3,4") selectIndex = MODE_1_TO_4;
+    else if (selectedMode === "0-1") selectIndex = MODE_0_TO_1;
+
+    inDefaultValue.setUiAttribs({ "greyout": selectIndex !== MODE_NUMBER });
+
+    op.setUiAttrib({ "extendTitle": modeSelect.get() });
+
+    reset();
+}
+
+function reset()
+{
+    arr.length = 0;
+
+    let arrLength = inLength.get();
+    let valueForArray = inDefaultValue.get();
+    let i;
+
+    // mode 0 - fill all array values with one number
+    if (selectIndex === MODE_NUMBER)
+    {
+        for (i = 0; i < arrLength; i++)
+        {
+            arr[i] = valueForArray;
+        }
+    }
+    // mode 1 Continuous number array - increments up to array length
+    else if (selectIndex === MODE_1_TO_4)
+    {
+        for (i = 0; i < arrLength; i++)
+        {
+            arr[i] = i;
+        }
+    }
+    // mode 2 Normalized array
+    else if (selectIndex === MODE_0_TO_1)
+    {
+        for (i = 0; i < arrLength; i++)
+        {
+            arr[i] = i / (arrLength - 1);
         }
     }
 
-    geomStepsOne.setTexCoords(tc);
-    geomStepsOne.calculateNormals();
+    if (inReverse.get())arr = arr.reverse();
 
-    if (!mesh) mesh = new CGL.Mesh(cgl, geomStepsOne);
-    else mesh.setGeom(geomStepsOne);
-}
-
-render.onTriggered = function ()
-{
-    if (!mesh)init();
-    let shader = cgl.getShader();
-    if (!shader) return;
-
-    let oldPrim = shader.glPrimitive;
-
-    shader.glPrimitive = cgl.gl.LINES;
-
-    mesh.render(shader);
-
-    shader.glPrimitive = oldPrim;
-
-    next.trigger();
-};
-
-
-};
-
-Ops.Gl.Meshes.Grid.prototype = new CABLES.Op();
-CABLES.OPS["677a7c03-6885-46b4-8a64-e4ea54ee5d7f"]={f:Ops.Gl.Meshes.Grid,objName:"Ops.Gl.Meshes.Grid"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Json.ObjectIsNull
-// 
-// **************************************************************
-
-Ops.Json.ObjectIsNull = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const inObj = op.inObject("Object");
-const outResult = op.outBoolNum("Result");
-
-inObj.onChange = function ()
-{
-    outResult.set(!inObj.get());
-};
-
-
-};
-
-Ops.Json.ObjectIsNull.prototype = new CABLES.Op();
-CABLES.OPS["2fd858a8-3dff-43e4-bd85-a62c7d23b5a2"]={f:Ops.Json.ObjectIsNull,objName:"Ops.Json.ObjectIsNull"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Value.RouteNumber
-// 
-// **************************************************************
-
-Ops.Value.RouteNumber = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// constants and variables
-const NUM_PORTS = 10;
-const DEFAULT_VALUE_DEFAULT = 0;
-let lastIdx = null;
-
-// input
-const indexPort = op.inValue("Index", 0);
-const valuePort = op.inValue("Value", 0);
-const defaultValuePort = op.inValue("Default Value", DEFAULT_VALUE_DEFAULT);
-const onlyOnePort = op.inBool("Set inactive to default", false);
-
-// output
-const valuePorts = createOutPorts(DEFAULT_VALUE_DEFAULT);
-
-// change listeners
-indexPort.onChange = update;
-valuePort.onChange = update; // TODO: Maybe only one update needed!?
-defaultValuePort.onChange = setDefaultValues;
-onlyOnePort.onChange = onlyOnePortChange;
-
-setDefaultValues();
-
-// functions
-
-/**
- * creates the output-port array
- */
-function createOutPorts()
-{
-    let arr = [];
-    for (let i = 0; i < NUM_PORTS; i++)
-    {
-        let port = op.outNumber("Index " + i + " Value");
-        arr.push(port);
-    }
-    return arr;
-}
-
-/**
- * Sets all value ports to the default value
- */
-function setDefaultValues()
-{
-    const defaultValue = defaultValuePort.get();
-    valuePorts.forEach((valuePort) =>
-    {
-        valuePort.set(defaultValue);
-    });
-}
-
-/**
- * Update
- */
-function update()
-{
-    let index = indexPort.get();
-    index = Math.round(index);
-    index = clamp(index, 0, NUM_PORTS - 1);
-
-    if (onlyOnePort.get() && lastIdx !== null && lastIdx != index)
-    {
-        valuePorts[lastIdx].set(defaultValuePort.get());
-    }
-
-    const value = valuePort.get();
-    valuePorts[index].set(value);
-
-    lastIdx = index;
-}
-
-/**
- * Returns a number whose value is limited to the given range.
- */
-function clamp(value, min, max)
-{
-    return Math.min(Math.max(value, min), max);
-}
-
-/**
- * Reset all ports to default value and set current index
- * or let have several ports with old value
- */
-function onlyOnePortChange()
-{
-    if (onlyOnePort.get())
-    {
-        setDefaultValues();
-        update();
-    }
+    outArr.setRef(arr);
+    outArrayLength.set(arr.length);
 }
 
 
 };
 
-Ops.Value.RouteNumber.prototype = new CABLES.Op();
-CABLES.OPS["e3b1fc2d-a813-4d9b-8cb0-595fc95af4e2"]={f:Ops.Value.RouteNumber,objName:"Ops.Value.RouteNumber"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Boolean.BoolToNumber
-// 
-// **************************************************************
-
-Ops.Boolean.BoolToNumber = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    bool = op.inValueBool("bool"),
-    number = op.outNumber("number");
-
-bool.onChange = function ()
-{
-    if (bool.get()) number.set(1);
-    else number.set(0);
-};
-
-
-};
-
-Ops.Boolean.BoolToNumber.prototype = new CABLES.Op();
-CABLES.OPS["2591c495-fceb-4f6e-937f-11b190c72ee5"]={f:Ops.Boolean.BoolToNumber,objName:"Ops.Boolean.BoolToNumber"};
+Ops.Array.Array_v3.prototype = new CABLES.Op();
+CABLES.OPS["e4d31a46-bf64-42a8-be34-4cbb2bbc2600"]={f:Ops.Array.Array_v3,objName:"Ops.Array.Array_v3"};
 
 
 
@@ -19075,7 +18140,7 @@ scaleChanged();
 
 render.onTriggered = function ()
 {
-    const cgl = op.patch.cg;
+    const cgl = op.patch.cgl;
     cgl.pushModelMatrix();
     mat4.scale(cgl.mMatrix, cgl.mMatrix, vScale);
     trigger.trigger();
@@ -19131,21 +18196,23 @@ const
     // letterSpacing = op.inValueFloat("Spacing", 0),
     drawDebug = op.inBool("Show Debug", false),
     limitLines = op.inValueInt("Limit Lines", 0),
+    inSize = op.inSwitch("Size", ["Auto", "Manual"], "Manual"),
+
     texWidth = op.inValueInt("texture width", 512),
     texHeight = op.inValueInt("texture height", 128),
     tfilter = op.inSwitch("filter", ["nearest", "linear", "mipmap"], "linear"),
     wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
     aniso = op.inSwitch("Anisotropic", [0, 1, 2, 4, 8, 16], 0),
-    align = op.inSwitch("align", ["left", "center", "right"], "center"),
+    align = op.inSwitch("align", ["left", "center", "right"], "left"),
     valign = op.inSwitch("vertical align", ["top", "center", "bottom"], "center"),
     cachetexture = op.inValueBool("Reuse Texture", true),
     drawMesh = op.inValueBool("Draw Mesh", true),
     meshScale = op.inValueFloat("Scale Mesh", 1.0),
     renderHard = op.inValueBool("Hard Edges", false),
     inOpacity = op.inFloatSlider("Opacity", 1),
-    r = op.inValueSlider("r", Math.random()),
-    g = op.inValueSlider("g", Math.random()),
-    b = op.inValueSlider("b", Math.random()),
+    r = op.inValueSlider("r", 1),
+    g = op.inValueSlider("g", 1),
+    b = op.inValueSlider("b", 1),
     next = op.outTrigger("Next"),
     outRatio = op.outNumber("Ratio"),
     textureOut = op.outTexture("texture"),
@@ -19154,8 +18221,10 @@ const
 
 r.setUiAttribs({ "colorPick": true });
 
+op.toWorkPortsNeedToBeLinked(render);
+
 op.setPortGroup("Color", [r, g, b]);
-op.setPortGroup("Size", [font, weight, maximize, inFontSize, lineDistance, lineOffset]);
+op.setPortGroup("Size", [font, inSize, weight, maximize, inFontSize, lineDistance, lineOffset]);
 op.setPortGroup("Texture", [texWidth, texHeight, tfilter, aniso]);
 op.setPortGroup("Alignment", [valign, align]);
 op.setPortGroup("Rendering", [drawMesh, renderHard, meshScale]);
@@ -19165,7 +18234,6 @@ align.onChange =
     text.onChange =
     inFontSize.onChange =
     weight.onChange =
-    aniso.onChange =
     font.onChange =
     lineOffset.onChange =
     lineDistance.onChange =
@@ -19215,7 +18283,7 @@ textureOut.ignoreValueSerialize = true;
 const cgl = op.patch.cgl;
 const body = document.getElementsByTagName("body")[0];
 
-let tex = new CGL.Texture(cgl);
+let tex = new CGL.Texture(cgl, { "name": "TextTexture" });
 const fontImage = document.createElement("canvas");
 fontImage.id = "texturetext_" + CABLES.generateUUID();
 fontImage.style.display = "none";
@@ -19248,9 +18316,21 @@ renderHard.onChange = function ()
     shader.toggleDefine("HARD_EDGE", renderHard.get());
 };
 
+function getWidth()
+{
+    if (inSize.get() == "Auto") return cgl.getViewPort()[2];
+    return Math.ceil(texWidth.get());
+}
+
+function getHeight()
+{
+    if (inSize.get() == "Auto") return cgl.getViewPort()[3];
+    else return Math.ceil(texHeight.get());
+}
+
 function doRender()
 {
-    if (ctx.canvas.width != texWidth.get())needsRefresh = true;
+    if (ctx.canvas.width != getWidth()) needsRefresh = true;
     if (needsRefresh)
     {
         reSize();
@@ -19285,15 +18365,21 @@ function doRender()
 function reSize()
 {
     if (!tex) return;
-    tex.setSize(texWidth.get(), texHeight.get());
+    tex.setSize(getWidth(), getHeight());
 
-    ctx.canvas.width = fontImage.width = texWidth.get();
-    ctx.canvas.height = fontImage.height = texHeight.get();
+    ctx.canvas.width = fontImage.width = getWidth();
+    ctx.canvas.height = fontImage.height = getHeight();
 
     outAspect.set(fontImage.width / fontImage.height);
 
     needsRefresh = true;
 }
+
+inSize.onChange = () =>
+{
+    texWidth.setUiAttribs({ "greyout": inSize.get() != "Manual" });
+    texHeight.setUiAttribs({ "greyout": inSize.get() != "Manual" });
+};
 
 maximize.onChange = function ()
 {
@@ -19323,12 +18409,26 @@ function refresh()
     // const num=String(parseInt(letterSpacing.get()));
     //     fontImage.style["letter-spacing"] = num+"px";
     // fontImage.style["font-kerning"]="normal";
+    const rgbStringClear = "rgba(255,"
+        + Math.floor(0 * 255) + "," + Math.floor(b.get() * 255) + ","
+        + 0.8 + ")";
 
-    ctx.clearRect(0, 0, fontImage.width, fontImage.height);
+    ctx.fillStyle = rgbStringClear;
+    ctx.fillRect(0, 0, getWidth() / 2, getHeight());
+
+    const rgbStringClear2 = "rgba(255,"
+        + Math.floor(0 * 255) + "," + Math.floor(b.get() * 255) + ","
+        + 0.0 + ")";
+
+    ctx.fillStyle = rgbStringClear2;
+    ctx.clearRect(0, 0, getWidth() / 2, getHeight());
+
+    // ctx.fillStyle = "white";
+
     const rgbString = "rgba(" + Math.floor(r.get() * 255) + ","
         + Math.floor(g.get() * 255) + "," + Math.floor(b.get() * 255) + ","
         + inOpacity.get() + ")";
-    // ctx.fillStyle = "white";
+
     ctx.fillStyle = rgbString;
     // op.log("rgbstring", rgbString);
     let fontSize = parseFloat(inFontSize.get());
@@ -19348,7 +18448,7 @@ function refresh()
 
     if (maximize.get())
     {
-        fontSize = texWidth.get();
+        fontSize = getWidth();
         let count = 0;
         let maxWidth = 0;
         let maxHeight = 0;
@@ -19356,7 +18456,7 @@ function refresh()
         do
         {
             count++;
-            if (count > (texHeight.get() + texWidth.get()) / 2)
+            if (count > (getHeight() + getWidth()) / 2)
             {
                 op.log("too many iterations - maximize size");
                 break;
@@ -19374,7 +18474,7 @@ function refresh()
     {
         let found = true;
 
-        if (texWidth.get() > 128)
+        if (getWidth() > 128)
         {
             found = false;
             let newString = "";
@@ -19394,7 +18494,7 @@ function refresh()
                     if (!words[j]) continue;
                     sumWidth += ctx.measureText(words[j] + " ").width;
 
-                    if (sumWidth > texWidth.get())
+                    if (sumWidth > getWidth())
                     {
                         found = true;
                         newString += "\n" + words[j] + " ";
@@ -19469,7 +18569,7 @@ function refresh()
 
     outRatio.set(ctx.canvas.height / ctx.canvas.width);
     outLines.set(strings.length);
-    textureOut.set(CGL.Texture.getEmptyTexture(cgl));
+    // textureOut.set(CGL.Texture.getEmptyTexture(cgl));
 
     let cgl_wrap = CGL.Texture.WRAP_REPEAT;
     if (wrap.get() == "mirrored repeat") cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
@@ -19487,8 +18587,8 @@ function refresh()
 
     tex.flip = false;
     tex.initTexture(fontImage, f);
-    textureOut.set(tex);
-    tex.unpackAlpha = true;
+    textureOut.setRef(tex);
+    tex.unpackAlpha = false;
 }
 
 
@@ -19513,7 +18613,7 @@ const op=this;
 const attachments={};
 const
     inCoords = op.inSwitch("Coordinates", ["Pixel", "Pixel Display", "-1 to 1", "0 to 1"], "-1 to 1"),
-    area = op.inValueSelect("Area", ["Canvas", "Document", "Parent Element"], "Canvas"),
+    area = op.inValueSelect("Area", ["Canvas", "Document", "Parent Element", "Canvas Area"], "Canvas"),
     flipY = op.inValueBool("flip y", true),
     rightClickPrevDef = op.inBool("right click prevent default", true),
     touchscreen = op.inValueBool("Touch support", true),
@@ -19528,55 +18628,91 @@ const
 const cgl = op.patch.cgl;
 let normalize = 1;
 let listenerElement = null;
-let mouseX = cgl.canvas.width / 2;
-let mouseY = cgl.canvas.height / 2;
+let sizeElement = null;
 area.onChange = addListeners;
-
-outMouseX.set(mouseX);
-outMouseY.set(mouseY);
 
 inCoords.onChange = updateCoordNormalizing;
 op.onDelete = removeListeners;
 
 addListeners();
 
+op.on("loadedValueSet",
+    () =>
+    {
+        if (normalize == 0)
+        {
+            outMouseX.set(sizeElement.clientWidth / 2);
+            outMouseY.set(sizeElement.clientHeight / 2);
+        }
+        if (normalize == 1)
+        {
+            outMouseX.set(0);
+            outMouseY.set(0);
+        }
+        if (normalize == 2)
+        {
+            outMouseX.set(0.5);
+            outMouseY.set(0.5);
+        }
+    });
+
 function setValue(x, y)
 {
     x = x || 0;
     y = y || 0;
 
-    if (normalize == 0)
+    if (normalize == 0) // pixel
     {
         outMouseX.set(x);
         outMouseY.set(y);
     }
     else
-    if (normalize == 3)
+    if (normalize == 3) // pixel css
     {
         outMouseX.set(x * cgl.pixelDensity);
         outMouseY.set(y * cgl.pixelDensity);
     }
     else
     {
-        let w = cgl.canvas.width / cgl.pixelDensity;
-        let h = cgl.canvas.height / cgl.pixelDensity;
-        if (listenerElement == document.body)
-        {
-            w = listenerElement.clientWidth / cgl.pixelDensity;
-            h = listenerElement.clientHeight / cgl.pixelDensity;
-        }
+        let w = sizeElement.clientWidth / cgl.pixelDensity;
+        let h = sizeElement.clientHeight / cgl.pixelDensity;
 
-        if (normalize == 1)
+        w = w || 1;
+        h = h || 1;
+
+        if (normalize == 1) // -1 to 1
         {
-            outMouseX.set(x / w * 2.0 - 1.0);
-            outMouseY.set(y / h * 2.0 - 1.0);
+            let xx = (x / w * 2.0 - 1.0);
+            let yy = (y / h * 2.0 - 1.0);
+
+            outMouseX.set(xx);
+            outMouseY.set(yy);
         }
-        if (normalize == 2)
+        else if (normalize == 2) // 0 to 1
         {
-            outMouseX.set(x / w);
-            outMouseY.set(y / h);
+            let xx = x / w;
+            let yy = y / h;
+
+            outMouseX.set(xx);
+            outMouseY.set(yy);
         }
     }
+}
+
+function checkHovering(e)
+{
+    if (area.get() === "Canvas Area")
+    {
+        const r = sizeElement.getBoundingClientRect();
+
+        return (
+            e.clientX > r.left &&
+            e.clientX < r.left + r.width &&
+            e.clientY > r.top &&
+            e.clientY < r.top + r.height
+        );
+    }
+    return true;
 }
 
 touchscreen.onChange = function ()
@@ -19593,10 +18729,6 @@ active.onChange = function ()
 
 function updateCoordNormalizing()
 {
-    mouseX = 0;
-    mouseY = 0;
-    setValue(mouseX, mouseY);
-
     if (inCoords.get() == "Pixel")normalize = 0;
     else if (inCoords.get() == "-1 to 1")normalize = 1;
     else if (inCoords.get() == "0 to 1")normalize = 2;
@@ -19606,11 +18738,12 @@ function updateCoordNormalizing()
 function onMouseEnter(e)
 {
     mouseDown.set(false);
-    mouseOver.set(true);
+    mouseOver.set(checkHovering(e));
 }
 
 function onMouseDown(e)
 {
+    if (!checkHovering(e)) return;
     mouseDown.set(true);
 }
 
@@ -19621,19 +18754,21 @@ function onMouseUp(e)
 
 function onClickRight(e)
 {
+    if (!checkHovering(e)) return;
     mouseClickRight.trigger();
     if (rightClickPrevDef.get()) e.preventDefault();
 }
 
 function onmouseclick(e)
 {
+    if (!checkHovering(e)) return;
     mouseClick.trigger();
 }
 
 function onMouseLeave(e)
 {
-    mouseOver.set(false);
     mouseDown.set(false);
+    mouseOver.set(checkHovering(e));
 }
 
 function setCoords(e)
@@ -19646,14 +18781,21 @@ function setCoords(e)
         x = e.offsetX;
         y = e.offsetY;
     }
+    if (area.get() === "Canvas Area")
+    {
+        const r = sizeElement.getBoundingClientRect();
+        x = e.clientX - r.left;
+        y = e.clientY - r.top;
+    }
 
-    if (flipY.get()) setValue(x, listenerElement.clientHeight - y);
-    else setValue(x, y);
+    if (flipY.get()) y = sizeElement.clientHeight - y;
+
+    setValue(x, y);
 }
 
 function onmousemove(e)
 {
-    mouseOver.set(true);
+    mouseOver.set(checkHovering(e));
     setCoords(e);
 }
 
@@ -19697,9 +18839,14 @@ function addListeners()
     if (listenerElement || !active.get())removeListeners();
     if (!active.get()) return;
 
-    listenerElement = cgl.canvas;
-    if (area.get() == "Document") listenerElement = document.body;
-    if (area.get() == "Parent Element") listenerElement = cgl.canvas.parentElement;
+    listenerElement = sizeElement = cgl.canvas;
+    if (area.get() == "Canvas Area")
+    {
+        sizeElement = cgl.canvas.parentElement;
+        listenerElement = document.body;
+    }
+    if (area.get() == "Document") sizeElement = listenerElement = document.body;
+    if (area.get() == "Parent Element") listenerElement = sizeElement = cgl.canvas.parentElement;
 
     if (touchscreen.get())
     {
@@ -19914,8 +19061,16 @@ function doRender()
             fb = new CGL.Framebuffer(cgl, 8, 8, { "isFloatingPointTexture": fpTexture.get(), "clear": clear.get() });
         }
 
-        texDepth.set(fb.getTextureDepth());
-        reInitFb = false;
+        if (fb && fb.valid)
+        {
+            texDepth.set(fb.getTextureDepth());
+            reInitFb = false;
+        }
+        else
+        {
+            fb = null;
+            reInitFb = true;
+        }
     }
 
     if (useVPSize.get())
@@ -19941,8 +19096,11 @@ function doRender()
     // cgl.resetViewPort();
     cgl.setViewPort(prevViewPort[0], prevViewPort[1], prevViewPort[2], prevViewPort[3]);
 
-    tex.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
-    tex.set(fb.getTextureColor());
+    // texDepth.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
+    texDepth.setRef(fb.getTextureDepth());
+
+    // tex.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
+    tex.setRef(fb.getTextureColor());
 }
 
 
@@ -19994,6 +19152,7 @@ function addElement()
     if (!active.get()) return;
     if (element) removeEle();
     element = document.createElement("iframe");
+    element.classList.add("cablesEle");
     updateAttribs();
     const parent = op.patch.cgl.canvas.parentElement;
     parent.appendChild(element);
@@ -20014,6 +19173,7 @@ function updateAttribs()
     element.setAttribute("style", inStyle.get());
     element.setAttribute("src", src.get());
     element.setAttribute("id", elId.get());
+    element.setAttribute("allowfullscreen", "allowfullscreen");
 }
 
 function removeEle()
@@ -20076,6 +19236,7 @@ const trans = vec3.create();
 
 let cachedTop = -1;
 let cachedLeft = -1;
+let currTransformStr = 0;
 
 exec.onTriggered =
 () =>
@@ -20116,7 +19277,12 @@ function updateTransform()
 
     const str = "translate(" + translateStr + ") scale(" + inScale.get() + ") rotate(" + inRotate.get() + "deg)";
 
-    if (ele.style.transform != str) ele.style.transform = str;
+    // if (currTransformStr != str || oldEle != ele)
+    if (ele.style.transform != str)
+    {
+        currTransformStr = str;
+        ele.style.transform = str;
+    }
 }
 
 inEle.onChange = function ()
@@ -20371,7 +19537,7 @@ function reInitTexture()
 rewind.onTriggered = function ()
 {
     videoElement.currentTime = 0;
-    textureOut.set(emptyTexture);
+    textureOut.setRef(emptyTexture);
     needsUpdate = true;
 };
 
@@ -20512,7 +19678,7 @@ function updateTexture()
 
     firstTime = false;
 
-    textureOut.set(tex);
+    textureOut.setRef(tex);
     needsUpdate = false;
 
     op.patch.cgl.profileData.profileVideosPlaying++;
@@ -20668,6 +19834,8 @@ const
 const cgl = op.patch.cgl;
 let tc = new CGL.CopyTexture(cgl, "textureThief", {});
 let fp = false;
+let wrap = -1;
+let filter = -1;
 
 render.onTriggered = () =>
 {
@@ -20677,14 +19845,20 @@ render.onTriggered = () =>
     effect.endEffect();
 
     const shouldFp = cgl.currentTextureEffect.getCurrentSourceTexture().isFloatingPoint();
+    const shouldWrap = cgl.currentTextureEffect.getCurrentSourceTexture().wrap;
+    const shouldFilter = cgl.currentTextureEffect.getCurrentSourceTexture().filter;
 
-    if (fp != shouldFp)
+    if (fp != shouldFp || wrap != shouldWrap || filter != shouldFilter)
     {
         tc = new CGL.CopyTexture(cgl, "textureThief",
             {
                 "isFloatingPointTexture": shouldFp,
+                "wrap": shouldWrap,
+                "filter": shouldFilter
             });
         fp = shouldFp;
+        wrap = shouldWrap;
+        filter = shouldFilter;
     }
 
     const vp = cgl.getViewPort();
@@ -20693,7 +19867,7 @@ render.onTriggered = () =>
     const tx = cgl.currentTextureEffect.getCurrentSourceTexture();
     outTex.set(tc.copy(tx));
 
-    effect.continueEffect(tx);
+    effect.continueEffect();
 
     trigger.trigger();
 };
@@ -20717,10 +19891,16 @@ Ops.Ui.VizTexture = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"viztex_frag":"IN vec2 texCoord;\nUNI sampler2D tex;\nUNI samplerCube cubeMap;\nUNI float width;\nUNI float height;\nUNI float type;\nUNI float time;\n\nfloat LinearizeDepth(float d,float zNear,float zFar)\n{\n    float z_n = 2.0 * d - 1.0;\n    return 2.0 * zNear / (zFar + zNear - z_n * (zFar - zNear));\n}\n\nvoid main()\n{\n    vec4 col=vec4(vec3(0.),0.0);\n\n    vec4 colTex=texture(tex,texCoord);\n\n\n\n    if(type==1.0)\n    {\n        vec4 depth=vec4(0.);\n        vec2 localST=texCoord;\n        localST.y = 1. - localST.y;\n\n        localST.t = mod(localST.t*3.,1.);\n        localST.s = mod(localST.s*4.,1.);\n\n        #ifdef WEBGL2\n            #define texCube texture\n        #endif\n        #ifdef WEBGL1\n            #define texCube textureCube\n        #endif\n\n//         //Due to the way my depth-cubeMap is rendered, objects to the -x,y,z side is projected to the positive x,y,z side\n//         //Inside where top/bottom is to be drawn?\n        if (texCoord.s*4.> 1. && texCoord.s*4.<2.)\n        {\n            //Bottom (-y) quad\n            if (texCoord.t*3. < 1.)\n            {\n                vec3 dir=vec3(localST.s*2.-1.,-1.,-localST.t*2.+1.);//Due to the (arbitrary) way I choose as up in my depth-viewmatrix, i her emultiply the latter coordinate with -1\n                depth = texCube(cubeMap, dir);\n            }\n            //top (+y) quad\n            else if (texCoord.t*3. > 2.)\n            {\n                vec3 dir=vec3(localST.s*2.-1.,1.,localST.t*2.-1.);//Get lower y texture, which is projected to the +y part of my cubeMap\n                depth = texCube(cubeMap, dir);\n            }\n            else//Front (-z) quad\n            {\n                vec3 dir=vec3(localST.s*2.-1.,-localST.t*2.+1.,1.);\n                depth = texCube(cubeMap, dir);\n            }\n        }\n//         //If not, only these ranges should be drawn\n        else if (texCoord.t*3. > 1. && texCoord.t*3. < 2.)\n        {\n            if (texCoord.x*4. < 1.)//left (-x) quad\n            {\n                vec3 dir=vec3(-1.,-localST.t*2.+1.,localST.s*2.-1.);\n                depth = texCube(cubeMap, dir);\n            }\n            else if (texCoord.x*4. < 3.)//right (+x) quad (front was done above)\n            {\n                vec3 dir=vec3(1,-localST.t*2.+1.,-localST.s*2.+1.);\n                depth = texCube(cubeMap, dir);\n            }\n            else //back (+z) quad\n            {\n                vec3 dir=vec3(-localST.s*2.+1.,-localST.t*2.+1.,-1.);\n                depth = texCube(cubeMap, dir);\n            }\n        }\n        // colTex = vec4(vec3(depth),1.);\n        colTex = vec4(depth);\n    }\n\n    if(type==2.0)\n    {\n       float near = 0.1;\n       float far = 50.;\n       float depth = LinearizeDepth(colTex.r, near, far);\n       colTex.rgb = vec3(depth);\n    }\n\n    if(colTex.r>1.0 || colTex.r<0.0)\n    {\n        float r=mod( time+colTex.r,1.0)*0.5+0.5;\n        colTex.r=r;\n    }\n    if(colTex.g>1.0 || colTex.g<0.0)\n    {\n        float r=mod( time+colTex.g,1.0)*0.5+0.5;\n        colTex.g=r;\n    }\n    if(colTex.b>1.0 || colTex.b<0.0)\n    {\n        float r=mod( time+colTex.b,1.0)*0.5+0.5;\n        colTex.b=r;\n    }\n\n\n    outColor = mix(col,colTex,colTex.a);\n}\n\n","viztex_vert":"IN vec3 vPosition;\nIN vec2 attrTexCoord;\nOUT vec2 texCoord;\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nvoid main()\n{\n    texCoord=vec2(attrTexCoord.x,1.0-attrTexCoord.y);\n    vec4 pos = vec4( vPosition, 1. );\n    mat4 mvMatrix=viewMatrix * modelMatrix;\n    gl_Position = projMatrix * mvMatrix * pos;\n}",};
+const attachments={"viztex_frag":"IN vec2 texCoord;\nUNI sampler2D tex;\nUNI samplerCube cubeMap;\nUNI float width;\nUNI float height;\nUNI float type;\nUNI float time;\n\nfloat LinearizeDepth(float d,float zNear,float zFar)\n{\n    float z_n = 2.0 * d - 1.0;\n    return 2.0 * zNear / (zFar + zNear - z_n * (zFar - zNear));\n}\n\nvoid main()\n{\n    vec4 col=vec4(vec3(0.),0.0);\n\n    vec4 colTex=texture(tex,texCoord);\n\n\n\n    if(type==1.0)\n    {\n        vec4 depth=vec4(0.);\n        vec2 localST=texCoord;\n        localST.y = 1. - localST.y;\n\n        localST.t = mod(localST.t*3.,1.);\n        localST.s = mod(localST.s*4.,1.);\n\n        #ifdef WEBGL2\n            #define texCube texture\n        #endif\n        #ifdef WEBGL1\n            #define texCube textureCube\n        #endif\n\n//         //Due to the way my depth-cubeMap is rendered, objects to the -x,y,z side is projected to the positive x,y,z side\n//         //Inside where top/bottom is to be drawn?\n        if (texCoord.s*4.> 1. && texCoord.s*4.<2.)\n        {\n            //Bottom (-y) quad\n            if (texCoord.t*3. < 1.)\n            {\n                vec3 dir=vec3(localST.s*2.-1.,-1.,-localST.t*2.+1.);//Due to the (arbitrary) way I choose as up in my depth-viewmatrix, i her emultiply the latter coordinate with -1\n                depth = texCube(cubeMap, dir);\n            }\n            //top (+y) quad\n            else if (texCoord.t*3. > 2.)\n            {\n                vec3 dir=vec3(localST.s*2.-1.,1.,localST.t*2.-1.);//Get lower y texture, which is projected to the +y part of my cubeMap\n                depth = texCube(cubeMap, dir);\n            }\n            else//Front (-z) quad\n            {\n                vec3 dir=vec3(localST.s*2.-1.,-localST.t*2.+1.,1.);\n                depth = texCube(cubeMap, dir);\n            }\n        }\n//         //If not, only these ranges should be drawn\n        else if (texCoord.t*3. > 1. && texCoord.t*3. < 2.)\n        {\n            if (texCoord.x*4. < 1.)//left (-x) quad\n            {\n                vec3 dir=vec3(-1.,-localST.t*2.+1.,localST.s*2.-1.);\n                depth = texCube(cubeMap, dir);\n            }\n            else if (texCoord.x*4. < 3.)//right (+x) quad (front was done above)\n            {\n                vec3 dir=vec3(1,-localST.t*2.+1.,-localST.s*2.+1.);\n                depth = texCube(cubeMap, dir);\n            }\n            else //back (+z) quad\n            {\n                vec3 dir=vec3(-localST.s*2.+1.,-localST.t*2.+1.,-1.);\n                depth = texCube(cubeMap, dir);\n            }\n        }\n        // colTex = vec4(vec3(depth),1.);\n        colTex = vec4(depth);\n    }\n\n    if(type==2.0)\n    {\n       float near = 0.1;\n       float far = 50.;\n       float depth = LinearizeDepth(colTex.r, near, far);\n       colTex.rgb = vec3(depth);\n    }\n\n\n    #ifdef ANIM_RANGE\n\n        if(colTex.r>1.0 || colTex.r<0.0)\n            colTex.r=mod(colTex.r,1.0)*0.5+(sin(colTex.r+mod(colTex.r*3.0,1.0)+time*5.0)*0.5+0.5)*0.5;\n        if(colTex.g>1.0 || colTex.g<0.0)\n            colTex.g=mod(colTex.g,1.0)*0.5+(sin(colTex.g+mod(colTex.g*3.0,1.0)+time*5.0)*0.5+0.5)*0.5;\n        if(colTex.b>1.0 || colTex.b<0.0)\n            colTex.b=mod(colTex.b,1.0)*0.5+(sin(colTex.b+mod(colTex.b*3.0,1.0)+time*5.0)*0.5+0.5)*0.5;\n\n    #endif\n\n\n    // #ifdef ANIM_RANGE\n    //     if(colTex.r>1.0 || colTex.r<0.0)\n    //     {\n    //         float r=mod( time+colTex.r,1.0)*0.5+0.5;\n    //         colTex.r=r;\n    //     }\n    //     if(colTex.g>1.0 || colTex.g<0.0)\n    //     {\n    //         float r=mod( time+colTex.g,1.0)*0.5+0.5;\n    //         colTex.g=r;\n    //     }\n    //     if(colTex.b>1.0 || colTex.b<0.0)\n    //     {\n    //         float r=mod( time+colTex.b,1.0)*0.5+0.5;\n    //         colTex.b=r;\n    //     }\n    // #endif\n\n    outColor = mix(col,colTex,colTex.a);\n}\n\n","viztex_vert":"IN vec3 vPosition;\nIN vec2 attrTexCoord;\nOUT vec2 texCoord;\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nvoid main()\n{\n    texCoord=vec2(attrTexCoord.x,1.0-attrTexCoord.y);\n    vec4 pos = vec4( vPosition, 1. );\n    mat4 mvMatrix=viewMatrix * modelMatrix;\n    gl_Position = projMatrix * mvMatrix * pos;\n}",};
 const
     inTex = op.inTexture("Texture In"),
     inShowInfo = op.inBool("Show Info", false),
+    inVizRange = op.inSwitch("Visualize outside 0-1", ["Off", "Anim"], "Anim"),
+
+    inPickColor = op.inBool("Show Color", false),
+    inX = op.inFloatSlider("X", 0.5),
+    inY = op.inFloatSlider("Y", 0.5),
+
     outTex = op.outTexture("Texture Out"),
     outInfo = op.outString("Info");
 
@@ -20729,13 +19909,40 @@ op.setUiAttrib({ "height": 150, "resizable": true });
 const timer = new CABLES.Timer();
 timer.play();
 
+let shader = null;
+let fb = null;
+let pixelReader = null;
+let colorString = "";
+
+inVizRange.onChange = updateDefines;
+
+inPickColor.onChange = updateUi;
+updateUi();
+
+function updateUi()
+{
+    inX.setUiAttribs({ "greyout": !inPickColor.get() });
+    inY.setUiAttribs({ "greyout": !inPickColor.get() });
+}
+
 inTex.onChange = () =>
 {
     const t = inTex.get();
 
-    outTex.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
-    outTex.set(t);
+    outTex.setRef(t);
+
+    let title = "";
+
+    if (inTex.get()) title = inTex.links[0].getOtherPort(inTex).name;
+
+    op.setUiAttrib({ "extendTitle": title });
 };
+
+function updateDefines()
+{
+    if (!shader) return;
+    shader.toggleDefine("ANIM_RANGE", inVizRange.get() == "Anim");
+}
 
 op.renderVizLayer = (ctx, layer) =>
 {
@@ -20745,6 +19952,8 @@ op.renderVizLayer = (ctx, layer) =>
 
     const perf = CABLES.UI.uiProfiler.start("previewlayer texture");
     const cgl = port.parent.patch.cgl;
+
+    if (!layer.useGl) return;
 
     if (!this._emptyCubemap) this._emptyCubemap = CGL.Texture.getEmptyCubemapTexture(cgl);
     port.parent.patch.cgl.profileData.profileTexPreviews++;
@@ -20770,6 +19979,8 @@ op.renderVizLayer = (ctx, layer) =>
         this._shader.setSource(attachments.viztex_vert, attachments.viztex_frag);
         this._shaderTexUniform = new CGL.Uniform(this._shader, "t", "tex", texSlot);
         this._shaderTexCubemapUniform = new CGL.Uniform(this._shader, "tc", "cubeMap", texSlotCubemap);
+        shader = this._shader;
+        updateDefines();
 
         this._shaderTexUniformW = new CGL.Uniform(this._shader, "f", "width", portTex.width);
         this._shaderTexUniformH = new CGL.Uniform(this._shader, "f", "height", portTex.height);
@@ -20922,13 +20133,77 @@ op.renderVizLayer = (ctx, layer) =>
         ctx.scale(layer.scale, layer.scale);
         ctx.font = "normal 10px sourceCodePro";
         ctx.fillStyle = "#000";
-        ctx.fillText(info, layer.x / layer.scale + 5 + 0.75, (layer.y + layer.height) / layer.scale - 5 + 0.75);
+        ctx.fillText(info, layer.x / layer.scale + 5 + 0.5, (layer.y + layer.height) / layer.scale - 5 + 0.5);
         ctx.fillStyle = "#fff";
         ctx.fillText(info, layer.x / layer.scale + 5, (layer.y + layer.height) / layer.scale - 5);
         ctx.restore();
     }
 
+    if (inPickColor.get())
+    {
+        ctx.save();
+        ctx.scale(layer.scale, layer.scale);
+        ctx.font = "normal 10px sourceCodePro";
+        ctx.fillStyle = "#000";
+        ctx.fillText("RGBA " + colorString, layer.x / layer.scale + 10 + 0.5, layer.y / layer.scale + 10 + 0.5);
+        ctx.fillStyle = "#fff";
+        ctx.fillText("RGBA " + colorString, layer.x / layer.scale + 10, layer.y / layer.scale + 10);
+
+        ctx.restore();
+
+        ctx.fillStyle = "#000";
+        ctx.fillRect(
+            layer.x + layer.width * inX.get() - 1,
+            layer.y + sizeImg[1] * inY.get() - 10 + borderTop,
+            3, 20);
+
+        ctx.fillRect(
+            layer.x + layer.width * inX.get() - 10,
+            layer.y + sizeImg[1] * inY.get() - 1 + borderTop,
+            20, 3);
+
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(
+            layer.x + layer.width * inX.get() - 1,
+            layer.y + sizeImg[1] * inY.get() - 10 + borderTop,
+            1, 20);
+
+        ctx.fillRect(
+            layer.x + layer.width * inX.get() - 10,
+            layer.y + sizeImg[1] * inY.get() - 1 + borderTop,
+            20, 1);
+    }
+
     outInfo.set(info);
+
+    if (inPickColor.get())
+    {
+        const gl = cgl.gl;
+
+        const realTexture = inTex.get();
+        if (!realTexture)
+        {
+            colorString = "";
+            return;
+        }
+        if (!fb) fb = gl.createFramebuffer();
+        if (!pixelReader) pixelReader = new CGL.PixelReader();
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D, realTexture.tex, 0
+        );
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        pixelReader.read(cgl, fb, realTexture.textureType, inX.get() * realTexture.width, realTexture.height - inY.get() * realTexture.height, 1, 1,
+            (pixel) =>
+            {
+                if (realTexture.textureType != CGL.Texture.TYPE_FLOAT)colorString = Math.floor(pixel[0] / 255 * 100) / 100 + "," + Math.floor(pixel[1] / 255 * 100) / 100 + "," + Math.floor(pixel[2] / 255 * 100) / 100 + "," + Math.floor(pixel[3] / 255 * 100) / 100;
+                else colorString = Math.round(pixel[0] * 100) / 100 + "," + Math.round(pixel[1] * 100) / 100 + "," + Math.round(pixel[2] * 100) / 100 + "," + Math.round(pixel[3] * 100) / 100;
+            });
+    }
 
     cgl.gl.clearColor(0, 0, 0, 0);
     cgl.gl.clear(cgl.gl.COLOR_BUFFER_BIT | cgl.gl.DEPTH_BUFFER_BIT);
@@ -21195,12 +20470,12 @@ function update()
             }
             if (foundOut.get())
             {
-                resultOut.set(result);
+                resultOut.setRef(result);
             }
             else
             {
                 op.setUiError("path", "given path seems to be invalid!", 1);
-                resultOut.set([]);
+                resultOut.setRef([]);
             }
         }
     }
@@ -21213,7 +20488,7 @@ function update()
 function resolve(path, obj = self, separator = ".")
 {
     const properties = Array.isArray(path) ? path : path.split(separator);
-    return properties.reduce((prev, curr) => prev && prev[curr], obj);
+    return properties.reduce((prev, curr) => { return prev && prev[curr]; }, obj);
 }
 
 
@@ -21221,100 +20496,6 @@ function resolve(path, obj = self, separator = ".")
 
 Ops.Json.ObjectGetArrayValuesByPath.prototype = new CABLES.Op();
 CABLES.OPS["609a645e-5e24-4a5e-a379-804c5b64f5d5"]={f:Ops.Json.ObjectGetArrayValuesByPath,objName:"Ops.Json.ObjectGetArrayValuesByPath"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Gl.Canvas2Texture
-// 
-// **************************************************************
-
-Ops.Gl.Canvas2Texture = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    cgl = op.patch.cgl,
-    inCanvas = op.inObject("canvas"),
-    inTextureFilter = op.inValueSelect("filter", ["nearest", "linear", "mipmap"]),
-    inTextureWrap = op.inValueSelect("wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
-    inTextureFlip = op.inValueBool("flip"),
-    inUnpackAlpha = op.inValueBool("unpackPreMultipliedAlpha"),
-    outTexture = op.outTexture("texture"),
-    outWidth = op.outNumber("width"),
-    outHeight = op.outNumber("height"),
-    canvasTexture = new CGL.Texture(cgl);
-
-let cgl_filter = null;
-let cgl_wrap = null;
-
-inTextureFlip.set(false);
-inUnpackAlpha.set(false);
-
-inTextureFlip.setUiAttribs({ "hidePort": true });
-inUnpackAlpha.setUiAttribs({ "hidePort": true });
-
-inTextureFilter.onChange = onFilterChange;
-inTextureWrap.onChange = onWrapChange;
-
-inTextureFlip.onChange =
-inCanvas.onChange =
-inUnpackAlpha.onChange = reload;
-
-function reload()
-{
-    let canvas = inCanvas.get();
-    if (!canvas) return;
-
-    canvasTexture.unpackAlpha = inUnpackAlpha.get();
-    canvasTexture.flip = inTextureFlip.get();
-    canvasTexture.wrap = cgl_wrap;
-    canvasTexture.image = canvas;
-    canvasTexture.initTexture(canvas, cgl_filter);
-    outWidth.set(canvasTexture.width);
-    outHeight.set(canvasTexture.height);
-
-    outTexture.set(CGL.Texture.getEmptyTexture(cgl));
-    outTexture.set(canvasTexture);
-}
-
-function onFilterChange()
-{
-    switch (inTextureFilter.get())
-    {
-    case "nearest": cgl_filter = CGL.Texture.FILTER_NEAREST; break;
-    case "mipmap": cgl_filter = CGL.Texture.FILTER_MIPMAP; break;
-    case "linear":
-    default: cgl_filter = CGL.Texture.FILTER_LINEAR;
-    }
-    reload();
-}
-
-function onWrapChange()
-{
-    switch (inTextureWrap.get())
-    {
-    case "repeat": cgl_wrap = CGL.Texture.WRAP_REPEAT; break;
-    case "mirrored repeat": cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT; break;
-    case "clamp to edge":
-    default: cgl_wrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
-    }
-    reload();
-}
-
-inTextureFilter.set("linear");
-inTextureWrap.set("repeat");
-
-outTexture.set(CGL.Texture.getEmptyTexture(cgl));
-
-
-};
-
-Ops.Gl.Canvas2Texture.prototype = new CABLES.Op();
-CABLES.OPS["2fbada6b-70fa-4b43-87db-8b0d9293990b"]={f:Ops.Gl.Canvas2Texture,objName:"Ops.Gl.Canvas2Texture"};
 
 
 
@@ -21390,6 +20571,1784 @@ function generate()
 
 Ops.Html.QrCode.prototype = new CABLES.Op();
 CABLES.OPS["7e27a058-8162-4fd3-b08d-eba16f0fb551"]={f:Ops.Html.QrCode,objName:"Ops.Html.QrCode"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Textures.Base64ToTexture
+// 
+// **************************************************************
+
+Ops.Gl.Textures.Base64ToTexture = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    dataIn = op.inStringEditor("Base64 / Data URI", ""),
+    tfilter = op.inSwitch("filter", ["nearest", "linear", "mipmap"], "linear"),
+    twrap = op.inValueSelect("wrap", ["clamp to edge", "repeat", "mirrored repeat"], "clamp to edge"),
+    textureOut = op.outTexture("Texture"),
+    loadingOut = op.outBool("Loading");
+
+const image = new Image();
+
+let doUpdateTex = false;
+let selectedWrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
+let selectedFilter = CGL.Texture.FILTER_LINEAR;
+
+function createTex()
+{
+    const tex = CGL.Texture.createFromImage(op.patch.cgl, image,
+        {
+            "filter": selectedFilter,
+            "wrap": selectedWrap
+        });
+    textureOut.set(tex);
+    loadingOut.set(false);
+}
+
+image.onload = function (e)
+{
+    op.patch.cgl.addNextFrameOnceCallback(createTex.bind(this));
+};
+
+dataIn.onChange = () =>
+{
+    updateTex();
+};
+
+twrap.onChange =
+    tfilter.onChange = () =>
+    {
+        if (tfilter.get() == "nearest") selectedFilter = CGL.Texture.FILTER_NEAREST;
+        else if (tfilter.get() == "linear") selectedFilter = CGL.Texture.FILTER_LINEAR;
+        else if (tfilter.get() == "mipmap") selectedFilter = CGL.Texture.FILTER_MIPMAP;
+
+        if (twrap.get() == "repeat") selectedWrap = CGL.Texture.WRAP_REPEAT;
+        else if (twrap.get() == "mirrored repeat") selectedWrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
+        else if (twrap.get() == "clamp to edge") selectedWrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
+
+        updateTex();
+    };
+
+function updateTex()
+{
+    loadingOut.set(true);
+    let data = dataIn.get();
+    if (data && !data.startsWith("data:"))
+    {
+        data = "data:;base64," + data;
+    }
+    image.src = data;
+}
+
+
+};
+
+Ops.Gl.Textures.Base64ToTexture.prototype = new CABLES.Op();
+CABLES.OPS["cd07e587-432a-4a81-a2b7-51273cf32171"]={f:Ops.Gl.Textures.Base64ToTexture,objName:"Ops.Gl.Textures.Base64ToTexture"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Cables.LoadingStatus_v2
+// 
+// **************************************************************
+
+Ops.Cables.LoadingStatus_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exe = op.inTrigger("exe"),
+    preRenderOps = op.inValueBool("PreRender Ops"),
+    startTimeLine = op.inBool("Play Timeline", true),
+    next = op.outTrigger("Next"),
+    outInitialFinished = op.outBoolNum("Finished Initial Loading", false),
+    outLoading = op.outBoolNum("Loading"),
+    outProgress = op.outNumber("Progress"),
+    outList = op.outArray("Jobs"),
+    loadingFinished = op.outTrigger("Trigger Loading Finished ");
+
+const cgl = op.patch.cgl;
+const patch = op.patch;
+
+let finishedOnce = false;
+const preRenderTimes = [];
+let firstTime = true;
+
+document.body.classList.add("cables-loading");
+
+let loadingId = cgl.patch.loading.start("loadingStatusInit", "loadingStatusInit", op);
+
+exe.onTriggered = () =>
+{
+    const jobs = op.patch.loading.getListJobs();
+    outProgress.set(patch.loading.getProgress());
+
+    let hasFinished = jobs.length === 0;
+    const notFinished = !hasFinished;
+    // outLoading.set(!hasFinished);
+
+    if (notFinished)
+    {
+        outList.set(op.patch.loading.getListJobs());
+    }
+
+    if (notFinished)
+    {
+        if (firstTime)
+        {
+            if (preRenderOps.get()) op.patch.preRenderOps();
+
+            op.patch.timer.setTime(0);
+            if (startTimeLine.get())
+            {
+                op.patch.timer.play();
+            }
+            else
+            {
+                op.patch.timer.pause();
+            }
+        }
+        firstTime = false;
+
+        document.body.classList.remove("cables-loading");
+        document.body.classList.add("cables-loaded");
+    }
+    else
+    {
+        finishedOnce = true;
+        outList.set(op.patch.loading.getListJobs());
+        if (patch.loading.getProgress() < 1.0)
+        {
+            op.patch.timer.setTime(0);
+            op.patch.timer.pause();
+        }
+    }
+
+    outInitialFinished.set(finishedOnce);
+
+    if (outLoading.get() && hasFinished) loadingFinished.trigger();
+
+    outLoading.set(notFinished);
+    op.setUiAttribs({ "loading": notFinished });
+
+    next.trigger();
+
+    if (loadingId)
+    {
+        cgl.patch.loading.finished(loadingId);
+        loadingId = null;
+    }
+};
+
+
+};
+
+Ops.Cables.LoadingStatus_v2.prototype = new CABLES.Op();
+CABLES.OPS["e62f7f4c-7436-437e-8451-6bc3c28545f7"]={f:Ops.Cables.LoadingStatus_v2,objName:"Ops.Cables.LoadingStatus_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Sidebar.NumberInput_v2
+// 
+// **************************************************************
+
+Ops.Sidebar.NumberInput_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// inputs
+const parentPort = op.inObject("Link");
+const labelPort = op.inString("Text", "Number");
+const inputValuePort = op.inValue("Input", 0);
+const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
+const defaultValuePort = op.inValue("Default", 0);
+defaultValuePort.setUiAttribs({ "hidePort": true, "greyout": true });
+
+// outputs
+const siblingsPort = op.outObject("Children");
+const valuePort = op.outNumber("Result", defaultValuePort.get());
+
+// vars
+const el = document.createElement("div");
+el.addEventListener("dblclick", function ()
+{
+    valuePort.set(parseFloat(defaultValuePort.get()));
+    inputValuePort.set(parseFloat(defaultValuePort.get()));
+});
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__text-input");
+el.classList.add("sidebar__reloadable");
+
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+const labelTextNode = document.createTextNode(labelPort.get());
+label.appendChild(labelTextNode);
+el.appendChild(label);
+// var inputWrapper = document.createElement('div');
+// inputWrapper.classList.add('sidebar__text-input-input-wrapper');
+// el.appendChild(inputWrapper);
+const input = document.createElement("input");
+input.classList.add("sidebar__text-input-input");
+input.setAttribute("type", "text");
+input.setAttribute("value", defaultValuePort.get());
+// inputWrapper.appendChild(input);
+el.appendChild(input);
+input.addEventListener("input", onInput);
+
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
+op.onDelete = onDelete;
+inputValuePort.onChange = onInputValuePortChanged;
+setDefaultValueButtonPort.onTriggered = setDefaultValue;
+
+// functions
+
+function setDefaultValue()
+{
+    defaultValuePort.set(parseFloat(inputValuePort.get()));
+    op.refreshParams();
+}
+
+function onInputValuePortChanged()
+{
+    let val = parseFloat(inputValuePort.get());
+    if (isNaN(val)) { val = 0; }
+    input.value = val;
+    valuePort.set(val);
+}
+
+function onInput(ev)
+{
+    let newVal = parseFloat(ev.target.value);
+    if (isNaN(newVal)) { newVal = 0; }
+    valuePort.set(newVal);
+    inputValuePort.set(newVal);
+    op.refreshParams();
+}
+
+function onDefaultValueChanged()
+{
+    /*
+    var defaultValue = defaultValuePort.get();
+    valuePort.set(defaultValue);
+    input.value = defaultValue;
+    */
+}
+
+function onLabelTextChanged()
+{
+    const labelText = labelPort.get();
+    label.textContent = labelText;
+    if (CABLES.UI)
+    {
+        op.setTitle("Number Input: " + labelText);
+    }
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function showElement(element)
+{
+    if (element)
+    {
+        element.style.display = "block";
+    }
+}
+
+function hideElement(element)
+{
+    if (element)
+    {
+        element.style.display = "none";
+    }
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(element)
+{
+    if (element && element.parentNode && element.parentNode.removeChild)
+    {
+        element.parentNode.removeChild(element);
+    }
+}
+
+
+};
+
+Ops.Sidebar.NumberInput_v2.prototype = new CABLES.Op();
+CABLES.OPS["c4f3f1d7-de07-4c06-921e-32baeef4fc68"]={f:Ops.Sidebar.NumberInput_v2,objName:"Ops.Sidebar.NumberInput_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.ElementChilds_v2
+// 
+// **************************************************************
+
+Ops.Html.ElementChilds_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    parentPort = op.inObject("Parent", null, "element"),
+    outParent = op.outObject("Parent Out", null, "element");
+
+const canvas = op.patch.cgl.canvas.parentElement;
+
+const inPorts = [];
+for (let i = 0; i < 10; i++)
+{
+    const p = op.inObject("Child " + (i + 1));
+    inPorts.push(p);
+    p.onChange = () =>
+    {
+        rebuild();
+        if (!p.get())
+        {
+            const selector = "[data-cables-child-id='" + op.id + "_" + i + "']";
+            const currentChild = canvas.querySelector(selector);
+            if (currentChild) delete currentChild.dataset.cablesChildId;
+        }
+    };
+    p.onLinkChanged = () =>
+    {
+        if (!p.isLinked())
+        {
+            const selector = "[data-cables-child-id='" + op.id + "_" + i + "']";
+            const currentChild = canvas.querySelector(selector);
+            if (currentChild) currentChild.remove();
+        }
+    };
+}
+
+parentPort.onLinkChanged = () =>
+{
+    if (!parentPort.isLinked())
+    {
+        cleanUp();
+    }
+    else
+    {
+        rebuild();
+    }
+};
+
+outParent.onLinkChanged = () =>
+{
+    if (!outParent.isLinked())
+    {
+        const parentDiv = parentPort.get();
+        if (parentDiv && parentDiv.dataset.op)
+        {
+            const inDoc = canvas.querySelector("[data-op=' " + parentDiv.dataset.op + " ']");
+            if (!inDoc)
+            {
+                canvas.appendChild(parentDiv);
+            }
+        }
+    }
+};
+
+parentPort.onChange = () =>
+{
+    if (!parentPort.get())
+    {
+        cleanUp();
+    }
+    rebuild();
+};
+
+function cleanUp()
+{
+    for (let i = 0; i < inPorts.length; i++)
+    {
+        const selector = "[data-cables-child-id='" + op.id + "_" + i + "']";
+        const currentChild = canvas.querySelector(selector);
+        if (currentChild && currentChild.parentNode)
+        {
+            currentChild.remove();
+        }
+    }
+    outParent.set(null);
+}
+
+function rebuild()
+{
+    const parent = parentPort.get();
+    if (!parent)
+    {
+        outParent.set(null);
+        return;
+    }
+
+
+    if (!parent.querySelector)
+    {
+        outParent.set(null);
+        return;
+    }
+
+    for (let i = 0; i < inPorts.length; i++)
+    {
+        const selector = "[data-cables-child-id='" + op.id + "_" + i + "']";
+        const currentChild = parent.querySelector(selector);
+        if (currentChild)
+        {
+            currentChild.remove();
+        }
+        const p = inPorts[i].get();
+        if (p && parent)
+        {
+            if (!p.dataset)console.log("p no dataset ?!");
+            else p.dataset.cablesChildId = op.id + "_" + i;
+            parent.appendChild(p);
+        }
+    }
+
+    outParent.set(null);
+    outParent.set(parent);
+}
+
+
+};
+
+Ops.Html.ElementChilds_v2.prototype = new CABLES.Op();
+CABLES.OPS["ad7eea9a-f4af-4ab7-bb70-922242529681"]={f:Ops.Html.ElementChilds_v2,objName:"Ops.Html.ElementChilds_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.DivElement_v2
+// 
+// **************************************************************
+
+Ops.Html.DivElement_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inText = op.inString("Text", "Hello Div"),
+    inId = op.inString("Id"),
+    inClass = op.inString("Class"),
+    inStyle = op.inValueEditor("Style", "position:absolute;\nz-index:100;", "inline-css"),
+    inInteractive = op.inValueBool("Interactive", false),
+    inVisible = op.inValueBool("Visible", true),
+    inBreaks = op.inValueBool("Convert Line Breaks", false),
+    inPropagation = op.inValueBool("Propagate Click-Events", true),
+    outElement = op.outObject("DOM Element", null, "element"),
+    outHover = op.outBoolNum("Hover"),
+    outClicked = op.outTrigger("Clicked");
+
+let listenerElement = null;
+let oldStr = null;
+let prevDisplay = "block";
+let div = null;
+
+const canvas = op.patch.cgl.canvas.parentElement;
+
+createElement();
+
+inClass.onChange = updateClass;
+inBreaks.onChange = inText.onChange = updateText;
+inStyle.onChange = updateStyle;
+inInteractive.onChange = updateInteractive;
+inVisible.onChange = updateVisibility;
+
+updateText();
+updateStyle();
+warning();
+updateInteractive();
+
+op.onDelete = removeElement;
+
+outElement.onLinkChanged = updateStyle;
+
+function createElement()
+{
+    div = document.createElement("div");
+    div.dataset.op = op.id;
+    div.classList.add("cablesEle");
+
+    if (inId.get()) div.id = inId.get();
+
+    canvas.appendChild(div);
+    outElement.set(div);
+}
+
+function removeElement()
+{
+    if (div) removeClasses();
+    if (div && div.parentNode) div.parentNode.removeChild(div);
+    oldStr = null;
+    div = null;
+}
+
+function setCSSVisible(visible)
+{
+    if (!visible)
+    {
+        div.style.visibility = "hidden";
+        prevDisplay = div.style.display || "block";
+        div.style.display = "none";
+    }
+    else
+    {
+        // prevDisplay=div.style.display||'block';
+        if (prevDisplay == "none") prevDisplay = "block";
+        div.style.visibility = "visible";
+        div.style.display = prevDisplay;
+    }
+}
+
+function updateVisibility()
+{
+    setCSSVisible(inVisible.get());
+}
+
+function updateText()
+{
+    let str = inText.get();
+
+    if (oldStr === str) return;
+    oldStr = str;
+
+    if (str && inBreaks.get()) str = str.replace(/(?:\r\n|\r|\n)/g, "<br>");
+
+    if (div.innerHTML != str) div.innerHTML = str;
+    outElement.set(null);
+    outElement.set(div);
+}
+
+// inline css inisde div
+function updateStyle()
+{
+    if (!div) return;
+    // if (inStyle.get() != div.style)
+    // {
+    div.setAttribute("style", inStyle.get());
+    updateVisibility();
+    outElement.set(null);
+    outElement.set(div);
+    // }
+
+    if (!div.parentElement)
+    {
+        canvas.appendChild(div);
+    }
+
+    warning();
+}
+
+let oldClassesStr = "";
+
+function removeClasses()
+{
+    if (!div) return;
+
+    const classes = (inClass.get() || "").split(" ");
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i]) div.classList.remove(classes[i]);
+    }
+    oldClassesStr = "";
+}
+
+function updateClass()
+{
+    const classes = (inClass.get() || "").split(" ");
+    const oldClasses = (oldClassesStr || "").split(" ");
+
+    let found = false;
+
+    for (let i = 0; i < oldClasses.length; i++)
+    {
+        if (
+            oldClasses[i] &&
+            classes.indexOf(oldClasses[i].trim()) == -1)
+        {
+            found = true;
+            div.classList.remove(oldClasses[i]);
+        }
+    }
+
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i])
+        {
+            div.classList.add(classes[i].trim());
+        }
+    }
+
+    oldClassesStr = inClass.get();
+    warning();
+}
+
+function onMouseEnter(e)
+{
+    outHover.set(true);
+}
+
+function onMouseLeave(e)
+{
+    outHover.set(false);
+}
+
+function onMouseClick(e)
+{
+    if (!inPropagation.get())
+    {
+        e.stopPropagation();
+    }
+    outClicked.trigger();
+}
+
+function updateInteractive()
+{
+    removeListeners();
+    if (inInteractive.get()) addListeners();
+}
+
+inId.onChange = function ()
+{
+    div.id = inId.get();
+};
+
+function removeListeners()
+{
+    if (listenerElement)
+    {
+        listenerElement.removeEventListener("pointerdown", onMouseClick);
+        listenerElement.removeEventListener("pointerleave", onMouseLeave);
+        listenerElement.removeEventListener("pointerenter", onMouseEnter);
+        listenerElement = null;
+    }
+}
+
+function addListeners()
+{
+    if (listenerElement)removeListeners();
+
+    listenerElement = div;
+
+    if (listenerElement)
+    {
+        listenerElement.addEventListener("pointerdown", onMouseClick);
+        listenerElement.addEventListener("pointerleave", onMouseLeave);
+        listenerElement.addEventListener("pointerenter", onMouseEnter);
+    }
+}
+
+op.addEventListener("onEnabledChange", function (enabled)
+{
+    removeElement();
+    if (enabled)
+    {
+        createElement();
+        updateStyle();
+        updateClass();
+        updateText();
+        updateInteractive();
+    }
+    // if(enabled) updateVisibility();
+    // else setCSSVisible(false);
+});
+
+function warning()
+{
+    if (inClass.get() && inStyle.get())
+    {
+        op.setUiError("error", "DIV uses external and inline CSS", 1);
+    }
+    else
+    {
+        op.setUiError("error", null);
+    }
+}
+
+
+};
+
+Ops.Html.DivElement_v2.prototype = new CABLES.Op();
+CABLES.OPS["db36db6d-83e4-4d27-b84c-8a20067aaffc"]={f:Ops.Html.DivElement_v2,objName:"Ops.Html.DivElement_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.ElementSize
+// 
+// **************************************************************
+
+Ops.Html.ElementSize = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inExe=op.inTrigger("Update"),
+    inMode=op.inSwitch("Position",['Relative','Absolute'],'Relative'),
+    inEle=op.inObject("Element"),
+    outX=op.outNumber("x"),
+    outY=op.outNumber("y"),
+    outWidth=op.outNumber("Width"),
+    outHeight=op.outNumber("Height");
+
+inMode.onChange=updateMode;
+updateMode();
+
+function updateMode()
+{
+    if(inMode.get()=="Relative")
+    {
+        inEle.onChange=updateRel;
+        inExe.onTriggered=updateRel;
+    }
+    else
+    {
+        inEle.onChange=updateAbs;
+        inExe.onTriggered=updateAbs;
+    }
+}
+
+function updateAbs()
+{
+    const ele=inEle.get();
+    if(!ele)return;
+
+    const r=ele.getBoundingClientRect();
+
+    outX.set(r.x);
+    outY.set(r.y);
+    outWidth.set(r.width);
+    outHeight.set(r.height);
+}
+
+function updateRel()
+{
+    const ele=inEle.get();
+    if(!ele)return;
+
+    const rcanv=op.patch.cgl.canvas.getBoundingClientRect();
+    const r=ele.getBoundingClientRect();
+    outX.set(r.x-rcanv.x);
+    outY.set(r.y-rcanv.y);
+    outWidth.set(r.width);
+    outHeight.set(r.height);
+}
+
+};
+
+Ops.Html.ElementSize.prototype = new CABLES.Op();
+CABLES.OPS["fb23c251-a43e-4677-9d03-ccd512fee82e"]={f:Ops.Html.ElementSize,objName:"Ops.Html.ElementSize"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.SwitchString
+// 
+// **************************************************************
+
+Ops.String.SwitchString = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    idx=op.inValueInt("Index"),
+    result=op.outString("Result");
+
+const valuePorts=[];
+
+idx.onChange=update;
+
+for(var i=0;i<10;i++)
+{
+    var p=op.inString("String "+i);
+    valuePorts.push( p );
+    p.onChange=update;
+}
+
+function update()
+{
+    if(idx.get()>=0 && valuePorts[idx.get()])
+    {
+        result.set( valuePorts[idx.get()].get() );
+    }
+}
+
+};
+
+Ops.String.SwitchString.prototype = new CABLES.Op();
+CABLES.OPS["2a7a0c68-f7c9-4249-b19a-d2de5cb4862c"]={f:Ops.String.SwitchString,objName:"Ops.String.SwitchString"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Ui.VizArrayTable
+// 
+// **************************************************************
+
+Ops.Ui.VizArrayTable = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inArr = op.inArray("Array"),
+    inOffset = op.inInt("Start Row", 0);
+
+op.setUiAttrib({ "height": 200, "width": 400, "resizable": true });
+
+function getCellValue(v)
+{
+    let str = "";
+
+    if (typeof v == "string")
+    {
+        if (CABLES.UTILS.isNumeric(v)) str = "\"" + v + "\"";
+        else str = v;
+    }
+    else if (CABLES.UTILS.isNumeric(v)) str = String(Math.round(v * 10000) / 10000);
+    else if (Array.isArray(v))
+    {
+        let preview = "...";
+        if (v.length == 0) preview = "";
+        str = "[" + preview + "] (" + v.length + ")";
+    }
+    else if (typeof v == "object")
+    {
+        try
+        {
+            str = JSON.stringify(v, true, 1);
+        }
+        catch (e)
+        {
+            str = "{???}";
+        }
+    }
+    else if (v != v || v === undefined)
+    {
+        str += String(v);
+    }
+    else
+    {
+        str += String(v);
+    }
+
+    return str;
+}
+
+op.renderVizLayer = (ctx, layer) =>
+{
+    ctx.fillStyle = "#222";
+    ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
+
+    ctx.save();
+    ctx.scale(layer.scale, layer.scale);
+
+    ctx.font = "normal 10px sourceCodePro";
+    ctx.fillStyle = "#ccc";
+
+    const arr = inArr.get() || [];
+    let stride = 1;
+
+    if (inArr.get() === null) op.setUiAttrib({ "extendTitle": "null" });
+    else if (inArr.get() === undefined) op.setUiAttrib({ "extendTitle": "undefined" });
+    else op.setUiAttrib({ "extendTitle": "length: " + arr.length });
+
+    if (inArr.links.length > 0 && inArr.links[0].getOtherPort(inArr))
+        stride = inArr.links[0].getOtherPort(inArr).uiAttribs.stride || 1;
+
+    let lines = Math.floor(layer.height / layer.scale / 10 - 1);
+    let padding = 4;
+    let offset = inOffset.get() * stride;
+    let columnsWidth = [];
+
+    for (let i = 0; i < stride; i++)columnsWidth[i] = 0;
+
+    for (let i = offset; i < offset + lines * stride; i += stride)
+    {
+        for (let s = 0; s < stride; s++)
+        {
+            const v = arr[i + s];
+
+            columnsWidth[s] = Math.max(columnsWidth[s], getCellValue(v).length);
+        }
+    }
+
+    let columsPos = [];
+    let addUpPos = 30;
+    for (let i = 0; i < stride; i++)
+    {
+        columsPos[i] = addUpPos;
+        addUpPos += (columnsWidth[i] + 1) * 7;
+    }
+
+    for (let i = offset; i < offset + lines * stride; i += stride)
+    {
+        if (i < 0) continue;
+        if (i + stride > arr.length) continue;
+
+        ctx.fillStyle = "#666";
+
+        const lineNum = (i) / stride;
+
+        if (lineNum >= 0)
+            ctx.fillText(lineNum,
+                layer.x / layer.scale + padding,
+                layer.y / layer.scale + 10 + (i - offset) / stride * 10 + padding);
+
+        for (let s = 0; s < stride; s++)
+        {
+            const v = arr[i + s];
+            let str = getCellValue(v);
+
+            ctx.fillStyle = "#ccc";
+
+            if (typeof v == "string")
+            {
+            }
+            else if (CABLES.UTILS.isNumeric(v)) str = String(Math.round(v * 10000) / 10000);
+            else if (Array.isArray(v))
+            {
+            }
+            else if (typeof v == "object")
+            {
+            }
+            else if (v != v || v === undefined)
+            {
+                ctx.fillStyle = "#f00";
+            }
+
+            ctx.fillText(str,
+                layer.x / layer.scale + columsPos[s],
+                layer.y / layer.scale + 10 + (i - offset) / stride * 10 + padding);
+        }
+    }
+
+    if (inArr.get() === null) ctx.fillText("null", layer.x / layer.scale + 10, layer.y / layer.scale + 10 + padding);
+    else if (inArr.get() === undefined) ctx.fillText("undefined", layer.x / layer.scale + 10, layer.y / layer.scale + 10 + padding);
+
+    const gradHeight = 30;
+
+    if (layer.scale <= 0) return;
+    if (offset > 0)
+    {
+        const radGrad = ctx.createLinearGradient(0, layer.y / layer.scale + 5, 0, layer.y / layer.scale + gradHeight);
+        radGrad.addColorStop(0, "#222");
+        radGrad.addColorStop(1, "rgba(34,34,34,0.0)");
+        ctx.fillStyle = radGrad;
+        ctx.fillRect(layer.x / layer.scale, layer.y / layer.scale, 200000, gradHeight);
+    }
+
+    if (offset + lines * stride < arr.length)
+    {
+        const radGrad = ctx.createLinearGradient(0, layer.y / layer.scale + layer.height / layer.scale - gradHeight + 5, 0, layer.y / layer.scale + layer.height / layer.scale - gradHeight + gradHeight);
+        radGrad.addColorStop(1, "#222");
+        radGrad.addColorStop(0, "rgba(34,34,34,0.0)");
+        ctx.fillStyle = radGrad;
+        ctx.fillRect(layer.x / layer.scale, layer.y / layer.scale + layer.height / layer.scale - gradHeight, 200000, gradHeight);
+    }
+
+    ctx.restore();
+};
+
+
+};
+
+Ops.Ui.VizArrayTable.prototype = new CABLES.Op();
+CABLES.OPS["af2eeaaf-ff86-4bfb-9a27-42f05160a5d8"]={f:Ops.Ui.VizArrayTable,objName:"Ops.Ui.VizArrayTable"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ArrayGetStringByPath
+// 
+// **************************************************************
+
+Ops.Json.ArrayGetStringByPath = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const objectIn = op.inArray("Array");
+const pathIn = op.inString("Path");
+const returnPathIn = op.inBool("Return path if missing", false);
+const resultOut = op.outString("Output");
+const foundOut = op.outBool("Found");
+
+objectIn.onChange = update;
+pathIn.onChange = update;
+returnPathIn.onChange = update;
+
+function update()
+{
+    const data = objectIn.get();
+    const path = pathIn.get();
+    op.setUiError("missing", null);
+    if (data && path)
+    {
+        if (!Array.isArray(data) && !(typeof data === "object"))
+        {
+            foundOut.set(false);
+            op.setUiError("notiterable", "input object of type " + (typeof data) + " is not travesable by path");
+        }
+        else
+        {
+            op.setUiError("notiterable", null);
+            const parts = path.split(".");
+            op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
+            let result = resolve(path, data);
+            if (result === undefined)
+            {
+                const errorMsg = "could not find element at path " + path;
+                let errorLevel = 2;
+                result = null;
+                foundOut.set(false);
+                if (returnPathIn.get())
+                {
+                    result = path;
+                    errorLevel = 1;
+                }
+                else
+                {
+                    result = null;
+                }
+                op.setUiError("missing", errorMsg, errorLevel);
+            }
+            else
+            {
+                foundOut.set(true);
+                result = String(result);
+            }
+            resultOut.set(result);
+        }
+    }
+    else
+    {
+        foundOut.set(false);
+    }
+}
+
+function resolve(path, obj = self, separator = ".")
+{
+    const properties = Array.isArray(path) ? path : path.split(separator);
+    return properties.reduce((prev, curr) => prev && prev[curr], obj);
+}
+
+
+};
+
+Ops.Json.ArrayGetStringByPath.prototype = new CABLES.Op();
+CABLES.OPS["064fc275-f61d-4c5f-9692-28c2062248bf"]={f:Ops.Json.ArrayGetStringByPath,objName:"Ops.Json.ArrayGetStringByPath"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Compare.GreaterThan
+// 
+// **************************************************************
+
+Ops.Math.Compare.GreaterThan = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    number1 = op.inValueFloat("number1"),
+    number2 = op.inValueFloat("number2"),
+    result = op.outBoolNum("result");
+
+op.setTitle(">");
+
+number1.onChange = number2.onChange = exec;
+
+function exec()
+{
+    result.set(number1.get() > number2.get());
+}
+
+
+};
+
+Ops.Math.Compare.GreaterThan.prototype = new CABLES.Op();
+CABLES.OPS["b250d606-f7f8-44d3-b099-c29efff2608a"]={f:Ops.Math.Compare.GreaterThan,objName:"Ops.Math.Compare.GreaterThan"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.Sphere_v2
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.Sphere_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    TAU = Math.PI * 2,
+    cgl = op.patch.cgl,
+    inTrigger = op.inTrigger("render"),
+    inRadius = op.inValue("radius", 0.5),
+    inStacks = op.inValue("stacks", 32),
+    inSlices = op.inValue("slices", 32),
+    inStacklimit = op.inValueSlider("Filloffset", 1),
+    inDraw = op.inValueBool("Render", true),
+    outTrigger = op.outTrigger("trigger"),
+    outGeometry = op.outObject("geometry", null, "geometry"),
+    UP = vec3.fromValues(0, 1, 0),
+    RIGHT = vec3.fromValues(1, 0, 0);
+
+let
+    geom = new CGL.Geometry("Sphere"),
+    tmpNormal = vec3.create(),
+    tmpVec = vec3.create(),
+    needsRebuild = true,
+    mesh;
+
+inTrigger.onTriggered = function ()
+{
+    if (needsRebuild) buildMesh();
+    if (inDraw.get()) mesh.render(cgl.getShader());
+    outTrigger.trigger();
+};
+
+inStacks.onChange =
+inSlices.onChange =
+inStacklimit.onChange =
+inRadius.onChange = function ()
+{
+    // only calculate once, even after multiple settings could were changed
+    needsRebuild = true;
+};
+
+// set lifecycle handlers
+op.onDelete = function () { if (mesh)mesh.dispose(); };
+
+function buildMesh()
+{
+    const
+        stacks = Math.ceil(Math.max(inStacks.get(), 2)),
+        slices = Math.ceil(Math.max(inSlices.get(), 3)),
+        stackLimit = Math.min(Math.max(inStacklimit.get() * stacks, 1), stacks),
+        radius = inRadius.get();
+    let
+        positions = [],
+        texcoords = [],
+        normals = [],
+        tangents = [],
+        biTangents = [],
+        indices = [],
+        x, y, z, d, t, a,
+        o, u, v, i, j;
+    for (i = o = 0; i < stacks + 1; i++)
+    {
+        v = (i / stacks - 0.5) * Math.PI;
+        y = Math.sin(v);
+        a = Math.cos(v);
+        // for (j = 0; j < slices+1; j++) {
+        for (j = slices; j >= 0; j--)
+        {
+            u = (j / slices) * TAU;
+            x = Math.cos(u) * a;
+            z = Math.sin(u) * a;
+
+            positions.push(x * radius, y * radius, z * radius);
+            // texcoords.push(i/(stacks+1),j/slices);
+            texcoords.push(j / slices, i / (stacks + 1));
+
+            d = Math.sqrt(x * x + y * y + z * z);
+            normals.push(
+                tmpNormal[0] = x / d,
+                tmpNormal[1] = y / d,
+                tmpNormal[2] = z / d
+            );
+
+            if (y == d) t = RIGHT;
+            else t = UP;
+            vec3.cross(tmpVec, tmpNormal, t);
+            vec3.normalize(tmpVec, tmpVec);
+            Array.prototype.push.apply(tangents, tmpVec);
+            vec3.cross(tmpVec, tmpVec, tmpNormal);
+            Array.prototype.push.apply(biTangents, tmpVec);
+        }
+        if (i == 0 || i > stackLimit) continue;
+        for (j = 0; j < slices; j++, o++)
+        {
+            indices.push(
+                o, o + 1, o + slices + 1,
+                o + 1, o + slices + 2, o + slices + 1
+            );
+        }
+        o++;
+    }
+
+    // set geometry
+    geom.clear();
+    geom.vertices = positions;
+    geom.texCoords = texcoords;
+    geom.vertexNormals = normals;
+    geom.tangents = tangents;
+    geom.biTangents = biTangents;
+    geom.verticesIndices = indices;
+
+    outGeometry.setRef(geom);
+
+    if (!mesh) mesh = new CGL.Mesh(cgl, geom);
+    else mesh.setGeom(geom);
+
+    needsRebuild = false;
+}
+
+
+};
+
+Ops.Gl.Meshes.Sphere_v2.prototype = new CABLES.Op();
+CABLES.OPS["450b4d68-2278-4d9f-9849-0abdfa37ef69"]={f:Ops.Gl.Meshes.Sphere_v2,objName:"Ops.Gl.Meshes.Sphere_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.ModalOverlay
+// 
+// **************************************************************
+
+Ops.Html.ModalOverlay = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inEle = op.inObject("Content Element"),
+    inShow = op.inTriggerButton("Show"),
+    inClose = op.inTriggerButton("Close"),
+    closeButton = op.inBool("Show Closebutton", true),
+    inOpacity = op.inFloatSlider("Opacity", 0.5),
+    outVisible = op.outBool("Visible"),
+    outClosed = op.outTrigger("Closed"),
+    outElement = op.outObject("Element");
+
+const eleContainer = document.createElement("div");
+const eleClose = document.createElement("div");
+
+eleClose.innerHTML = "&times;";
+eleClose.style.color = "white";
+eleClose.style.position = "fixed";
+eleClose.style.top =
+eleClose.style.right = "25px";
+eleClose.style["line-height"] = "25px";
+eleClose.style["z-index"] = "9999";
+eleClose.style.cursor = "pointer";
+eleClose.style["font-size"] = "50px";
+eleClose.addEventListener("pointerdown", hide);
+eleContainer.addEventListener("pointerdown", hide);
+eleContainer.appendChild(eleClose);
+
+inOpacity.onChange = updateBgColor;
+eleContainer.style.display = "none";
+inShow.onTriggered = show;
+inClose.onTriggered = hide;
+
+closeButton.onChange = updateCloseButton;
+
+function updateCloseButton()
+{
+    if (!eleClose) return;
+    if (closeButton.get()) eleClose.style.display = "block";
+    else eleClose.style.display = "none";
+}
+
+inEle.onChange = function ()
+{
+    let ele = inEle.get();
+    if (ele && eleContainer) eleContainer.appendChild(ele);
+};
+
+function hide()
+{
+    outVisible.set(false);
+    eleContainer.style.display = "none";
+    outClosed.trigger();
+}
+
+function updateBgColor()
+{
+    eleContainer.style["background-color"] = "rgba(0,0,0," + inOpacity.get() + ")";
+}
+
+function show()
+{
+    outVisible.set(true);
+    updateCloseButton();
+    eleContainer.style.display = "block";
+
+    eleContainer.dataset.op = op.id;
+    let parent = op.patch.cgl.canvas.parentElement;
+
+    eleContainer.style = "overflow:auto;top:0;width:100%;height:100%;position:absolute;z-index:9999";
+    updateBgColor();
+
+    parent.appendChild(eleContainer);
+    outElement.set(eleContainer);
+}
+
+
+};
+
+Ops.Html.ModalOverlay.prototype = new CABLES.Op();
+CABLES.OPS["a8ba593a-4d5a-4b55-8ee7-9b6f9920da1f"]={f:Ops.Html.ModalOverlay,objName:"Ops.Html.ModalOverlay"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.YoutubePlayer
+// 
+// **************************************************************
+
+Ops.Html.YoutubePlayer = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    src = op.inString("Video Id", "dQw4w9WgXcQ"),
+    active = op.inBool("Active", true),
+    inStyle = op.inStringEditor("Style"),
+    elId = op.inString("ElementID"),
+    paramAutoplay = op.inBool("Autoplay", false),
+    paramCC = op.inBool("Display Captions", false),
+    paramLoop = op.inBool("Loop", false),
+    paramFs = op.inBool("Allow Fullscreen", true),
+    paramControls = op.inBool("Hide Controls", false),
+    paramStart = op.inInt("Start at Second", 0),
+
+    outEle = op.outObject("Element"),
+    outDirectLink = op.outString("Direct Link");
+    // outImageMax=op.outString("Thumbnail Max");
+
+const defaultStyle = "position:absolute;\n\
+z-index:9;\n\
+border:0;\n";
+
+op.setPortGroup("Youtube Options", [paramAutoplay, paramCC, paramLoop, paramFs, paramControls, paramStart]);
+
+// https://developers.google.com/youtube/player_parameters
+
+let element = null;
+let initialized = false;
+
+paramStart.onChange =
+    paramAutoplay.onChange =
+    paramCC.onChange =
+    paramLoop.onChange =
+    paramFs.onChange =
+    paramControls.onChange =
+    src.onChange = updateURL;
+
+elId.onChange = updateID;
+inStyle.onChange = updateStyle;
+op.onDelete = removeEle;
+
+active.onChange = update;
+
+op.init = function ()
+{
+    initialized = true;
+    setTimeout(() => { update(); }, 100);
+};
+
+inStyle.set(defaultStyle);
+
+function update()
+{
+    if (!active.get())
+    {
+        removeEle();
+        return;
+    }
+
+    addElement();
+}
+
+function addElement()
+{
+    if (!initialized) return;
+    if (element) removeEle();
+
+    const parent = op.patch.cgl.canvas.parentElement;
+    element = document.createElement("iframe");
+    element.dataset.op = op.id;
+    element.style.position = "absolute";
+    element.allowfullscreen = true;
+    element.frameborder = 0;
+    element.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
+
+    parent.appendChild(element);
+
+    updateURL();
+    updateID();
+    updateStyle();
+
+    outEle.set(null);
+    outEle.set(element);
+}
+
+function removeEle()
+{
+    if (element && element.parentNode) element.parentNode.removeChild(element);
+    element = null;
+    outEle.set(null);
+}
+
+function updateURL()
+{
+    if (src.get()) outDirectLink.set("https://www.youtube.com/watch?v=" + src.get());
+
+    if (!initialized) return;
+    if (!active.get()) return;
+    const urlParams = [];
+
+    if (paramAutoplay.get()) urlParams.push("autoplay=1");
+    if (paramCC.get()) urlParams.push("cc_load_policy=1");
+    if (paramLoop.get()) urlParams.push("loop=1");
+    if (paramFs.get()) urlParams.push("fs=1");
+    if (paramControls.get()) urlParams.push("controls=0");
+    if (paramStart.get() > 0) urlParams.push("start=" + paramStart.get());
+
+    let urlParamsStr = "";
+    if (urlParams.length > 0) urlParamsStr = "?" + urlParams.join("&") + "&rel=0";
+
+    const urlStr = "https://www.youtube.com/embed/" + src.get() + urlParamsStr;
+    if (element)
+        element.setAttribute("src", urlStr);
+}
+
+function updateID()
+{
+    if (!active.get()) return;
+    if (element) element.setAttribute("id", elId.get());
+}
+
+function updateStyle()
+{
+    if (!active.get()) return;
+    if (element) element.style = inStyle.get();
+}
+
+
+};
+
+Ops.Html.YoutubePlayer.prototype = new CABLES.Op();
+CABLES.OPS["b60ad395-d6ad-4309-86c5-c6bbffaf176c"]={f:Ops.Html.YoutubePlayer,objName:"Ops.Html.YoutubePlayer"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Devices.Mobile.MotionSensor_v2
+// 
+// **************************************************************
+
+Ops.Devices.Mobile.MotionSensor_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    mulAxis = op.inValue("Mul Orientation", 1),
+    req = op.inTrigger("Request Permissions"),
+    axis1 = op.outNumber("Orientation Alpha"),
+    axis2 = op.outNumber("Orientation Beta"),
+    axis3 = op.outNumber("Orientation Gamma"),
+    accX = op.outNumber("Acceleration X"),
+    accY = op.outNumber("Acceleration Y"),
+    accZ = op.outNumber("Acceleration Z"),
+    accNoGravX = op.outNumber("Acceleration X no gravity"),
+    accNoGravY = op.outNumber("Acceleration Y no gravity"),
+    accNoGravZ = op.outNumber("Acceleration Z no gravity"),
+
+    rotRate1 = op.outNumber("Rotation Rate Alpha"),
+    rotRate2 = op.outNumber("Rotation Rate Beta"),
+    rotRate3 = op.outNumber("Rotation Rate Gamma"),
+
+    outObj = op.outObject("Object");
+
+let lastTime = 0;
+let lastTimeAcc = 0;
+let obj = {};
+
+function handleDeviceMotion(event)
+{
+    if (CABLES.now() - lastTimeAcc > 15)
+    {
+        lastTimeAcc = CABLES.now();
+
+        accX.set(event.accelerationIncludingGravity.x || 0);
+        accY.set(event.accelerationIncludingGravity.y || 0);
+        accZ.set(event.accelerationIncludingGravity.z || 0);
+
+        accNoGravX.set(event.acceleration.x || 0);
+        accNoGravY.set(event.acceleration.y || 0);
+        accNoGravZ.set(event.acceleration.z || 0);
+
+        obj.AccelerationX = accX.get();
+        obj.AccelerationY = accY.get();
+        obj.AccelerationZ = accZ.get();
+
+        rotRate1.set(event.rotationRate.alpha || 0);
+        rotRate2.set(event.rotationRate.beta || 0);
+        rotRate3.set(event.rotationRate.gamma || 0);
+
+        outObj.set(null);
+        outObj.set(obj);
+    }
+}
+
+function handleDeviceOrientation(event)
+{
+    if (CABLES.now() - lastTime > 15)
+    {
+        lastTime = CABLES.now();
+        axis1.set((event.alpha || 0) * mulAxis.get());
+        axis2.set((event.beta || 0) * mulAxis.get());
+        axis3.set((event.gamma || 0) * mulAxis.get());
+
+        obj.OrientationAlpha = axis1.get();
+        obj.OrientationBeta = axis2.get();
+        obj.OrientationGamma = axis3.get();
+
+        outObj.set(null);
+        outObj.set(obj);
+    }
+}
+
+req.onTriggered = function ()
+{
+    if (window.DeviceMotionEvent && window.DeviceMotionEvent.requestPermission)
+    {
+        window.DeviceMotionEvent.requestPermission()
+            .then((response) =>
+            {
+                if (response == "granted")
+                {
+                    window.addEventListener("devicemotion", handleDeviceMotion, true);
+                }
+                else
+                    console.log(response);
+            })
+            .catch((e) =>
+            {
+                console.log(e);
+            });
+
+        window.DeviceOrientationEvent.requestPermission()
+            .then((response) =>
+            {
+                if (response == "granted")
+                {
+                    window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+                }
+                else
+                    console.log(response);
+            })
+            .catch((e) =>
+            {
+                console.log(e);
+            });
+    }
+    else
+    {
+        window.addEventListener("devicemotion", handleDeviceMotion, true);
+        window.addEventListener("deviceorientation", handleDeviceOrientation, true);
+    }
+};
+
+if (window.self !== window.top)
+{
+    op.setUiError("iframe", "MotionSensor does not work in an iframe, open the patch without an iframe to get it to work", 1);
+    op.warn("MotionSensor does not work in an iframe, open the patch without an iframe to get it to work");
+}
+
+
+};
+
+Ops.Devices.Mobile.MotionSensor_v2.prototype = new CABLES.Op();
+CABLES.OPS["f4102f07-e5ff-4c1e-ac5b-6a4758b81727"]={f:Ops.Devices.Mobile.MotionSensor_v2,objName:"Ops.Devices.Mobile.MotionSensor_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.HyperLink_v2
+// 
+// **************************************************************
+
+Ops.Html.HyperLink_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exec = op.inTriggerButton("Open"),
+    inUrl = op.inString("URL", "https://cables.gl"),
+    inTarget = op.inString("Target Name", "_self"),
+    inSpecs = op.inString("Specs", "");
+
+exec.onTriggered = function ()
+{
+    // document.location.href=inUrl.get();
+    window.open(inUrl.get(), inTarget.get(), inSpecs.get());
+};
+
+
+};
+
+Ops.Html.HyperLink_v2.prototype = new CABLES.Op();
+CABLES.OPS["a669d4f7-1e35-463c-bf8b-08c9f1b68e04"]={f:Ops.Html.HyperLink_v2,objName:"Ops.Html.HyperLink_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Value.DelayNumberSimple
+// 
+// **************************************************************
+
+Ops.Value.DelayNumberSimple = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    val = op.inValue("Value"),
+    de = op.inValue("Delay", 1),
+    outVal = op.outNumber("Out Value");
+
+let timeout = -1;
+
+val.onChange = update;
+de.onChange = update;
+
+function update()
+{
+    clearTimeout(timeout);
+    let v = val.get();
+    timeout = setTimeout(function ()
+    {
+        outVal.set(v);
+    }, de.get() * 1000);
+}
+
+
+};
+
+Ops.Value.DelayNumberSimple.prototype = new CABLES.Op();
+CABLES.OPS["89ea7e9c-0dfb-4e1e-8e61-4e79112ee533"]={f:Ops.Value.DelayNumberSimple,objName:"Ops.Value.DelayNumberSimple"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Trigger.TriggersPerSecond
+// 
+// **************************************************************
+
+Ops.Trigger.TriggersPerSecond = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exe = op.inTrigger("exe"),
+    cps = op.outNumber("cps");
+
+let timeStart = 0;
+let cpsCount = 0;
+
+exe.onTriggered = function ()
+{
+    if (timeStart === 0)timeStart = CABLES.now();
+    let now = CABLES.now();
+
+    if (now - timeStart > 1000)
+    {
+        timeStart = CABLES.now();
+        op.setUiAttrib({ "extendTitle": cpsCount });
+        cps.set(cpsCount);
+        cpsCount = 0;
+    }
+
+    cpsCount++;
+};
+
+
+};
+
+Ops.Trigger.TriggersPerSecond.prototype = new CABLES.Op();
+CABLES.OPS["ece2f153-eb31-4268-b0e5-8143ad2fdd81"]={f:Ops.Trigger.TriggersPerSecond,objName:"Ops.Trigger.TriggersPerSecond"};
 
 
 
@@ -21503,71 +22462,857 @@ CABLES.OPS["5a9075e6-0550-46df-99b9-7402b2fbd953"]={f:Ops.Html.TextArea_v2,objNa
 
 // **************************************************************
 // 
-// Ops.Html.ElementSize
+// Ops.Html.CSSPropertyString
 // 
 // **************************************************************
 
-Ops.Html.ElementSize = function()
+Ops.Html.CSSPropertyString = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    inExe=op.inTrigger("Update"),
-    inMode=op.inSwitch("Position",['Relative','Absolute'],'Relative'),
-    inEle=op.inObject("Element"),
-    outX=op.outNumber("x"),
-    outY=op.outNumber("y"),
-    outWidth=op.outNumber("Width"),
-    outHeight=op.outNumber("Height");
+    inEle = op.inObject("Element"),
+    inProperty = op.inString("Property"),
+    inValue = op.inString("Value"),
+    outEle = op.outObject("HTML Element");
 
-inMode.onChange=updateMode;
-updateMode();
+op.setPortGroup("Element", [inEle]);
+op.setPortGroup("Attributes", [inProperty, inValue]);
 
-function updateMode()
+inProperty.onChange = updateProperty;
+inValue.onChange = update;
+let ele = null;
+
+inEle.onChange =
+outEle.onLinkChanged =
+inEle.onLinkChanged = function ()
 {
-    if(inMode.get()=="Relative")
+    if (ele && ele.style) ele.style[inProperty.get()] = "initial";
+    update();
+};
+
+function updateProperty()
+{
+    update();
+    op.setUiAttrib({ "extendTitle": inProperty.get() + "" });
+}
+
+function update()
+{
+    ele = inEle.get();
+    if (ele && ele.style)
     {
-        inEle.onChange=updateRel;
-        inExe.onTriggered=updateRel;
+        const str = inValue.get();
+        try
+        {
+            ele.style[inProperty.get()] = str;
+        }
+        catch (e)
+        {
+            op.logError(e);
+        }
+    }
+
+    outEle.set(inEle.get());
+}
+
+
+};
+
+Ops.Html.CSSPropertyString.prototype = new CABLES.Op();
+CABLES.OPS["a7abdfb9-4c2a-4ddb-8fc6-55b3fdfbdaf3"]={f:Ops.Html.CSSPropertyString,objName:"Ops.Html.CSSPropertyString"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Boolean.BoolToString
+// 
+// **************************************************************
+
+Ops.Boolean.BoolToString = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inBool = op.inBool("Boolean", false),
+    inTrue = op.inString("True", "true"),
+    inFalse = op.inString("False", "false"),
+    result = op.outString("String", "false");
+
+inTrue.onChange =
+    inFalse.onChange =
+    inBool.onChange = update;
+
+function update()
+{
+    if (inBool.get()) result.set(inTrue.get());
+    else result.set(inFalse.get());
+}
+
+
+};
+
+Ops.Boolean.BoolToString.prototype = new CABLES.Op();
+CABLES.OPS["22a734aa-8b08-4db7-929b-393d4704e1d6"]={f:Ops.Boolean.BoolToString,objName:"Ops.Boolean.BoolToString"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Html.ElementFadeInOut
+// 
+// **************************************************************
+
+Ops.Html.ElementFadeInOut = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={"fadeInOut_css":"\n.CABLES_animFadedOut\n{\n    display:none !important;\n    opacity:0;\n}\n\n.CABLES_animFadeOut\n{\n    animation: CABLES_keysFadeOut $LENGTHs normal forwards ease-in-out;\n}\n\n.CABLES_animFadeIn\n{\n    /*display:block;*/\n    animation: CABLES_keysFadeIn $LENGTHs normal forwards ease-in-out;\n}\n\n@keyframes CABLES_keysFadeIn {\n    from { opacity: 0; }\n    to   { opacity: $FULLOPACITY; }\n}\n\n@keyframes CABLES_keysFadeOut {\n    from { opacity: $FULLOPACITY; }\n    to   { opacity: 0; }\n}\n",};
+const inEle = op.inObject("HTML Element");
+const inVisible = op.inValueBool("Visible", true);
+const inDuration = op.inValue("Duration", 0.5);
+const inOpacity = op.inValue("Opacity", 1);
+const outShowing = op.outBoolNum("Is Showing", false);
+
+let theTimeout = null;
+inDuration.onChange = update;
+inOpacity.onChange = update;
+
+inVisible.onChange = updateVisibility;
+inEle.onChange = updateVisibility;
+
+let styleEle = null;
+const eleId = "css_" + CABLES.uuid();
+
+update();
+
+let oldEle = null;
+let loaded = true;
+const oldvis = null;
+loaded = true;
+
+op.onLoaded = function ()
+{
+    loaded = true;
+    updateVisibility();
+    outShowing.set(inVisible.get());
+};
+
+function updateVisibility()
+{
+    const ele = inEle.get();
+
+    if (!loaded)
+    {
+        setTimeout(updateVisibility, 50);
+        return;
+    }
+
+    if (styleEle && ele)
+    {
+        // if (ele == oldEle) return;
+        // oldEle = ele;
+        if (inVisible.get())
+        {
+            outShowing.set(true);
+            if (ele && ele.classList && !ele.classList.contains("CABLES_animFadeIn"))
+            {
+                clearTimeout(theTimeout);
+                ele.classList.remove("CABLES_animFadedOut");
+                ele.classList.remove("CABLES_animFadeOut");
+                ele.classList.add("CABLES_animFadeIn");
+                theTimeout = setTimeout(function ()
+                {
+                    ele.classList.remove("CABLES_animFadeIn");
+                    outShowing.set(true);
+                }, inDuration.get() * 1000);
+            }
+        }
+        else
+        {
+            outShowing.set(true);
+            if (ele && ele.classList && !ele.classList.contains("CABLES_animFadeOut"))
+            {
+                clearTimeout(theTimeout);
+                ele.classList.remove("CABLES_animFadeIn");
+                ele.classList.add("CABLES_animFadeOut");
+                theTimeout = setTimeout(function ()
+                {
+                    ele.classList.add("CABLES_animFadedOut");
+                    outShowing.set(false);
+                }, inDuration.get() * 1000);
+            }
+        }
     }
     else
     {
-        inEle.onChange=updateAbs;
-        inExe.onTriggered=updateAbs;
+        // op.logError("no html element");
     }
 }
 
-function updateAbs()
+function getCssContent()
 {
-    const ele=inEle.get();
-    if(!ele)return;
+    let css = attachments.fadeInOut_css;
 
-    const r=ele.getBoundingClientRect();
+    while (css.indexOf("$LENGTH") > -1)css = css.replace("$LENGTH", inDuration.get());
+    while (css.indexOf("$FULLOPACITY") > -1)css = css.replace("$FULLOPACITY", inOpacity.get());
 
-    outX.set(r.x);
-    outY.set(r.y);
-    outWidth.set(r.width);
-    outHeight.set(r.height);
+    return css;
 }
 
-function updateRel()
+function update()
 {
-    const ele=inEle.get();
-    if(!ele)return;
+    styleEle = document.getElementById(eleId);
 
-    const rcanv=op.patch.cgl.canvas.getBoundingClientRect();
-    const r=ele.getBoundingClientRect();
-    outX.set(r.x-rcanv.x);
-    outY.set(r.y-rcanv.y);
-    outWidth.set(r.width);
-    outHeight.set(r.height);
+    if (styleEle)
+    {
+        styleEle.textContent = getCssContent();
+    }
+    else
+    {
+        styleEle = document.createElement("style");
+        styleEle.type = "text/css";
+        styleEle.id = eleId;
+        styleEle.textContent = getCssContent();
+
+        const head = document.getElementsByTagName("body")[0];
+        head.appendChild(styleEle);
+    }
+}
+
+op.onDelete = function ()
+{
+    const ele = inEle.get();
+
+    if (ele && ele.classList)
+    {
+        ele.classList.remove("CABLES_animFadeIn");
+        ele.classList.remove("CABLES_animFadedOut");
+        ele.classList.remove("CABLES_animFadeOut");
+    }
+
+    styleEle = document.getElementById(eleId);
+    if (styleEle)styleEle.remove();
+};
+
+
+};
+
+Ops.Html.ElementFadeInOut.prototype = new CABLES.Op();
+CABLES.OPS["392e65eb-4ebe-4adb-8711-e4cfe059c6c9"]={f:Ops.Html.ElementFadeInOut,objName:"Ops.Html.ElementFadeInOut"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ObjectGetArrayByPath
+// 
+// **************************************************************
+
+Ops.Json.ObjectGetArrayByPath = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const objectIn = op.inObject("Object");
+const pathIn = op.inString("Path");
+const resultOut = op.outArray("Output");
+const foundOut = op.outBool("Found");
+
+objectIn.onChange = update;
+pathIn.onChange = update;
+
+function update()
+{
+    const data = objectIn.get();
+    const path = pathIn.get();
+    op.setUiError("missing", null);
+    if (data && path)
+    {
+        if (!Array.isArray(data) && !(typeof data === "object"))
+        {
+            foundOut.set(false);
+            op.setUiError("notiterable", "input object of type " + (typeof data) + " is not travesable by path");
+        }
+        else
+        {
+            op.setUiError("notiterable", null);
+            const parts = path.split(".");
+            op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
+            let result = resolve(path, data);
+            if (result === undefined)
+            {
+                const errorMsg = "could not find element at path " + path;
+                foundOut.set(false);
+                result = null;
+                op.setUiError("missing", errorMsg, 2);
+            }
+            else if (!Array.isArray(result))
+            {
+                const errorMsg = "element at path " + path + " is not an array";
+                foundOut.set(false);
+                result = null;
+                op.setUiError("missing", errorMsg, 2);
+            }
+            else
+            {
+                foundOut.set(true);
+            }
+            resultOut.setRef(result);
+        }
+    }
+    else
+    {
+        foundOut.set(false);
+    }
+}
+
+function resolve(path, obj = self, separator = ".")
+{
+    const properties = Array.isArray(path) ? path : path.split(separator);
+    return properties.reduce((prev, curr) => { return prev && prev[curr]; }, obj);
+}
+
+
+};
+
+Ops.Json.ObjectGetArrayByPath.prototype = new CABLES.Op();
+CABLES.OPS["a9354531-a42d-4216-ad8c-364df989a9a1"]={f:Ops.Json.ObjectGetArrayByPath,objName:"Ops.Json.ObjectGetArrayByPath"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBUpdateDocument1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBUpdateDocument1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+const inDocument = op.inObject("Document");
+const inMerge = op.inBool("Merge", true);
+const inUpdateTimestamp = op.inBool("Update Timestamp");
+const inTimestampPath = op.inString("Timestamp Path", "");
+
+//output
+const outError = op.outBoolNum("Error", false);
+const outErrorMessage = op.outString("Error Message");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+const outTimestampPath = op.outString("Timestamp Path");
+
+inTrigger.onTriggered = updateDocument;
+
+function updateDocument(){
+    if (
+        !inCollectionName.get() ||
+        !inDocumentID.get()
+    ){
+        outError.set(true);
+        outErrorMessage.set(
+            "Missing Arguments: Collection name or Document ID is missing!"
+        );
+        outFailure.trigger();
+        return;
+    }
+
+    let documentToUpdate = {};
+
+    if (inDocument.get()) {
+        documentToUpdate = {...inDocument.get()};
+    }
+
+    if (inUpdateTimestamp.get()){
+        let path = inTimestampPath.get();
+        if (path) {
+            let pathArr = path.split('.');
+            let timestampObj = {};
+            let tempObj = timestampObj;
+            for (let i = 0; i < pathArr.length - 1; i++) {
+                tempObj[pathArr[i]] = {};
+                tempObj = tempObj[pathArr[i]];
+            }
+            tempObj[pathArr[pathArr.length - 1]] = firebase.firestore.FieldValue.serverTimestamp();
+            Object.assign(documentToUpdate, timestampObj);
+            outTimestampPath.set(path);
+        } else {
+            documentToUpdate.lastUpdated = firebase.firestore.FieldValue.serverTimestamp();
+            outTimestampPath.set('lastUpdated');
+        }
+    }
+
+    const db = firebase.firestore();
+
+    db.collection(inCollectionName.get())
+        .doc(inDocumentID.get())
+        .set(documentToUpdate, { merge: inMerge.get() })
+        .then(() => {
+            outError.set(false);
+            outErrorMessage.set('');
+            outSuccess.trigger();
+        })
+        .catch((error) => {
+            outError.set(true);
+            outErrorMessage.set(error.message);
+            outFailure.trigger();
+        });
+}
+
+
+};
+
+Ops.User.rambodc.FBUpdateDocument1.prototype = new CABLES.Op();
+CABLES.OPS["6f6aa994-d218-4d67-9ff2-b403b10aa6ea"]={f:Ops.User.rambodc.FBUpdateDocument1,objName:"Ops.User.rambodc.FBUpdateDocument1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBCreateDocument1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBCreateDocument1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+const inDocument = op.inObject("Document");
+const inMerge = op.inBool("Merge",false);
+const inCreateTimestamp = op.inBool("Create Timestamp");
+
+//output
+const outError = op.outBoolNum("Error",false);
+const outErrorMessage = op.outString("Error Message");
+const outCreatedDocument = op.outObject("Created Document");
+const outCreatedDocumentID = op.outString("Created Document ID");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+
+inTrigger.onTriggered=createDocument;
+
+function createDocument() {
+  if (!inCollectionName.get() || !inDocument.get()) {
+    outError.set(true);
+    outErrorMessage.set(
+      "Missing Arguments: Collection name, Document ID or Document is missing!"
+    );
+    return;
+  }
+  const db = firebase.firestore();
+  var docRef = db.collection(inCollectionName.get());
+
+  let documentToCreate = inDocument.get();
+
+  if (inCreateTimestamp.get()) {
+    // Check if created map exists and create it if it doesn't
+    if (!documentToCreate.hasOwnProperty("created")) {
+      documentToCreate.created = {};
+    }
+    documentToCreate.created.createdDate = firebase.firestore.FieldValue.serverTimestamp();
+  } else {
+    // If inCreateTimestamp is not selected, remove the createdDate field
+    if (documentToCreate.hasOwnProperty("created") && documentToCreate.created.hasOwnProperty("createdDate")) {
+      delete documentToCreate.created.createdDate;
+    }
+  }
+
+  if (inDocumentID.get()) {
+    docRef
+      .doc(inDocumentID.get())
+      .set(documentToCreate, { merge: inMerge.get() })
+      .then((doc) => {
+
+        outError.set(false);
+        outErrorMessage.set("");
+        outCreatedDocument.set(documentToCreate);
+        outCreatedDocumentID.set(inDocumentID.get());
+        outSuccess.trigger();
+      })
+      .catch((error) => {
+        outError.set(true);
+        outCreatedDocument.set(null);
+        outCreatedDocumentID.set(null);
+        outErrorMessage.set(error.message);
+        outFailure.trigger();
+      });
+  } else {
+    docRef
+      .add(documentToCreate)
+      .then((doc) => {
+
+
+        outCreatedDocument.set(documentToCreate);
+        outError.set(false);
+        outErrorMessage.set("");
+        outCreatedDocumentID.set(doc.id);
+        outSuccess.trigger();
+      })
+      .catch((error) => {
+        outError.set(true);
+        outCreatedDocument.set(null);
+        outCreatedDocumentID.set(null);
+        outErrorMessage.set(error.message);
+        outFailure.trigger();
+      });
+  }
+}
+
+
+};
+
+Ops.User.rambodc.FBCreateDocument1.prototype = new CABLES.Op();
+CABLES.OPS["1afeecfc-d970-4b11-901d-c54753a0c32a"]={f:Ops.User.rambodc.FBCreateDocument1,objName:"Ops.User.rambodc.FBCreateDocument1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBDeleteDocument1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBDeleteDocument1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+
+//output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+
+inTrigger.onTriggered = deleteDocument;
+
+function deleteDocument() {
+if (!inCollectionName.get() || !inDocumentID.get()) {
+outError.trigger();
+outErrorMessage.set(
+"Missing Arguments: Collection name or Document ID is missing!"
+);
+return;
+}
+
+const db = firebase.firestore();
+db.collection(inCollectionName.get())
+.doc(inDocumentID.get())
+.delete()
+.then(() => {
+outSuccess.trigger();
+outErrorMessage.set('');
+})
+.catch((error) => {
+outError.trigger();
+outErrorMessage.set(error.message);
+});
 }
 
 };
 
-Ops.Html.ElementSize.prototype = new CABLES.Op();
-CABLES.OPS["fb23c251-a43e-4677-9d03-ccd512fee82e"]={f:Ops.Html.ElementSize,objName:"Ops.Html.ElementSize"};
+Ops.User.rambodc.FBDeleteDocument1.prototype = new CABLES.Op();
+CABLES.OPS["5b1d4580-dca0-4338-b516-58ce013de65b"]={f:Ops.User.rambodc.FBDeleteDocument1,objName:"Ops.User.rambodc.FBDeleteDocument1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBDeleteDocumentFields1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBDeleteDocumentFields1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+const inFields = op.inArray("Fields");
+
+//output
+const outError = op.outBoolNum("Error", false);
+const outErrorMessage = op.outString("Error Message");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+
+inTrigger.onTriggered = deleteDocument;
+
+function deleteDocument() {
+  if (
+    !inCollectionName.get() ||
+    !inDocumentID.get() ||
+    !inFields.get()
+  ) {
+    outError.set(true);
+    outErrorMessage.set(
+      "Missing Arguments: Collection name, Document ID or Fields is missing!"
+    );
+    return;
+  }
+  let fieldsToDelete = {};
+  inFields.get().forEach((field) => {
+    fieldsToDelete[field] = firebase.firestore.FieldValue.delete();
+  });
+
+  const db = firebase.firestore();
+  db.collection(inCollectionName.get())
+    .doc(inDocumentID.get())
+    .update(fieldsToDelete)
+    .then(() => {
+      outError.set(false);
+      outErrorMessage.set("");
+      outSuccess.trigger();
+    })
+    .catch((error) => {
+      outError.set(true);
+      outErrorMessage.set(error.message);
+      outFailure.trigger();
+    });
+}
+
+
+};
+
+Ops.User.rambodc.FBDeleteDocumentFields1.prototype = new CABLES.Op();
+CABLES.OPS["e61a8773-71b9-4002-9c4c-91469f206259"]={f:Ops.User.rambodc.FBDeleteDocumentFields1,objName:"Ops.User.rambodc.FBDeleteDocumentFields1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBGetOneDocument1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBGetOneDocument1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+
+//output
+const outError = op.outBoolNum("Error",false);
+const outErrorMessage = op.outString("Error Message");
+const outDocument = op.outObject("Document");
+const outDocumentNotFouned = op.outValueBool("Document Not Found");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+
+inTrigger.onTriggered=getDocument;
+
+function getDocument(){
+    console.log("getDocument")
+    if(
+        !inCollectionName.get() ||
+        !inDocumentID.get()
+    ){
+        console.log("DocumentError1")
+        outError.set(true)
+        outErrorMessage.set(
+            "Missing Arguments: Collection name or Document ID is missing!"
+        );
+        outDocument.set(null);
+        outDocumentNotFouned.set(false);
+        return;
+    }
+    console.log(firebase)
+    let db;
+    try {
+     db = firebase.firestore();
+    } catch (e) {
+        console.log(e)
+    }
+
+    var docRef = db.collection(inCollectionName.get()).doc(inDocumentID.get());
+    console.log(docRef)
+    docRef.get().then((doc) => {
+        if (doc.exists) {
+            outDocument.set(doc.data());
+            console.log(doc.data())
+            outDocumentNotFouned.set(false);
+            outSuccess.trigger();
+        } else {
+            console.log("DocumentError2")
+            outDocument.set(null);
+            outDocumentNotFouned.set(true);
+            outFailure.trigger();
+        }
+        outError.set(false)
+        outErrorMessage.set(null);
+
+    }).catch((error) => {
+        console.log("DocumentError3")
+        outError.set(true);
+        outErrorMessage.set(error.message);
+
+        outFailure.trigger();
+    });
+}
+
+};
+
+Ops.User.rambodc.FBGetOneDocument1.prototype = new CABLES.Op();
+CABLES.OPS["a6ccf5c5-2236-4dd4-895e-98b6240f68e1"]={f:Ops.User.rambodc.FBGetOneDocument1,objName:"Ops.User.rambodc.FBGetOneDocument1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBQueryAllDocuments1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBQueryAllDocuments1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inUseQuery = op.inBool("Use Query");
+const inQueryField = op.inString("Query Field");
+const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="]);
+const inQueryValueAs = op.inDropDown("Query Value As",
+    ["String", "Number", "Boolean", "Array", "Object"]
+);
+const inQueryValueString = op.inString("Query Value String");
+const inQueryValueNumber = op.inValue("Query Value Number");
+const inQueryValueBool = op.inBool("Query Value Boolean");
+const inQueryValueArray = op.inArray("Query Value Array");
+const inQueryValueObject = op.inObject("Query Value Object");
+const inFilterOnOrOff = op.inBool("Filter On or Off");
+const inFilterKey = op.inString("Filter Key");
+const inValueMustBe = op.inString("Value Must Be");
+
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+const outDocumentNotFouned = op.outValueBool("Document Not Found");
+const outDocuments = op.outArray("Documents");
+
+// events
+inTrigger.onTriggered = getDocuments;
+
+function getDocuments()
+{
+    const db = firebase.firestore();
+    let docRef = db.collection(inCollectionName.get());
+
+    if (inUseQuery.get())
+    {
+        if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get())
+        {
+            outErrorMessage.set(
+                "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
+            );
+            outError.trigger();
+            outDocuments.set(null);
+            outDocumentNotFouned.set(false);
+            return;
+        }
+        let value = getValue();
+        docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
+    }
+
+    if (inFilterOnOrOff.get())
+    {
+        docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
+    }
+
+    docRef.get().then((querySnapshot) =>
+    {
+        if (!querySnapshot.empty)
+        {
+            let documents = [];
+            querySnapshot.forEach((doc) =>
+            {
+                let docData = doc.data();
+                docData.id = doc.id; // Add this line
+                documents.push(docData);
+            });
+            outDocuments.set(documents);
+            outDocumentNotFouned.set(false);
+            outSuccess.trigger();
+        }
+        else
+        {
+            outDocuments.set(null);
+            outDocumentNotFouned.set(true);
+            outError.trigger();
+        }
+    }).catch((error) =>
+    {
+        outErrorMessage.set(error.message);
+        outError.trigger();
+    });
+}
+
+function getValue()
+{
+    let valueAs = inQueryValueAs.get();
+    if (valueAs === "String")
+    {
+        return inQueryValueString.get();
+    }
+    if (valueAs === "Number")
+    {
+        return inQueryValueNumber.get();
+    }
+    if (valueAs === "Boolean")
+    {
+        return inQueryValueBool.get();
+    }
+    if (valueAs === "Array")
+    {
+        return inQueryValueArray.get();
+    }
+    if (valueAs === "Object")
+    {
+        return inQueryValueObject.get();
+    }
+}
+
+
+};
+
+Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
+CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
 
 
 
