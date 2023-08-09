@@ -1,25 +1,25 @@
 ## Patch Variables:
 
-* __changeEmail__ ```String```
-* __defaultWallet__ ```String```
+* __classicAddress__ ```String```
+* __commercialPages__ ```Number```
 * __email__ ```String```
-* __emailVerified__ ```String```
-
-  Set emailVerified in Var
-
+* __emailVer__ ```String```
 * __firstName__ ```String```
-* __forgotPasswordEmail__ ```String```
 * __height__ ```Number```
-* __IsSignedInTF__ ```Number```
+* __institutionName__ ```String```
+* __isSignedIn__ ```Number```
 * __lastName__ ```String```
-* __mouseOver__ ```String```
-* __Orientation__ ```String```
-* __PageIndex__ ```Number```
+* __loader__ ```Number```
+* __network__ ```String```
+* __newEmail__ ```String```
+* __resetPw__ ```String```
+* __retailPages__ ```Number```
+* __SeCheck__ ```Number```
+* __seed__ ```String```
+* __tabAdd__ ```String```
+* __tabObject__ ```Object```
+* __tabRemove__ ```String```
 * __uid__ ```String```
-
-  Set UID in Var
-
-* __walletClassicAddress__ ```String```
 * __width__ ```Number```
-* __wss__ ```String```
+* __wssSelect__ ```String```
 

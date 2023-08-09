@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-    <title>ProjectD</title>
+    <title>CENT30</title>
     <style>
         body {
             margin: 0;
@@ -33,7 +33,7 @@
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1">
-    <meta itemprop="name" content="ProjectD">
+    <meta itemprop="name" content="CENT30">
     <meta itemprop="description" content="made with cables">
     <meta itemprop="image" content="screenshot.png">
     <meta name="description" content="made with cables" />
@@ -43,9 +43,15 @@
 <body>
     <canvas id="glcanvas" width="100vw" height="100vh" tabindex="1"></canvas>
 
-    
-    <script type="text/javascript" src="js/patch.js" async></script>
-    
+    <script type="text/javascript"  src="js/echarts.js"></script>
+
+    <script type="text/javascript" src="js/libs.core.min.js"></script>
+<script type="text/javascript" src="js/cables.min.js"></script>
+<script type="text/javascript" src="js/ops.js"></script>
+
+    <script type="text/javascript"  src="js/ammoworld.js"></script>
+<script type="text/javascript"  src="js/vargetset.js"></script>
+
 
     <script type="text/javascript">
         // disable rubberband effect on mobile devices
@@ -61,7 +67,7 @@
 
         document.addEventListener('CABLES.jsLoaded', function (event) {
             CABLES.patch = new CABLES.Patch({
-                patch: CABLES.exportedPatch,
+                patchFile: 'js/CENT30.json',
                 "prefixAssetPath": "",
                 "assetPath": "assets/",
                 "jsPath": "js/",
