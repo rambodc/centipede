@@ -22,6 +22,7 @@ Ops.Boolean=Ops.Boolean || {};
 Ops.Devices=Ops.Devices || {};
 Ops.Sidebar=Ops.Sidebar || {};
 Ops.Trigger=Ops.Trigger || {};
+Ops.Graphics=Ops.Graphics || {};
 Ops.Extension=Ops.Extension || {};
 Ops.Gl.Matrix=Ops.Gl.Matrix || {};
 Ops.Gl.Meshes=Ops.Gl.Meshes || {};
@@ -31,6 +32,7 @@ Ops.User.rambodc=Ops.User.rambodc || {};
 Ops.Devices.Mouse=Ops.Devices.Mouse || {};
 Ops.Devices.Keyboard=Ops.Devices.Keyboard || {};
 Ops.Extension.ECharts=Ops.Extension.ECharts || {};
+Ops.Graphics.Geometry=Ops.Graphics.Geometry || {};
 
 
 
@@ -522,246 +524,6 @@ function updateDefines()
 
 Ops.Gl.Shader.BasicMaterial_v3.prototype = new CABLES.Op();
 CABLES.OPS["ec55d252-3843-41b1-b731-0482dbd9e72b"]={f:Ops.Gl.Shader.BasicMaterial_v3,objName:"Ops.Gl.Shader.BasicMaterial_v3"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Gl.Texture_v2
-// 
-// **************************************************************
-
-Ops.Gl.Texture_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    filename = op.inUrl("File", [".jpg", ".png", ".webp", ".jpeg", ".avif"]),
-    tfilter = op.inSwitch("Filter", ["nearest", "linear", "mipmap"]),
-    wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
-    aniso = op.inSwitch("Anisotropic", ["0", "1", "2", "4", "8", "16"], "0"),
-    flip = op.inValueBool("Flip", false),
-    unpackAlpha = op.inValueBool("Pre Multiplied Alpha", false),
-    active = op.inValueBool("Active", true),
-    inFreeMemory = op.inBool("Save Memory", true),
-    textureOut = op.outTexture("Texture"),
-    width = op.outNumber("Width"),
-    height = op.outNumber("Height"),
-    ratio = op.outNumber("Aspect Ratio"),
-    loaded = op.outNumber("Loaded", false),
-    loading = op.outNumber("Loading", false);
-
-const cgl = op.patch.cgl;
-
-op.toWorkPortsNeedToBeLinked(textureOut);
-op.setPortGroup("Size", [width, height]);
-
-let loadedFilename = null;
-let loadingId = null;
-let tex = null;
-let cgl_filter = CGL.Texture.FILTER_MIPMAP;
-let cgl_wrap = CGL.Texture.WRAP_REPEAT;
-let cgl_aniso = 0;
-let timedLoader = 0;
-
-unpackAlpha.setUiAttribs({ "hidePort": true });
-unpackAlpha.onChange =
-    filename.onChange =
-    flip.onChange = reloadSoon;
-aniso.onChange = tfilter.onChange = onFilterChange;
-wrap.onChange = onWrapChange;
-
-tfilter.set("mipmap");
-wrap.set("repeat");
-
-textureOut.set(CGL.Texture.getEmptyTexture(cgl));
-
-active.onChange = function ()
-{
-    if (active.get())
-    {
-        if (loadedFilename != filename.get() || !tex) reloadSoon();
-        else textureOut.set(tex);
-    }
-    else
-    {
-        textureOut.set(CGL.Texture.getEmptyTexture(cgl));
-        width.set(CGL.Texture.getEmptyTexture(cgl).width);
-        height.set(CGL.Texture.getEmptyTexture(cgl).height);
-        if (tex)tex.delete();
-        op.setUiAttrib({ "extendTitle": "" });
-        tex = null;
-    }
-};
-
-const setTempTexture = function ()
-{
-    const t = CGL.Texture.getTempTexture(cgl);
-    textureOut.set(t);
-};
-
-function reloadSoon(nocache)
-{
-    clearTimeout(timedLoader);
-    timedLoader = setTimeout(function ()
-    {
-        realReload(nocache);
-    }, 30);
-}
-
-function realReload(nocache)
-{
-    if (!active.get()) return;
-    // if (filename.get() === null) return;
-    if (loadingId)loadingId = cgl.patch.loading.finished(loadingId);
-    loadingId = cgl.patch.loading.start("textureOp", filename.get(), op);
-
-    let url = op.patch.getFilePath(String(filename.get()));
-
-    if (nocache)url += "?rnd=" + CABLES.uuid();
-
-    if (String(filename.get()).indexOf("data:") == 0) url = filename.get();
-
-    let needsRefresh = false;
-    if (loadedFilename != filename.get()) needsRefresh = true;
-    loadedFilename = filename.get();
-
-    if ((filename.get() && filename.get().length > 1))
-    {
-        loaded.set(false);
-        loading.set(true);
-
-        const fileToLoad = filename.get();
-
-        op.setUiAttrib({ "extendTitle": CABLES.basename(url) });
-        if (needsRefresh) op.refreshParams();
-
-        cgl.patch.loading.addAssetLoadingTask(() =>
-        {
-            op.setUiError("urlerror", null);
-
-            CGL.Texture.load(cgl, url,
-                function (err, newTex)
-                {
-                    cgl.checkFrameStarted("texture inittexture");
-
-                    if (filename.get() != fileToLoad)
-                    {
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                        return;
-                    }
-
-                    if (err)
-                    {
-                        setTempTexture();
-                        op.setUiError("urlerror", "could not load texture: \"" + filename.get() + "\"", 2);
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                        return;
-                    }
-
-                    textureOut.set(newTex);
-
-                    width.set(newTex.width);
-                    height.set(newTex.height);
-                    ratio.set(newTex.width / newTex.height);
-
-                    // if (!newTex.isPowerOfTwo()) op.setUiError("npot", "Texture dimensions not power of two! - Texture filtering will not work in WebGL 1.", 0);
-                    // else op.setUiError("npot", null);
-
-                    if (tex)tex.delete();
-                    tex = newTex;
-                    // textureOut.set(null);
-                    textureOut.setRef(tex);
-
-                    loading.set(false);
-                    loaded.set(true);
-
-                    if (inFreeMemory.get()) tex.image = null;
-
-                    if (loadingId)
-                    {
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                    }
-                    // testTexture();
-                }, {
-                    "anisotropic": cgl_aniso,
-                    "wrap": cgl_wrap,
-                    "flip": flip.get(),
-                    "unpackAlpha": unpackAlpha.get(),
-                    "filter": cgl_filter
-                });
-
-            // textureOut.set(null);
-            // textureOut.set(tex);
-        });
-    }
-    else
-    {
-        cgl.patch.loading.finished(loadingId);
-        loadingId = null;
-        setTempTexture();
-    }
-}
-
-function onFilterChange()
-{
-    if (tfilter.get() == "nearest") cgl_filter = CGL.Texture.FILTER_NEAREST;
-    else if (tfilter.get() == "linear") cgl_filter = CGL.Texture.FILTER_LINEAR;
-    else if (tfilter.get() == "mipmap") cgl_filter = CGL.Texture.FILTER_MIPMAP;
-    else if (tfilter.get() == "Anisotropic") cgl_filter = CGL.Texture.FILTER_ANISOTROPIC;
-
-    aniso.setUiAttribs({ "greyout": cgl_filter != CGL.Texture.FILTER_MIPMAP });
-
-    cgl_aniso = parseFloat(aniso.get());
-
-    reloadSoon();
-}
-
-function onWrapChange()
-{
-    if (wrap.get() == "repeat") cgl_wrap = CGL.Texture.WRAP_REPEAT;
-    if (wrap.get() == "mirrored repeat") cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
-    if (wrap.get() == "clamp to edge") cgl_wrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
-
-    reloadSoon();
-}
-
-op.onFileChanged = function (fn)
-{
-    if (filename.get() && filename.get().indexOf(fn) > -1)
-    {
-        textureOut.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
-        textureOut.set(CGL.Texture.getTempTexture(cgl));
-        realReload(true);
-    }
-};
-
-// function testTexture()
-// {
-//     cgl.setTexture(0, tex.tex);
-
-//     const filter = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_MIN_FILTER);
-//     const wrap = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_WRAP_S);
-
-//     if (cgl_filter === CGL.Texture.FILTER_MIPMAP && filter != cgl.gl.LINEAR_MIPMAP_LINEAR) console.log("wrong texture filter!", filename.get());
-//     if (cgl_filter === CGL.Texture.FILTER_NEAREST && filter != cgl.gl.NEAREST) console.log("wrong texture filter!", filename.get());
-//     if (cgl_filter === CGL.Texture.FILTER_LINEAR && filter != cgl.gl.LINEAR) console.log("wrong texture filter!", filename.get());
-
-//     if (cgl_wrap === CGL.Texture.WRAP_REPEAT && wrap != cgl.gl.REPEAT) console.log("wrong texture wrap1!", filename.get());
-//     if (cgl_wrap === CGL.Texture.WRAP_MIRRORED_REPEAT && wrap != cgl.gl.MIRRORED_REPEAT) console.log("wrong texture wrap2!", filename.get());
-//     if (cgl_wrap === CGL.Texture.WRAP_CLAMP_TO_EDGE && wrap != cgl.gl.CLAMP_TO_EDGE) console.log("wrong texture wrap3!", filename.get());
-// }
-
-
-};
-
-Ops.Gl.Texture_v2.prototype = new CABLES.Op();
-CABLES.OPS["790f3702-9833-464e-8e37-6f0f813f7e16"]={f:Ops.Gl.Texture_v2,objName:"Ops.Gl.Texture_v2"};
 
 
 
@@ -8821,470 +8583,6 @@ CABLES.OPS["ea7da1f4-a432-4c33-8de6-c0b40910262a"]={f:Ops.User.rambodc.Veriff_in
 
 // **************************************************************
 // 
-// Ops.Gl.Meshes.Cube_v2
-// 
-// **************************************************************
-
-Ops.Gl.Meshes.Cube_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("Render"),
-    active = op.inValueBool("Render Mesh", true),
-    width = op.inValue("Width", 1),
-    len = op.inValue("Length", 1),
-    height = op.inValue("Height", 1),
-    center = op.inValueBool("Center", true),
-    mapping = op.inSwitch("Mapping", ["Side", "Cube +-"], "Side"),
-    mappingBias = op.inValue("Bias", 0),
-    inFlipX = op.inValueBool("Flip X", true),
-    sideTop = op.inValueBool("Top", true),
-    sideBottom = op.inValueBool("Bottom", true),
-    sideLeft = op.inValueBool("Left", true),
-    sideRight = op.inValueBool("Right", true),
-    sideFront = op.inValueBool("Front", true),
-    sideBack = op.inValueBool("Back", true),
-    trigger = op.outTrigger("Next"),
-    geomOut = op.outObject("geometry", null, "geometry");
-
-const cgl = op.patch.cgl;
-op.toWorkPortsNeedToBeLinked(render);
-op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
-
-op.setPortGroup("Mapping", [mapping, mappingBias, inFlipX]);
-op.setPortGroup("Geometry", [width, height, len, center]);
-op.setPortGroup("Sides", [sideTop, sideBottom, sideLeft, sideRight, sideFront, sideBack]);
-
-let geom = null,
-    mesh = null,
-    meshvalid = true,
-    needsRebuild = true;
-
-mappingBias.onChange =
-    inFlipX.onChange =
-    sideTop.onChange =
-    sideBottom.onChange =
-    sideLeft.onChange =
-    sideRight.onChange =
-    sideFront.onChange =
-    sideBack.onChange =
-    mapping.onChange =
-    width.onChange =
-    height.onChange =
-    len.onChange =
-    center.onChange = buildMeshLater;
-
-function buildMeshLater()
-{
-    needsRebuild = true;
-}
-
-render.onLinkChanged = function ()
-{
-    if (!render.isLinked()) geomOut.set(null);
-    else geomOut.setRef(geom);
-};
-
-render.onTriggered = function ()
-{
-    if (needsRebuild)buildMesh();
-    if (active.get() && mesh && meshvalid) mesh.render(cgl.getShader());
-    trigger.trigger();
-};
-
-op.preRender = function ()
-{
-    buildMesh();
-    mesh.render(cgl.getShader());
-};
-
-function buildMesh()
-{
-    if (!geom)geom = new CGL.Geometry("cubemesh");
-    geom.clear();
-
-    let x = width.get();
-    let nx = -1 * width.get();
-    let y = height.get();
-    let ny = -1 * height.get();
-    let z = len.get();
-    let nz = -1 * len.get();
-
-    if (!center.get())
-    {
-        nx = 0;
-        ny = 0;
-        nz = 0;
-    }
-    else
-    {
-        x *= 0.5;
-        nx *= 0.5;
-        y *= 0.5;
-        ny *= 0.5;
-        z *= 0.5;
-        nz *= 0.5;
-    }
-
-    if (mapping.get() == "Side") sideMappedCube(geom, x, y, z, nx, ny, nz);
-    else cubeMappedCube(geom, x, y, z, nx, ny, nz);
-
-    geom.verticesIndices = [];
-    if (sideTop.get()) geom.verticesIndices.push(8, 9, 10, 8, 10, 11); // Top face
-    if (sideBottom.get()) geom.verticesIndices.push(12, 13, 14, 12, 14, 15); // Bottom face
-    if (sideLeft.get()) geom.verticesIndices.push(20, 21, 22, 20, 22, 23); // Left face
-    if (sideRight.get()) geom.verticesIndices.push(16, 17, 18, 16, 18, 19); // Right face
-    if (sideBack.get()) geom.verticesIndices.push(4, 5, 6, 4, 6, 7); // Back face
-    if (sideFront.get()) geom.verticesIndices.push(0, 1, 2, 0, 2, 3); // Front face
-
-    if (geom.verticesIndices.length === 0) meshvalid = false;
-    else meshvalid = true;
-
-    if (mesh)mesh.dispose();
-    mesh = op.patch.cg.createMesh(geom);
-
-    geomOut.setRef(geom);
-
-    needsRebuild = false;
-}
-
-op.onDelete = function ()
-{
-    if (mesh)mesh.dispose();
-};
-
-function sideMappedCube(geom, x, y, z, nx, ny, nz)
-{
-    addAttribs(geom, x, y, z, nx, ny, nz);
-
-    const bias = mappingBias.get();
-
-    let fone = 1.0;
-    let fzero = 0.0;
-    if (inFlipX.get())
-    {
-        fone = 0.0;
-        fzero = 1.0;
-    }
-
-    geom.setTexCoords([
-        // Front face
-        fzero + bias, 1 - bias,
-        fone - bias, 1 - bias,
-        fone - bias, 0 + bias,
-        fzero + bias, 0 + bias,
-        // Back face
-        fone - bias, 1 - bias,
-        fone - bias, 0 + bias,
-        fzero + bias, 0 + bias,
-        fzero + bias, 1 - bias,
-        // Top face
-        fzero + bias, 0 + bias,
-        fzero + bias, 1 - bias,
-        fone - bias, 1 - bias,
-        fone - bias, 0 + bias,
-        // Bottom face
-        fone - bias, 0 + bias,
-        fzero + bias, 0 + bias,
-        fzero + bias, 1 - bias,
-        fone - bias, 1 - bias,
-        // Right face
-        fone - bias, 1 - bias,
-        fone - bias, 0 + bias,
-        fzero + bias, 0 + bias,
-        fzero + bias, 1 - bias,
-        // Left face
-        fzero + bias, 1 - bias,
-        fone - bias, 1 - bias,
-        fone - bias, 0 + bias,
-        fzero + bias, 0 + bias,
-    ]);
-}
-
-function cubeMappedCube(geom, x, y, z, nx, ny, nz)
-{
-    addAttribs(geom, x, y, z, nx, ny, nz);
-
-    const sx = 0.25;
-    const sy = 1 / 3;
-    const bias = mappingBias.get();
-
-    let flipx = 0.0;
-    if (inFlipX.get()) flipx = 1.0;
-
-    const tc = [];
-    tc.push(
-        // Front face   Z+
-        flipx + sx + bias, sy * 2 - bias,
-        flipx + sx * 2 - bias, sy * 2 - bias,
-        flipx + sx * 2 - bias, sy + bias,
-        flipx + sx + bias, sy + bias,
-        // Back face Z-
-        flipx + sx * 4 - bias, sy * 2 - bias,
-        flipx + sx * 4 - bias, sy + bias,
-        flipx + sx * 3 + bias, sy + bias,
-        flipx + sx * 3 + bias, sy * 2 - bias);
-
-    if (inFlipX.get())
-        tc.push(
-            // Top face
-            sx + bias, 0 - bias,
-            sx * 2 - bias, 0 - bias,
-            sx * 2 - bias, sy * 1 + bias,
-            sx + bias, sy * 1 + bias,
-            // Bottom face
-            sx + bias, sy * 3 + bias,
-            sx + bias, sy * 2 - bias,
-            sx * 2 - bias, sy * 2 - bias,
-            sx * 2 - bias, sy * 3 + bias
-        );
-
-    else
-        tc.push(
-            // Top face
-            sx + bias, 0 + bias,
-            sx + bias, sy * 1 - bias,
-            sx * 2 - bias, sy * 1 - bias,
-            sx * 2 - bias, 0 + bias,
-            // Bottom face
-            sx + bias, sy * 3 - bias,
-            sx * 2 - bias, sy * 3 - bias,
-            sx * 2 - bias, sy * 2 + bias,
-            sx + bias, sy * 2 + bias);
-
-    tc.push(
-        // Right face
-        flipx + sx * 3 - bias, 1.0 - sy - bias,
-        flipx + sx * 3 - bias, 1.0 - sy * 2 + bias,
-        flipx + sx * 2 + bias, 1.0 - sy * 2 + bias,
-        flipx + sx * 2 + bias, 1.0 - sy - bias,
-        // Left face
-        flipx + sx * 0 + bias, 1.0 - sy - bias,
-        flipx + sx * 1 - bias, 1.0 - sy - bias,
-        flipx + sx * 1 - bias, 1.0 - sy * 2 + bias,
-        flipx + sx * 0 + bias, 1.0 - sy * 2 + bias);
-
-    geom.setTexCoords(tc);
-}
-
-function addAttribs(geom, x, y, z, nx, ny, nz)
-{
-    geom.vertices = [
-        // Front face
-        nx, ny, z,
-        x, ny, z,
-        x, y, z,
-        nx, y, z,
-        // Back face
-        nx, ny, nz,
-        nx, y, nz,
-        x, y, nz,
-        x, ny, nz,
-        // Top face
-        nx, y, nz,
-        nx, y, z,
-        x, y, z,
-        x, y, nz,
-        // Bottom face
-        nx, ny, nz,
-        x, ny, nz,
-        x, ny, z,
-        nx, ny, z,
-        // Right face
-        x, ny, nz,
-        x, y, nz,
-        x, y, z,
-        x, ny, z,
-        // zeft face
-        nx, ny, nz,
-        nx, ny, z,
-        nx, y, z,
-        nx, y, nz
-    ];
-
-    geom.vertexNormals = new Float32Array([
-        // Front face
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-        0.0, 0.0, 1.0,
-
-        // Back face
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-        0.0, 0.0, -1.0,
-
-        // Top face
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-        0.0, 1.0, 0.0,
-
-        // Bottom face
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-        0.0, -1.0, 0.0,
-
-        // Right face
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-        1.0, 0.0, 0.0,
-
-        // Left face
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0,
-        -1.0, 0.0, 0.0
-    ]);
-    geom.tangents = new Float32Array([
-        // front face
-        0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
-        // back face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-        // top face
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // bottom face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-        // right face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
-        // left face
-        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1
-    ]);
-    geom.biTangents = new Float32Array([
-        // front face
-        -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
-        // back face
-        1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
-        // top face
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        // bottom face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
-        // right face
-        0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
-        // left face
-        0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1
-    ]);
-}
-
-
-};
-
-Ops.Gl.Meshes.Cube_v2.prototype = new CABLES.Op();
-CABLES.OPS["37b92ba4-cea5-42ae-bf28-a513ca28549c"]={f:Ops.Gl.Meshes.Cube_v2,objName:"Ops.Gl.Meshes.Cube_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Anim.Timer_v2
-// 
-// **************************************************************
-
-Ops.Anim.Timer_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    inSpeed = op.inValue("Speed", 1),
-    playPause = op.inValueBool("Play", true),
-    reset = op.inTriggerButton("Reset"),
-    inSyncTimeline = op.inValueBool("Sync to timeline", false),
-    outTime = op.outNumber("Time");
-
-op.setPortGroup("Controls", [playPause, reset, inSpeed]);
-
-const timer = new CABLES.Timer();
-let lastTime = null;
-let time = 0;
-let syncTimeline = false;
-
-playPause.onChange = setState;
-setState();
-
-function setState()
-{
-    if (playPause.get())
-    {
-        timer.play();
-        op.patch.addOnAnimFrame(op);
-    }
-    else
-    {
-        timer.pause();
-        op.patch.removeOnAnimFrame(op);
-    }
-}
-
-reset.onTriggered = doReset;
-
-function doReset()
-{
-    time = 0;
-    lastTime = null;
-    timer.setTime(0);
-    outTime.set(0);
-}
-
-inSyncTimeline.onChange = function ()
-{
-    syncTimeline = inSyncTimeline.get();
-    playPause.setUiAttribs({ "greyout": syncTimeline });
-    reset.setUiAttribs({ "greyout": syncTimeline });
-};
-
-op.onAnimFrame = function (tt)
-{
-    if (timer.isPlaying())
-    {
-        if (CABLES.overwriteTime !== undefined)
-        {
-            outTime.set(CABLES.overwriteTime * inSpeed.get());
-        }
-        else
-
-        if (syncTimeline)
-        {
-            outTime.set(tt * inSpeed.get());
-        }
-        else
-        {
-            timer.update();
-            const timerVal = timer.get();
-
-            if (lastTime === null)
-            {
-                lastTime = timerVal;
-                return;
-            }
-
-            const t = Math.abs(timerVal - lastTime);
-            lastTime = timerVal;
-
-            time += t * inSpeed.get();
-            if (time != time)time = 0;
-            outTime.set(time);
-        }
-    }
-};
-
-
-};
-
-Ops.Anim.Timer_v2.prototype = new CABLES.Op();
-CABLES.OPS["aac7f721-208f-411a-adb3-79adae2e471a"]={f:Ops.Anim.Timer_v2,objName:"Ops.Anim.Timer_v2"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.User.rambodc.SideBarSwitch_Tabs
 // 
 // **************************************************************
@@ -13226,79 +12524,6 @@ CABLES.OPS["baa17184-bdd2-4e3a-8054-9f9d19b3eedf"]={f:Ops.User.rambodc.Sidebar_i
 
 // **************************************************************
 // 
-// Ops.User.rambodc.XRPL_AccountSet
-// 
-// **************************************************************
-
-Ops.User.rambodc.XRPL_AccountSet = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// Inputs for AccountSet
-const inClearFlag = op.inInt("ClearFlag");
-const inDomain = op.inString("Domain");
-const inEmailHash = op.inString("EmailHash");
-const inMessageKey = op.inString("MessageKey");
-const inNFTokenMinter = op.inString("NFTokenMinter");
-const inSetFlag = op.inInt("SetFlag");
-const inTransferRate = op.inInt("TransferRate");
-const inTickSize = op.inInt("TickSize");
-const inWalletLocator = op.inString("WalletLocator");
-const inWalletSize = op.inInt("WalletSize");
-
-// Additional object as input
-const inAdditionalObject = op.inObject("Additional Object");
-
-// Output
-const outTransaction = op.outObject("Complete AccountSet Transaction");
-
-// Trigger to add AccountSet fields
-const inTriggerAddAccountSetFields = op.inTriggerButton("Add AccountSet Fields");
-
-// Run the function when the trigger input is activated
-inTriggerAddAccountSetFields.onTriggered = addAccountSetFields;
-
-function addAccountSetFields() {
-    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
-    transaction.TransactionType = "AccountSet"; // Set transaction type
-
-    let clearFlag = inClearFlag.get();
-    let domain = inDomain.get();
-    let emailHash = inEmailHash.get();
-    let messageKey = inMessageKey.get();
-    let nfTokenMinter = inNFTokenMinter.get();
-    let setFlag = inSetFlag.get();
-    let transferRate = inTransferRate.get();
-    let tickSize = inTickSize.get();
-    let walletLocator = inWalletLocator.get();
-    let walletSize = inWalletSize.get();
-
-    if (clearFlag) transaction.ClearFlag = clearFlag;
-    if (domain) transaction.Domain = domain;
-    if (emailHash) transaction.EmailHash = emailHash;
-    if (messageKey) transaction.MessageKey = messageKey;
-    if (nfTokenMinter) transaction.NFTokenMinter = nfTokenMinter;
-    if (setFlag) transaction.SetFlag = setFlag;
-    if (transferRate) transaction.TransferRate = transferRate;
-    if (tickSize) transaction.TickSize = tickSize;
-    if (walletLocator) transaction.WalletLocator = walletLocator;
-    if (walletSize) transaction.WalletSize = walletSize;
-
-    outTransaction.set(transaction);
-}
-
-
-};
-
-Ops.User.rambodc.XRPL_AccountSet.prototype = new CABLES.Op();
-CABLES.OPS["5a1bd0b2-580a-4d05-b883-3b540f34d914"]={f:Ops.User.rambodc.XRPL_AccountSet,objName:"Ops.User.rambodc.XRPL_AccountSet"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.User.rambodc.Check_String_Equals
 // 
 // **************************************************************
@@ -15294,6 +14519,3275 @@ function getValue() {
 
 Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
 CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.TextMesh_v2
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.TextMesh_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={"textmesh_frag":"UNI sampler2D tex;\n#ifdef DO_MULTEX\n    UNI sampler2D texMul;\n#endif\n#ifdef DO_MULTEX_MASK\n    UNI sampler2D texMulMask;\n#endif\nIN vec2 texCoord;\nIN vec2 texPos;\nUNI float r;\nUNI float g;\nUNI float b;\nUNI float a;\n\nvoid main()\n{\n    vec4 col=texture(tex,texCoord);\n    col.a=col.r;\n    col.r*=r;\n    col.g*=g;\n    col.b*=b;\n    col*=a;\n\n    if(col.a==0.0)discard;\n\n    #ifdef DO_MULTEX\n        col*=texture(texMul,texPos);\n    #endif\n\n    #ifdef DO_MULTEX_MASK\n        col*=texture(texMulMask,texPos).r;\n    #endif\n\n    outColor=col;\n}","textmesh_vert":"UNI sampler2D tex;\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\nUNI float scale;\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN mat4 instMat;\nIN vec2 attrTexOffsets;\nIN vec2 attrTexSize;\nIN vec2 attrTexPos;\nOUT vec2 texPos;\n\nOUT vec2 texCoord;\n\nvoid main()\n{\n    texCoord=(attrTexCoord*(attrTexSize)) + attrTexOffsets;\n    mat4 instMVMat=instMat;\n    instMVMat[3][0]*=scale;\n\n    texPos=attrTexPos;\n\n    vec4 vert=vec4( vPosition.x*(attrTexSize.x/attrTexSize.y)*scale,vPosition.y*scale,vPosition.z*scale, 1. );\n\n    mat4 mvMatrix=viewMatrix * modelMatrix * instMVMat;\n\n    gl_Position = projMatrix * mvMatrix * vert;\n}\n",};
+const
+    render = op.inTrigger("Render"),
+    str = op.inString("Text", "cables"),
+    scale = op.inValueFloat("Scale", 1),
+    inFont = op.inString("Font", "Arial"),
+    align = op.inValueSelect("align", ["left", "center", "right"], "center"),
+    valign = op.inValueSelect("vertical align", ["Top", "Middle", "Bottom"], "Middle"),
+    lineHeight = op.inValueFloat("Line Height", 1),
+    letterSpace = op.inValueFloat("Letter Spacing"),
+
+    tfilter = op.inSwitch("filter", ["nearest", "linear", "mipmap"], "mipmap"),
+    aniso = op.inSwitch("Anisotropic", [0, 1, 2, 4, 8, 16], 0),
+
+    inMulTex = op.inTexture("Texture Color"),
+    inMulTexMask = op.inTexture("Texture Mask"),
+    next = op.outTrigger("Next"),
+    textureOut = op.outTexture("texture"),
+    outLines = op.outNumber("Total Lines", 0),
+    outWidth = op.outNumber("Width", 0),
+    loaded = op.outBoolNum("Font Available", 0);
+
+const cgl = op.patch.cgl;
+
+op.toWorkPortsNeedToBeLinked(render);
+
+op.setPortGroup("Masking", [inMulTex, inMulTexMask]);
+
+const textureSize = 1024;
+let fontLoaded = false;
+let needUpdate = true;
+
+align.onChange =
+    str.onChange =
+    lineHeight.onChange = generateMeshLater;
+
+function generateMeshLater()
+{
+    needUpdate = true;
+}
+
+let canvasid = null;
+CABLES.OpTextureMeshCanvas = {};
+let valignMode = 0;
+
+const geom = null;
+let mesh = null;
+
+let createMesh = true;
+let createTexture = true;
+
+aniso.onChange =
+tfilter.onChange = () =>
+{
+    getFont().texture = null;
+    createTexture = true;
+};
+
+inMulTexMask.onChange =
+inMulTex.onChange = function ()
+{
+    shader.toggleDefine("DO_MULTEX", inMulTex.get());
+    shader.toggleDefine("DO_MULTEX_MASK", inMulTexMask.get());
+};
+
+textureOut.set(null);
+inFont.onChange = function ()
+{
+    createTexture = true;
+    createMesh = true;
+    checkFont();
+};
+
+op.patch.on("fontLoaded", (fontName) =>
+{
+    if (fontName == inFont.get())
+    {
+        createTexture = true;
+        createMesh = true;
+    }
+});
+
+function checkFont()
+{
+    const oldFontLoaded = fontLoaded;
+    try
+    {
+        fontLoaded = document.fonts.check("20px \"" + inFont.get() + "\"");
+    }
+    catch (ex)
+    {
+        op.logError(ex);
+    }
+
+    if (!oldFontLoaded && fontLoaded)
+    {
+        loaded.set(true);
+        createTexture = true;
+        createMesh = true;
+    }
+
+    if (!fontLoaded) setTimeout(checkFont, 250);
+}
+
+valign.onChange = function ()
+{
+    if (valign.get() == "Middle")valignMode = 0;
+    else if (valign.get() == "Top")valignMode = 1;
+    else if (valign.get() == "Bottom")valignMode = 2;
+};
+
+function getFont()
+{
+    canvasid = "" + inFont.get();
+    if (CABLES.OpTextureMeshCanvas.hasOwnProperty(canvasid))
+        return CABLES.OpTextureMeshCanvas[canvasid];
+
+    const fontImage = document.createElement("canvas");
+    fontImage.dataset.font = inFont.get();
+    fontImage.id = "texturetext_" + CABLES.generateUUID();
+    fontImage.style.display = "none";
+    const body = document.getElementsByTagName("body")[0];
+    body.appendChild(fontImage);
+    const _ctx = fontImage.getContext("2d");
+    CABLES.OpTextureMeshCanvas[canvasid] =
+        {
+            "ctx": _ctx,
+            "canvas": fontImage,
+            "chars": {},
+            "characters": "",
+            "fontSize": 320
+        };
+    return CABLES.OpTextureMeshCanvas[canvasid];
+}
+
+op.onDelete = function ()
+{
+    if (canvasid && CABLES.OpTextureMeshCanvas[canvasid])
+        CABLES.OpTextureMeshCanvas[canvasid].canvas.remove();
+};
+
+const shader = new CGL.Shader(cgl, "TextMesh");
+shader.setSource(attachments.textmesh_vert, attachments.textmesh_frag);
+const uniTex = new CGL.Uniform(shader, "t", "tex", 0);
+const uniTexMul = new CGL.Uniform(shader, "t", "texMul", 1);
+const uniTexMulMask = new CGL.Uniform(shader, "t", "texMulMask", 2);
+const uniScale = new CGL.Uniform(shader, "f", "scale", scale);
+
+const
+    r = op.inValueSlider("r", 1),
+    g = op.inValueSlider("g", 1),
+    b = op.inValueSlider("b", 1),
+    a = op.inValueSlider("a", 1),
+    runiform = new CGL.Uniform(shader, "f", "r", r),
+    guniform = new CGL.Uniform(shader, "f", "g", g),
+    buniform = new CGL.Uniform(shader, "f", "b", b),
+    auniform = new CGL.Uniform(shader, "f", "a", a);
+r.setUiAttribs({ "colorPick": true });
+
+op.setPortGroup("Display", [scale, inFont]);
+op.setPortGroup("Alignment", [align, valign]);
+op.setPortGroup("Color", [r, g, b, a]);
+
+let height = 0;
+const vec = vec3.create();
+let lastTextureChange = -1;
+let disabled = false;
+
+render.onTriggered = function ()
+{
+    if (needUpdate)
+    {
+        generateMesh();
+        needUpdate = false;
+    }
+    const font = getFont();
+    if (font.lastChange != lastTextureChange)
+    {
+        createMesh = true;
+        lastTextureChange = font.lastChange;
+    }
+
+    if (createTexture) generateTexture();
+    if (createMesh)generateMesh();
+
+    if (mesh && mesh.numInstances > 0)
+    {
+        cgl.pushBlendMode(CGL.BLEND_NORMAL, true);
+        cgl.pushShader(shader);
+        cgl.setTexture(0, textureOut.get().tex);
+
+        const mulTex = inMulTex.get();
+        if (mulTex)cgl.setTexture(1, mulTex.tex);
+
+        const mulTexMask = inMulTexMask.get();
+        if (mulTexMask)cgl.setTexture(2, mulTexMask.tex);
+
+        if (valignMode === 2) vec3.set(vec, 0, height, 0);
+        else if (valignMode === 1) vec3.set(vec, 0, 0, 0);
+        else if (valignMode === 0) vec3.set(vec, 0, height / 2, 0);
+
+        vec[1] -= lineHeight.get();
+        cgl.pushModelMatrix();
+        mat4.translate(cgl.mMatrix, cgl.mMatrix, vec);
+        if (!disabled)mesh.render(cgl.getShader());
+
+        cgl.popModelMatrix();
+
+        cgl.setTexture(0, null);
+        cgl.popShader();
+        cgl.popBlendMode();
+    }
+
+    next.trigger();
+};
+
+letterSpace.onChange = function ()
+{
+    createMesh = true;
+};
+
+function generateMesh()
+{
+    const theString = String(str.get() + "");
+    if (!textureOut.get()) return;
+
+    const font = getFont();
+    if (!font.geom)
+    {
+        font.geom = new CGL.Geometry("textmesh");
+
+        font.geom.vertices = [
+            1.0, 1.0, 0.0,
+            0.0, 1.0, 0.0,
+            1.0, 0.0, 0.0,
+            0.0, 0.0, 0.0
+        ];
+
+        font.geom.texCoords = new Float32Array([
+            1.0, 1.0,
+            0.0, 1.0,
+            1.0, 0.0,
+            0.0, 0.0
+        ]);
+
+        font.geom.verticesIndices = [
+            0, 1, 2,
+            2, 1, 3
+        ];
+    }
+
+    if (!mesh)mesh = new CGL.Mesh(cgl, font.geom);
+
+    const strings = (theString).split("\n");
+    outLines.set(strings.length);
+
+    const transformations = [];
+    const tcOffsets = [];// new Float32Array(str.get().length*2);
+    const tcSize = [];// new Float32Array(str.get().length*2);
+    const texPos = [];
+    let charCounter = 0;
+    createTexture = false;
+    const m = mat4.create();
+
+    let maxWidth = 0;
+
+    for (let s = 0; s < strings.length; s++)
+    {
+        const txt = strings[s];
+        const numChars = txt.length;
+
+        let pos = 0;
+        let offX = 0;
+        let width = 0;
+
+        for (let i = 0; i < numChars; i++)
+        {
+            const chStr = txt.substring(i, i + 1);
+            const char = font.chars[String(chStr)];
+            if (char)
+            {
+                width += (char.texCoordWidth / char.texCoordHeight);
+                width += letterSpace.get();
+            }
+        }
+
+        width -= letterSpace.get();
+
+        height = 0;
+
+        if (align.get() == "left") offX = 0;
+        else if (align.get() == "right") offX = width;
+        else if (align.get() == "center") offX = width / 2;
+
+        height = (s + 1) * lineHeight.get();
+
+        for (let i = 0; i < numChars; i++)
+        {
+            const chStr = txt.substring(i, i + 1);
+            const char = font.chars[String(chStr)];
+
+            if (!char)
+            {
+                createTexture = true;
+                return;
+            }
+            else
+            {
+                texPos.push(pos / width * 0.99 + 0.005, (1.0 - (s / (strings.length - 1))) * 0.99 + 0.005);
+                tcOffsets.push(char.texCoordX, 1 - char.texCoordY - char.texCoordHeight);
+                tcSize.push(char.texCoordWidth, char.texCoordHeight);
+
+                mat4.identity(m);
+                mat4.translate(m, m, [pos - offX, 0 - s * lineHeight.get(), 0]);
+
+                pos += (char.texCoordWidth / char.texCoordHeight) + letterSpace.get();
+                maxWidth = Math.max(maxWidth, pos - offX);
+
+                transformations.push(Array.prototype.slice.call(m));
+
+                charCounter++;
+            }
+        }
+    }
+
+    const transMats = [].concat.apply([], transformations);
+
+    disabled = false;
+    if (transMats.length == 0)disabled = true;
+
+    mesh.numInstances = transMats.length / 16;
+
+    if (mesh.numInstances == 0)
+    {
+        disabled = true;
+        return;
+    }
+
+    outWidth.set(maxWidth * scale.get());
+    mesh.setAttribute("instMat", new Float32Array(transMats), 16, { "instanced": true });
+    mesh.setAttribute("attrTexOffsets", new Float32Array(tcOffsets), 2, { "instanced": true });
+    mesh.setAttribute("attrTexSize", new Float32Array(tcSize), 2, { "instanced": true });
+    mesh.setAttribute("attrTexPos", new Float32Array(texPos), 2, { "instanced": true });
+
+    createMesh = false;
+
+    if (createTexture) generateTexture();
+}
+
+function printChars(fontSize, simulate)
+{
+    const font = getFont();
+    if (!simulate) font.chars = {};
+
+    const ctx = font.ctx;
+
+    ctx.font = fontSize + "px " + inFont.get();
+    ctx.textAlign = "left";
+
+    let posy = 0;
+    let posx = 0;
+    const lineHeight = fontSize * 1.4;
+    const result =
+        {
+            "fits": true
+        };
+
+    for (let i = 0; i < font.characters.length; i++)
+    {
+        const chStr = String(font.characters.substring(i, i + 1));
+        const chWidth = (ctx.measureText(chStr).width);
+
+        if (posx + chWidth >= textureSize)
+        {
+            posy += lineHeight + 2;
+            posx = 0;
+        }
+
+        if (!simulate)
+        {
+            font.chars[chStr] =
+                {
+                    "str": chStr,
+                    "texCoordX": posx / textureSize,
+                    "texCoordY": posy / textureSize,
+                    "texCoordWidth": chWidth / textureSize,
+                    "texCoordHeight": lineHeight / textureSize,
+                };
+
+            ctx.fillText(chStr, posx, posy + fontSize);
+        }
+
+        posx += chWidth + 12;
+    }
+
+    if (posy > textureSize - lineHeight)
+    {
+        result.fits = false;
+    }
+
+    result.spaceLeft = textureSize - posy;
+
+    return result;
+}
+
+function generateTexture()
+{
+    let filter = CGL.Texture.FILTER_LINEAR;
+    if (tfilter.get() == "nearest") filter = CGL.Texture.FILTER_NEAREST;
+    if (tfilter.get() == "mipmap") filter = CGL.Texture.FILTER_MIPMAP;
+
+    const font = getFont();
+    let string = String(str.get());
+    if (string == null || string == undefined)string = "";
+    for (let i = 0; i < string.length; i++)
+    {
+        const ch = string.substring(i, i + 1);
+        if (font.characters.indexOf(ch) == -1)
+        {
+            font.characters += ch;
+            createTexture = true;
+        }
+    }
+
+    const ctx = font.ctx;
+    font.canvas.width = font.canvas.height = textureSize;
+
+    if (!font.texture)
+        font.texture = CGL.Texture.createFromImage(cgl, font.canvas,
+            {
+                "filter": filter,
+                "anisotropic": parseFloat(aniso.get())
+            });
+
+    font.texture.setSize(textureSize, textureSize);
+
+    ctx.fillStyle = "transparent";
+    ctx.clearRect(0, 0, textureSize, textureSize);
+    ctx.fillStyle = "rgba(255,255,255,255)";
+
+    let fontSize = font.fontSize + 40;
+    let simu = printChars(fontSize, true);
+
+    while (!simu.fits)
+    {
+        fontSize -= 5;
+        simu = printChars(fontSize, true);
+    }
+
+    printChars(fontSize, false);
+
+    ctx.restore();
+
+    font.texture.initTexture(font.canvas, filter);
+    font.texture.unpackAlpha = true;
+    textureOut.set(font.texture);
+
+    font.lastChange = CABLES.now();
+
+    createMesh = true;
+    createTexture = false;
+}
+
+
+};
+
+Ops.Gl.Meshes.TextMesh_v2.prototype = new CABLES.Op();
+CABLES.OPS["2390f6b3-2122-412e-8c8d-5c2f574e8bd1"]={f:Ops.Gl.Meshes.TextMesh_v2,objName:"Ops.Gl.Meshes.TextMesh_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Matrix.Billboard
+// 
+// **************************************************************
+
+Ops.Gl.Matrix.Billboard = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const exec = op.inTrigger("Exec");
+const next = op.outTrigger("Next");
+
+const cgl = op.patch.cgl;
+
+let mm = mat4.create();
+let mv = mat4.create();
+let m = mat4.create();
+let mempty = mat4.create();
+
+exec.onTriggered = function ()
+{
+    mat4.invert(mm, cgl.mMatrix);
+    mat4.invert(mv, cgl.vMatrix);
+
+    mat4.mul(mm, mm, mv);
+
+    mm[12] = 0;
+    mm[13] = 0;
+    mm[14] = 0;
+
+    cgl.pushModelMatrix();
+    cgl.pushViewMatrix();
+    mat4.mul(cgl.mMatrix, cgl.mMatrix, mm);
+    next.trigger();
+    cgl.popViewMatrix();
+    cgl.popModelMatrix();
+};
+
+
+};
+
+Ops.Gl.Matrix.Billboard.prototype = new CABLES.Op();
+CABLES.OPS["d41e676e-d8a7-4a1e-8abf-f1bddfc982d5"]={f:Ops.Gl.Matrix.Billboard,objName:"Ops.Gl.Matrix.Billboard"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Matrix.OrbitControls
+// 
+// **************************************************************
+
+Ops.Gl.Matrix.OrbitControls = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    render = op.inTrigger("render"),
+    minDist = op.inValueFloat("min distance"),
+    maxDist = op.inValueFloat("max distance"),
+
+    minRotY = op.inValue("min rot y", 0),
+    maxRotY = op.inValue("max rot y", 0),
+
+    initialRadius = op.inValue("initial radius", 0),
+    initialAxis = op.inValueSlider("initial axis y"),
+    initialX = op.inValueSlider("initial axis x"),
+
+    mul = op.inValueFloat("mul"),
+    smoothness = op.inValueSlider("Smoothness", 1.0),
+    speedX = op.inValue("Speed X", 1),
+    speedY = op.inValue("Speed Y", 1),
+
+    active = op.inValueBool("Active", true),
+
+    allowPanning = op.inValueBool("Allow Panning", true),
+    allowZooming = op.inValueBool("Allow Zooming", true),
+    allowRotation = op.inValueBool("Allow Rotation", true),
+    restricted = op.inValueBool("restricted", true),
+
+    trigger = op.outTrigger("trigger"),
+    outRadius = op.outNumber("radius"),
+    outXDeg = op.outNumber("Rot X"),
+    outYDeg = op.outNumber("Rot Y"),
+
+    inReset = op.inTriggerButton("Reset");
+
+op.setPortGroup("Initial Values", [initialAxis, initialX, initialRadius]);
+op.setPortGroup("Interaction", [mul, smoothness, speedX, speedY]);
+op.setPortGroup("Boundaries", [minRotY, maxRotY, minDist, maxDist]);
+
+mul.set(1);
+minDist.set(0.05);
+maxDist.set(99999);
+
+inReset.onTriggered = reset;
+
+let eye = vec3.create();
+const vUp = vec3.create();
+const vCenter = vec3.create();
+const viewMatrix = mat4.create();
+const tempViewMatrix = mat4.create();
+const vOffset = vec3.create();
+const finalEyeAbs = vec3.create();
+
+initialAxis.set(0.5);
+
+let mouseDown = false;
+let radius = 5;
+outRadius.set(radius);
+
+let lastMouseX = 0, lastMouseY = 0;
+let percX = 0, percY = 0;
+
+vec3.set(vCenter, 0, 0, 0);
+vec3.set(vUp, 0, 1, 0);
+
+const tempEye = vec3.create();
+const finalEye = vec3.create();
+const tempCenter = vec3.create();
+const finalCenter = vec3.create();
+
+let px = 0;
+let py = 0;
+
+let divisor = 1;
+let element = null;
+updateSmoothness();
+
+op.onDelete = unbind;
+
+const halfCircle = Math.PI;
+const fullCircle = Math.PI * 2;
+
+function reset()
+{
+    let off = 0;
+
+    if (px % fullCircle < -halfCircle)
+    {
+        off = -fullCircle;
+        px %= -fullCircle;
+    }
+    else
+    if (px % fullCircle > halfCircle)
+    {
+        off = fullCircle;
+        px %= fullCircle;
+    }
+    else px %= fullCircle;
+
+    py %= (Math.PI);
+
+    vec3.set(vOffset, 0, 0, 0);
+    vec3.set(vCenter, 0, 0, 0);
+    vec3.set(vUp, 0, 1, 0);
+
+    percX = (initialX.get() * Math.PI * 2 + off);
+    percY = (initialAxis.get() - 0.5);
+
+    radius = initialRadius.get();
+    eye = circlePos(percY);
+}
+
+function updateSmoothness()
+{
+    divisor = smoothness.get() * 10 + 1.0;
+}
+
+smoothness.onChange = updateSmoothness;
+
+let initializing = true;
+
+function ip(val, goal)
+{
+    if (initializing) return goal;
+    return val + (goal - val) / divisor;
+}
+
+let lastPy = 0;
+const lastPx = 0;
+
+render.onTriggered = function ()
+{
+    const cgl = op.patch.cg;
+
+    if (!element)
+    {
+        setElement(cgl.canvas);
+        bind();
+    }
+
+    cgl.pushViewMatrix();
+
+    px = ip(px, percX);
+    py = ip(py, percY);
+
+    let degY = (py + 0.5) * 180;
+
+    if (minRotY.get() !== 0 && degY < minRotY.get())
+    {
+        degY = minRotY.get();
+        py = lastPy;
+    }
+    else if (maxRotY.get() !== 0 && degY > maxRotY.get())
+    {
+        degY = maxRotY.get();
+        py = lastPy;
+    }
+    else
+    {
+        lastPy = py;
+    }
+
+    const degX = (px) * CGL.RAD2DEG;
+
+    outYDeg.set(degY);
+    outXDeg.set(degX);
+
+    circlePosi(eye, py);
+
+    vec3.add(tempEye, eye, vOffset);
+    vec3.add(tempCenter, vCenter, vOffset);
+
+    finalEye[0] = ip(finalEye[0], tempEye[0]);
+    finalEye[1] = ip(finalEye[1], tempEye[1]);
+    finalEye[2] = ip(finalEye[2], tempEye[2]);
+
+    finalCenter[0] = ip(finalCenter[0], tempCenter[0]);
+    finalCenter[1] = ip(finalCenter[1], tempCenter[1]);
+    finalCenter[2] = ip(finalCenter[2], tempCenter[2]);
+
+    const empty = vec3.create();
+
+    mat4.lookAt(viewMatrix, finalEye, finalCenter, vUp);
+    mat4.rotate(viewMatrix, viewMatrix, px, vUp);
+
+    // finaly multiply current scene viewmatrix
+    mat4.multiply(cgl.vMatrix, cgl.vMatrix, viewMatrix);
+
+    trigger.trigger();
+    cgl.popViewMatrix();
+    initializing = false;
+};
+
+function circlePosi(vec, perc)
+{
+    const mmul = mul.get();
+    if (radius < minDist.get() * mmul) radius = minDist.get() * mmul;
+    if (radius > maxDist.get() * mmul) radius = maxDist.get() * mmul;
+
+    outRadius.set(radius * mmul);
+
+    let i = 0, degInRad = 0;
+
+    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
+    vec3.set(vec,
+        Math.cos(degInRad) * radius * mmul,
+        Math.sin(degInRad) * radius * mmul,
+        0);
+    return vec;
+}
+
+function circlePos(perc)
+{
+    const mmul = mul.get();
+    if (radius < minDist.get() * mmul)radius = minDist.get() * mmul;
+    if (radius > maxDist.get() * mmul)radius = maxDist.get() * mmul;
+
+    outRadius.set(radius * mmul);
+
+    let i = 0, degInRad = 0;
+    const vec = vec3.create();
+    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
+    vec3.set(vec,
+        Math.cos(degInRad) * radius * mmul,
+        Math.sin(degInRad) * radius * mmul,
+        0);
+    return vec;
+}
+
+function onmousemove(event)
+{
+    if (!mouseDown) return;
+
+    const x = event.clientX;
+    const y = event.clientY;
+
+    let movementX = (x - lastMouseX);
+    let movementY = (y - lastMouseY);
+
+    movementX *= speedX.get();
+    movementY *= speedY.get();
+
+    if (event.buttons == 2 && allowPanning.get())
+    {
+        vOffset[2] += movementX * 0.01 * mul.get();
+        vOffset[1] += movementY * 0.01 * mul.get();
+    }
+    else
+    if (event.buttons == 4 && allowZooming.get())
+    {
+        radius += movementY * 0.05;
+        eye = circlePos(percY);
+    }
+    else
+    {
+        if (allowRotation.get())
+        {
+            percX += movementX * 0.003;
+            percY += movementY * 0.002;
+
+            if (restricted.get())
+            {
+                if (percY > 0.5)percY = 0.5;
+                if (percY < -0.5)percY = -0.5;
+            }
+        }
+    }
+
+    lastMouseX = x;
+    lastMouseY = y;
+}
+
+function onMouseDown(event)
+{
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+    mouseDown = true;
+
+    try { element.setPointerCapture(event.pointerId); }
+    catch (e) {}
+}
+
+function onMouseUp(e)
+{
+    mouseDown = false;
+    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
+
+    try { element.releasePointerCapture(e.pointerId); }
+    catch (e) {}
+}
+
+function lockChange()
+{
+    const el = op.patch.cg.canvas;
+
+    if (document.pointerLockElement === el || document.mozPointerLockElement === el || document.webkitPointerLockElement === el)
+    {
+        document.addEventListener("mousemove", onmousemove, false);
+    }
+}
+
+function onMouseEnter(e)
+{
+    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
+}
+
+initialRadius.onChange = function ()
+{
+    radius = initialRadius.get();
+    reset();
+};
+
+initialX.onChange = function ()
+{
+    px = percX = (initialX.get() * Math.PI * 2);
+};
+
+initialAxis.onChange = function ()
+{
+    py = percY = (initialAxis.get() - 0.5);
+    eye = circlePos(percY);
+};
+
+const onMouseWheel = function (event)
+{
+    if (allowZooming.get())
+    {
+        const delta = CGL.getWheelSpeed(event) * 0.06;
+        radius += (parseFloat(delta)) * 1.2;
+
+        eye = circlePos(percY);
+    }
+};
+
+const ontouchstart = function (event)
+{
+    if (event.touches && event.touches.length > 0) onMouseDown(event.touches[0]);
+};
+
+const ontouchend = function (event)
+{
+    onMouseUp();
+};
+
+const ontouchmove = function (event)
+{
+    if (event.touches && event.touches.length > 0) onmousemove(event.touches[0]);
+};
+
+active.onChange = function ()
+{
+    if (active.get())bind();
+    else unbind();
+};
+
+function setElement(ele)
+{
+    unbind();
+    element = ele;
+    bind();
+}
+
+function bind()
+{
+    if (!element) return;
+
+    element.addEventListener("pointermove", onmousemove);
+    element.addEventListener("pointerdown", onMouseDown);
+    element.addEventListener("pointerup", onMouseUp);
+    element.addEventListener("pointerleave", onMouseUp);
+    element.addEventListener("pointerenter", onMouseEnter);
+    element.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    element.addEventListener("wheel", onMouseWheel, { "passive": true });
+}
+
+function unbind()
+{
+    if (!element) return;
+
+    element.removeEventListener("pointermove", onmousemove);
+    element.removeEventListener("pointerdown", onMouseDown);
+    element.removeEventListener("pointerup", onMouseUp);
+    element.removeEventListener("pointerleave", onMouseUp);
+    element.removeEventListener("pointerenter", onMouseUp);
+    element.removeEventListener("wheel", onMouseWheel);
+}
+
+eye = circlePos(0);
+
+initialX.set(0.25);
+initialRadius.set(0.05);
+
+
+};
+
+Ops.Gl.Matrix.OrbitControls.prototype = new CABLES.Op();
+CABLES.OPS["eaf4f7ce-08a3-4d1b-b9f4-ebc0b7b1cde1"]={f:Ops.Gl.Matrix.OrbitControls,objName:"Ops.Gl.Matrix.OrbitControls"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Graphics.Geometry.GeometryAttributes
+// 
+// **************************************************************
+
+Ops.Graphics.Geometry.GeometryAttributes = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    geometry = op.inObject("Geometry"),
+    outFaces = op.outArray("Faces", 3),
+    outVertices = op.outArray("Vertices", 3),
+    outNormals = op.outArray("Normals", 3),
+    outTextcoords = op.outArray("TexCoords", 2),
+    outVertexColors = op.outArray("Vertex Colors", 4),
+    outTangents = op.outArray("Tangents", 3),
+    outBiTangents = op.outArray("BiTangents", 3);
+
+geometry.onChange = function ()
+{
+    let geom = geometry.get();
+    if (!geom) return;
+
+    // convert float32array to array
+    let verts = Array.prototype.slice.call(geom.vertices);
+
+    outVertices.set(verts);
+    outFaces.set(geom.verticesIndices);
+    outTextcoords.set(geom.texCoords);
+    outNormals.set(geom.vertexNormals);
+    outTangents.set(geom.tangents);
+    outBiTangents.set(geom.biTangents);
+    outVertexColors.set(geom.vertexColors);
+};
+
+
+};
+
+Ops.Graphics.Geometry.GeometryAttributes.prototype = new CABLES.Op();
+CABLES.OPS["b215118b-de1f-4be9-8890-d07a2ecff010"]={f:Ops.Graphics.Geometry.GeometryAttributes,objName:"Ops.Graphics.Geometry.GeometryAttributes"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Trigger.Sequence
+// 
+// **************************************************************
+
+Ops.Trigger.Sequence = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exe = op.inTrigger("exe"),
+    cleanup = op.inTriggerButton("Clean up connections");
+
+const
+    exes = [],
+    triggers = [],
+    num = 16;
+
+let
+    updateTimeout = null,
+    connectedOuts = [];
+
+exe.onTriggered = triggerAll;
+cleanup.onTriggered = clean;
+cleanup.setUiAttribs({ "hideParam": true, "hidePort": true });
+
+for (let i = 0; i < num; i++)
+{
+    const p = op.outTrigger("trigger " + i);
+    triggers.push(p);
+    p.onLinkChanged = updateButton;
+
+    if (i < num - 1)
+    {
+        let newExe = op.inTrigger("exe " + i);
+        newExe.onTriggered = triggerAll;
+        exes.push(newExe);
+    }
+}
+
+updateConnected();
+
+function updateConnected()
+{
+    connectedOuts.length = 0;
+    for (let i = 0; i < triggers.length; i++)
+        if (triggers[i].links.length > 0) connectedOuts.push(triggers[i]);
+}
+
+function updateButton()
+{
+    updateConnected();
+    clearTimeout(updateTimeout);
+    updateTimeout = setTimeout(() =>
+    {
+        let show = false;
+        for (let i = 0; i < triggers.length; i++)
+            if (triggers[i].links.length > 1) show = true;
+
+        cleanup.setUiAttribs({ "hideParam": !show });
+
+        if (op.isCurrentUiOp()) op.refreshParams();
+    }, 60);
+}
+
+function triggerAll()
+{
+    // for (let i = 0; i < triggers.length; i++) triggers[i].trigger();
+    for (let i = 0; i < connectedOuts.length; i++) connectedOuts[i].trigger();
+}
+
+function clean()
+{
+    let count = 0;
+    for (let i = 0; i < triggers.length; i++)
+    {
+        let removeLinks = [];
+
+        if (triggers[i].links.length > 1)
+            for (let j = 1; j < triggers[i].links.length; j++)
+            {
+                while (triggers[count].links.length > 0) count++;
+
+                removeLinks.push(triggers[i].links[j]);
+                const otherPort = triggers[i].links[j].getOtherPort(triggers[i]);
+                op.patch.link(op, "trigger " + count, otherPort.parent, otherPort.name);
+                count++;
+            }
+
+        for (let j = 0; j < removeLinks.length; j++) removeLinks[j].remove();
+    }
+    updateButton();
+    updateConnected();
+}
+
+
+};
+
+Ops.Trigger.Sequence.prototype = new CABLES.Op();
+CABLES.OPS["a466bc1f-06e9-4595-8849-bffb9fe22f99"]={f:Ops.Trigger.Sequence,objName:"Ops.Trigger.Sequence"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.PointCloudFromArray
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.PointCloudFromArray = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exe = op.inTrigger("exe"),
+    arr = op.inArray("Array", 3),
+    numPoints = op.inValueInt("Num Points"),
+    outTrigger = op.outTrigger("Trigger out"),
+    outGeom = op.outObject("Geometry"),
+    pTexCoordRand = op.inValueBool("Scramble Texcoords", true),
+    seed = op.inValue("Seed", 1),
+    inCoords = op.inArray("Coordinates", 2),
+    inPointSizes = op.inArray("Point sizes", 1),
+    vertCols = op.inArray("Vertex Colors", 4);
+
+op.toWorkPortsNeedToBeLinked(arr, exe);
+op.setPortGroup("Texture Coordinates", [pTexCoordRand, seed, inCoords]);
+
+const cgl = op.patch.cgl;
+const geom = new CGL.Geometry("pointcloudfromarray");
+let deactivated = false;
+let mesh = null;
+let texCoords = [];
+let needsRebuild = true;
+let showingError = false;
+
+arr.setUiAttribs({ "title": "Positions" });
+inCoords.setUiAttribs({ "title": "Texture Coordinates" });
+
+inCoords.onChange =
+    pTexCoordRand.onChange = updateTexCoordsPorts;
+vertCols.onChange = updateVertCols;
+numPoints.onChange = updateNumVerts;
+inPointSizes.onChange = updatePointSizes;
+
+seed.onChange = arr.onChange = vertCols.onLinkChanged =
+inPointSizes.onLinkChanged = reset;
+
+exe.onTriggered = doRender;
+
+function doRender()
+{
+    outTrigger.trigger();
+    if (CABLES.UI)
+    {
+        let shader = cgl.getShader();
+        if (shader.glPrimitive != cgl.gl.POINTS) op.setUiError("nopointmat", "Using a Material not made for point rendering. Try to use PointMaterial.");
+        else op.setUiError("nopointmat", null);
+    }
+
+    if (needsRebuild || !mesh) rebuild();
+    if (!deactivated && mesh) mesh.render(cgl.getShader());
+}
+
+function reset()
+{
+    deactivated = arr.get() == null;
+
+    if (!deactivated)needsRebuild = true;
+    else needsRebuild = false;
+}
+
+function updateTexCoordsPorts()
+{
+    if (inCoords.isLinked())
+    {
+        seed.setUiAttribs({ "greyout": true });
+        pTexCoordRand.setUiAttribs({ "greyout": true });
+    }
+    else
+    {
+        pTexCoordRand.setUiAttribs({ "greyout": false });
+
+        if (!pTexCoordRand.get()) seed.setUiAttribs({ "greyout": true });
+        else seed.setUiAttribs({ "greyout": false });
+    }
+
+    mesh = null;
+    needsRebuild = true;
+}
+
+function updatePointSizes()
+{
+    // if(!inPointSizes.isLinked())
+    // {
+    //     geom.setAttribute("attrPointSize",[],1);
+    // }
+
+    if (!inPointSizes.get()) return;
+
+    if (!geom.getAttribute("attrPointSize")) reset();
+
+    if (mesh)mesh.setAttribute("attrPointSize", inPointSizes.get(), 1);
+}
+
+function updateVertCols()
+{
+    if (!vertCols.get()) return;
+    if (!geom.vertexColors) reset();
+
+    if (mesh)mesh.setAttribute(CGL.SHADERVAR_VERTEX_COLOR, vertCols.get(), 4);
+}
+
+function updateNumVerts()
+{
+    if (mesh)
+    {
+        mesh.setNumVertices(Math.min(geom.vertices.length / 3, numPoints.get()));
+        if (numPoints.get() == 0)mesh.setNumVertices(geom.vertices.length / 3);
+    }
+}
+
+function rebuild()
+{
+    let verts = arr.get();
+
+    if (!verts || verts.length == 0)
+    {
+        // mesh=null;
+        return;
+    }
+
+    if (verts.length % 3 !== 0)
+    {
+        op.setUiError("div3", "Array length not multiple of 3");
+
+        return;
+    }
+    else op.setUiError("div3", null);
+
+    if (geom.vertices.length == verts.length && mesh && !inCoords.isLinked() && !vertCols.isLinked() && !geom.getAttribute("attrPointSize"))
+    {
+        mesh.setAttribute(CGL.SHADERVAR_VERTEX_POSITION, verts, 3);
+        geom.vertices = verts;
+        needsRebuild = false;
+
+        return;
+    }
+
+    // if (geom.getAttribute("attrPointSize" && inPointSizes.isLinked())) changed = true;
+
+    geom.clear();
+    let num = verts.length / 3;
+    num = Math.abs(Math.floor(num));
+
+    if (num == 0) return;
+
+    if (!texCoords || texCoords.length != num * 2) texCoords = new Float32Array(num * 2); // num*2;//=
+
+    let changed = true;
+    let rndTc = pTexCoordRand.get();
+
+    if (!inCoords.isLinked())
+    {
+        Math.randomSeed = seed.get();
+        texCoords = []; // needed otherwise its using the reference to input incoords port
+
+        for (let i = 0; i < num; i++)
+        {
+            if (geom.vertices[i * 3] != verts[i * 3] ||
+                geom.vertices[i * 3 + 1] != verts[i * 3 + 1] ||
+                geom.vertices[i * 3 + 2] != verts[i * 3 + 2])
+            {
+                if (rndTc)
+                {
+                    texCoords[i * 2] = Math.seededRandom();
+                    texCoords[i * 2 + 1] = Math.seededRandom();
+                }
+                else
+                {
+                    texCoords[i * 2] = i / num;
+                    texCoords[i * 2 + 1] = i / num;
+                }
+            }
+        }
+    }
+
+    if (vertCols.get())
+    {
+        if (vertCols.get().length != num * 4)
+        {
+            op.setUiError("vertColWrongLength", "Color array does not have the correct length! (should be " + num * 4 + ")");
+            mesh = null;
+            return;
+        }
+        else op.setUiError("vertColWrongLength", null);
+
+        geom.vertexColors = vertCols.get();
+    }
+    else
+    {
+        op.setUiError("vertColWrongLength", null);
+        geom.vertexColors = [];
+    }
+
+    if (inPointSizes.get())
+    {
+        if (inPointSizes.get().length != num)
+        {
+            op.setUiError("pointsizeWrongLength", "Color array does not have the correct length! (should be " + num + ")");
+            mesh = null;
+            return;
+        }
+        else op.setUiError("pointsizeWrongLength", null);
+
+        geom.setAttribute("attrPointSize", inPointSizes.get(), 1);
+    }
+    else
+    {
+        op.setUiError("pointsizeWrongLength", null);
+        geom.setAttribute("attrPointSize", [], 1);
+    }
+
+    if (changed)
+    {
+        if (inCoords.isLinked()) texCoords = inCoords.get();
+
+        geom.setPointVertices(verts);
+        geom.setTexCoords(texCoords);
+        // geom.verticesIndices = [];
+
+        if (mesh)mesh.dispose();
+        mesh = new CGL.Mesh(cgl, geom, cgl.gl.POINTS);
+
+        mesh.addVertexNumbers = true;
+        mesh.setGeom(geom);
+
+        outGeom.set(null);
+        outGeom.set(geom);
+    }
+
+    updateNumVerts();
+    needsRebuild = false;
+}
+
+
+};
+
+Ops.Gl.Meshes.PointCloudFromArray.prototype = new CABLES.Op();
+CABLES.OPS["0a6d9c6f-6459-45ca-88ad-268a1f7304db"]={f:Ops.Gl.Meshes.PointCloudFromArray,objName:"Ops.Gl.Meshes.PointCloudFromArray"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Anim.SineAnim
+// 
+// **************************************************************
+
+Ops.Anim.SineAnim = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    exe = op.inTrigger("exe"),
+    mode = op.inSwitch("Mode", ["Sine", "Cosine"], "Sine"),
+    phase = op.inValueFloat("phase", 0),
+    mul = op.inValueFloat("frequency", 1),
+    amplitude = op.inValueFloat("amplitude", 1),
+    trigOut = op.outTrigger("Trigger out"),
+    result = op.outNumber("result");
+
+let selectIndex = 0;
+const SINE = 0;
+const COSINE = 1;
+
+op.toWorkPortsNeedToBeLinked(exe);
+
+exe.onTriggered = exec;
+mode.onChange = onModeChange;
+
+exec();
+onModeChange();
+
+function onModeChange()
+{
+    let modeSelectValue = mode.get();
+
+    if (modeSelectValue === "Sine") selectIndex = SINE;
+    else if (modeSelectValue === "Cosine") selectIndex = COSINE;
+
+    exec();
+}
+
+function exec()
+{
+    if (selectIndex == SINE) result.set(amplitude.get() * Math.sin((op.patch.freeTimer.get() * mul.get()) + phase.get()));
+    else result.set(amplitude.get() * Math.cos((op.patch.freeTimer.get() * mul.get()) + phase.get()));
+    trigOut.trigger();
+}
+
+
+};
+
+Ops.Anim.SineAnim.prototype = new CABLES.Op();
+CABLES.OPS["736d3d0e-c920-449e-ade0-f5ca6018fb5c"]={f:Ops.Anim.SineAnim,objName:"Ops.Anim.SineAnim"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Sum
+// 
+// **************************************************************
+
+Ops.Math.Sum = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    number1 = op.inValueFloat("number1", 1),
+    number2 = op.inValueFloat("number2", 1),
+    result = op.outNumber("result");
+
+op.setTitle("+");
+
+number1.onChange =
+number2.onChange = exec;
+exec();
+
+function exec()
+{
+    const v = number1.get() + number2.get();
+    if (!isNaN(v))
+        result.set(v);
+}
+
+
+};
+
+Ops.Math.Sum.prototype = new CABLES.Op();
+CABLES.OPS["c8fb181e-0b03-4b41-9e55-06b6267bc634"]={f:Ops.Math.Sum,objName:"Ops.Math.Sum"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Multiply
+// 
+// **************************************************************
+
+Ops.Math.Multiply = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    number1 = op.inValueFloat("number1", 1),
+    number2 = op.inValueFloat("number2", 2),
+    result = op.outNumber("result");
+
+op.setTitle("*");
+
+number1.onChange = number2.onChange = update;
+update();
+
+function update()
+{
+    const n1 = number1.get();
+    const n2 = number2.get();
+
+    result.set(n1 * n2);
+}
+
+
+};
+
+Ops.Math.Multiply.prototype = new CABLES.Op();
+CABLES.OPS["1bbdae06-fbb2-489b-9bcc-36c9d65bd441"]={f:Ops.Math.Multiply,objName:"Ops.Math.Multiply"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.SplineMesh
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.SplineMesh = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const render = op.inTrigger("Render");
+const trigger = op.addOutPort(new CABLES.Port(op, "Next", CABLES.OP_PORT_TYPE_FUNCTION));
+const thick = op.inValue("Thickness");
+const inStart = op.inValueSlider("Start");
+const inLength = op.inValueSlider("Length", 1);
+const calcNormals = op.inValueBool("Calculate Normals", false);
+const inStrip = op.inValueBool("Line Strip", true);
+const inPoints = op.inArray("points");
+const inNumPoints = op.inValue("Num Points", 0);
+
+const geomOut = op.addOutPort(new CABLES.Port(op, "geometry", CABLES.OP_PORT_TYPE_OBJECT));
+
+geomOut.ignoreValueSerialize = true;
+
+var geom = new CGL.Geometry("splinemesh");
+const cgl = op.patch.cgl;
+
+let draw = false;
+let mesh = null;
+var geom = null;
+let needsBuild = true;
+
+inPoints.onChange = rebuild;
+thick.onChange = rebuild;
+inNumPoints.onChange = rebuild;
+inStrip.onChange = rebuild;
+calcNormals.onChange = rebuild;
+let numItems = 0;
+
+render.onTriggered = function ()
+{
+    if (needsBuild)doRebuild();
+    if (inLength.get() === 0 || inStart.get() == 1.0) return;
+
+
+    if (mesh && draw)
+    {
+        mesh._bufVertexAttrib.startItem = Math.floor(
+            inStart.get() * (numItems / 3)) * 3;
+        mesh._bufVertexAttrib.numItems =
+            Math.floor(
+                Math.min(1, inLength.get() + inStart.get()) * (numItems)
+            );
+
+        mesh.render(cgl.getShader());
+    }
+    trigger.trigger();
+};
+
+function rebuild()
+{
+    needsBuild = true;
+}
+
+const vecRot = vec3.create();
+const vecA = vec3.create();
+const vecB = vec3.create();
+const vecC = vec3.create();
+const vecD = vec3.create();
+const vStart = vec3.create();
+const vEnd = vec3.create();
+const q = quat.create();
+const vecRotation = vec3.create();
+vec3.set(vecRotation, 1, 0, 0);
+const vecX = [1, 0, 0];
+const vv = vec3.create();
+
+let index = 0;
+
+function linesToGeom(points, options)
+{
+    if (!geom)
+        geom = new CGL.Geometry("splinemesh");
+
+    let i = 0;
+
+    points = points || [];
+
+    if (points.length === 0)
+    {
+        for (i = 0; i < 8; i++)
+        {
+            points.push(Math.random() * 2 - 1);
+            points.push(Math.random() * 2 - 1);
+            points.push(0);
+        }
+    }
+
+    let numPoints = points.length;
+    if (inNumPoints.get() != 0 &&
+        inNumPoints.get() * 3 < points.length)numPoints = (inNumPoints.get() - 1) * 3;
+
+    if (numPoints < 2)
+    {
+        draw = false;
+        return;
+    }
+
+    const count = 0;
+    const lastPA = null;
+    const lastPB = null;
+
+    if ((numPoints / 3) * 18 > geom.vertices.length)
+    {
+        geom.vertices = new Float32Array((numPoints / 3 * 18));
+        geom.texCoords = new Float32Array((numPoints / 3 * 12));
+    }
+
+    index = 0;
+
+    let indexTc = 0;
+    let lastC = null;
+    let lastD = null;
+
+    const m = (thick.get() || 0.1) / 2;
+    const ppl = p / numPoints;
+
+    const pi2 = Math.PI / 4;
+
+    const strip = inStrip.get();
+
+    let it = 3;
+    if (!strip)it = 6;
+    const vv = vec3.create();
+
+    for (var p = 0; p < numPoints; p += it)
+    {
+        vec3.set(vStart,
+            points[p + 0],
+            points[p + 1],
+            points[p + 2]);
+
+        vec3.set(vEnd,
+            points[p + 3],
+            points[p + 4],
+            points[p + 5]);
+
+        vv[0] = vStart[0] - vEnd[0];
+        vv[1] = vStart[1] - vEnd[1];
+        vv[2] = vStart[2] - vEnd[2];
+
+        vec3.normalize(vv, vv);
+        quat.rotationTo(q, vecX, vv);
+        quat.rotateZ(q, q, pi2);
+        vec3.transformQuat(vecRot, vecRotation, q);
+
+        if (strip)
+        {
+            if (lastC)
+            {
+                vec3.copy(vecA, lastC);
+                vec3.copy(vecB, lastD);
+            }
+            else
+            {
+                vec3.set(vecA,
+                    points[p + 0] + vecRot[0] * m,
+                    points[p + 1] + vecRot[1] * m,
+                    points[p + 2] + vecRot[2] * m);
+
+                vec3.set(vecB,
+                    points[p + 0] + vecRot[0] * -m,
+                    points[p + 1] + vecRot[1] * -m,
+                    points[p + 2] + vecRot[2] * -m);
+            }
+        }
+        else
+        {
+            vec3.set(vecA,
+                points[p + 0] + vecRot[0] * m,
+                points[p + 1] + vecRot[1] * m,
+                points[p + 2] + vecRot[2] * m);
+
+            vec3.set(vecB,
+                points[p + 0] + vecRot[0] * -m,
+                points[p + 1] + vecRot[1] * -m,
+                points[p + 2] + vecRot[2] * -m);
+        }
+
+        vec3.set(vecC,
+            points[p + 3] + vecRot[0] * m,
+            points[p + 4] + vecRot[1] * m,
+            points[p + 5] + vecRot[2] * m);
+
+        vec3.set(vecD,
+            points[p + 3] + vecRot[0] * -m,
+            points[p + 4] + vecRot[1] * -m,
+            points[p + 5] + vecRot[2] * -m);
+
+
+        //    A-----C
+        //    |     |
+        //    B-----D
+        //
+        // var xd = vecC[0]-vecA[0];
+        // var yd = vecC[1]-vecA[1];
+        // var zd = vecC[2]-vecA[2];
+        // var dist = 3*Math.sqrt(xd*xd + yd*yd + zd*zd);
+
+        let repx0 = 0;
+        const repy0 = 0;
+        let repx = 1;
+        const repy = 1;
+
+        repx0 = p / (numPoints);
+        repx = repx0 + 1 / (numPoints / 3);
+
+
+        // a
+        geom.vertices[index++] = vecA[0];
+        geom.vertices[index++] = vecA[1];
+        geom.vertices[index++] = vecA[2];
+
+        geom.texCoords[indexTc++] = repx0;
+        geom.texCoords[indexTc++] = repy0;
+
+        // b
+        geom.vertices[index++] = vecB[0];
+        geom.vertices[index++] = vecB[1];
+        geom.vertices[index++] = vecB[2];
+
+        geom.texCoords[indexTc++] = repx0;
+        geom.texCoords[indexTc++] = repy;
+
+        // c
+        geom.vertices[index++] = vecC[0];
+        geom.vertices[index++] = vecC[1];
+        geom.vertices[index++] = vecC[2];
+
+        geom.texCoords[indexTc++] = repx;
+        geom.texCoords[indexTc++] = repy0;
+
+        // d
+        geom.vertices[index++] = vecD[0];
+        geom.vertices[index++] = vecD[1];
+        geom.vertices[index++] = vecD[2];
+
+
+        geom.texCoords[indexTc++] = repx;
+        geom.texCoords[indexTc++] = repy;
+
+        // c
+        geom.vertices[index++] = vecC[0];
+        geom.vertices[index++] = vecC[1];
+        geom.vertices[index++] = vecC[2];
+
+        geom.texCoords[indexTc++] = repx;
+        geom.texCoords[indexTc++] = repy0;
+
+        // b
+        geom.vertices[index++] = vecB[0];
+        geom.vertices[index++] = vecB[1];
+        geom.vertices[index++] = vecB[2];
+
+        geom.texCoords[indexTc++] = repx0;
+        geom.texCoords[indexTc++] = repy;
+
+        if (!lastC)
+        {
+            lastC = vec3.create();
+            lastD = vec3.create();
+        }
+
+        if (strip)
+        {
+            lastC[0] = vecC[0];
+            lastC[1] = vecC[1];
+            lastC[2] = vecC[2];
+
+            lastD[0] = vecD[0];
+            lastD[1] = vecD[1];
+            lastD[2] = vecD[2];
+        }
+    }
+}
+
+function doRebuild()
+{
+    draw = true;
+    const points = inPoints.get() || [];
+
+
+    if (!points.length)
+    {
+        mesh = null;
+        geomOut.set(null);
+        return;
+    }
+
+    linesToGeom(points);
+
+    if (!mesh)
+        mesh = new CGL.Mesh(cgl, geom);
+
+    geomOut.set(null);
+    geomOut.set(geom);
+
+    if (!draw)
+        return;
+
+    numItems = index / 3;
+
+    const attr = mesh.setAttribute(CGL.SHADERVAR_VERTEX_POSITION, geom.vertices, 3);
+    attr.numItems = numItems;
+
+    const attr2 = mesh.setAttribute(CGL.SHADERVAR_VERTEX_TEXCOORD, geom.texCoords, 2);
+    attr2.numItems = numItems;
+
+
+    if (calcNormals.get())geom.calculateNormals({ "forceZUp": true });
+
+    needsBuild = false;
+}
+
+
+};
+
+Ops.Gl.Meshes.SplineMesh.prototype = new CABLES.Op();
+CABLES.OPS["a7ef431b-3763-4873-8b0d-91643378e2b8"]={f:Ops.Gl.Meshes.SplineMesh,objName:"Ops.Gl.Meshes.SplineMesh"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Min_v3
+// 
+// **************************************************************
+
+Ops.Math.Min_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    val1 = op.inValue("Value 1", 1),
+    val2 = op.inValue("Value 2", 2),
+    result = op.outNumber("result");
+
+val1.onChange =
+    val2.onChange = exec;
+
+exec();
+
+function exec()
+{
+    let v = Math.min(val1.get(), val2.get());
+    result.set(v);
+}
+
+
+};
+
+Ops.Math.Min_v3.prototype = new CABLES.Op();
+CABLES.OPS["24a9062d-380c-4690-8fe7-6703787fa94c"]={f:Ops.Math.Min_v3,objName:"Ops.Math.Min_v3"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Shader.PointMaterial_v4
+// 
+// **************************************************************
+
+Ops.Gl.Shader.PointMaterial_v4 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={"pointmat_frag":"\n{{MODULES_HEAD}}\n\nUNI vec4 color;\n// IN vec2 pointCoord;\nIN float ps;\n\n#ifdef HAS_TEXTURE_DIFFUSE\n    UNI sampler2D diffTex;\n#endif\n#ifdef HAS_TEXTURE_MASK\n    UNI sampler2D texMask;\n#endif\n#ifdef HAS_TEXTURE_COLORIZE\n    IN vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    IN float opacity;\n#endif\n#ifdef VERTEX_COLORS\n    IN vec4 vertexColor;\n#endif\n\nvoid main()\n{\n    #ifdef FLIP_TEX\n        vec2 pointCoord=vec2(gl_PointCoord.x,(1.0-gl_PointCoord.y));\n    #endif\n    #ifndef FLIP_TEX\n        vec2 pointCoord=gl_PointCoord;\n    #endif\n    {{MODULE_BEGIN_FRAG}}\n\n    if(ps<1.0)discard;\n\n    vec4 col=color;\n\n    #ifdef HAS_TEXTURE_MASK\n        float mask;\n        #ifdef TEXTURE_MASK_R\n            mask=texture(texMask,pointCoord).r;\n        #endif\n        #ifdef TEXTURE_MASK_A\n            mask=texture(texMask,pointCoord).a;\n        #endif\n        #ifdef TEXTURE_MASK_LUMI\n        \tvec3 lumcoeff = vec3(0.299,0.587,0.114);\n        \tmask = dot(texture(texMask,pointCoord).rgb, lumcoeff);\n        #endif\n\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        col=texture(diffTex,pointCoord);\n        #ifdef COLORIZE_TEXTURE\n          col.rgb*=color.rgb;\n        #endif\n    #endif\n    col.a*=color.a;\n\n\n    #ifdef MAKE_ROUND\n\n        #ifndef MAKE_ROUNDAA\n            if ((gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5) > 0.25) discard; //col.a=0.0;\n        #endif\n\n        #ifdef MAKE_ROUNDAA\n            float circ=(gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5);\n\n            float a=smoothstep(0.25,0.25-fwidth(gl_PointCoord.x),circ);\n            if(a==0.0)discard;\n            col.a=a*color.a;\n        #endif\n    #endif\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    #ifdef TEXTURE_COLORIZE_MUL\n        col*=color;\n    #endif\n\n    #ifdef HAS_TEXTURE_MASK\n        col.a*=mask;\n    #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        col.a*=opacity;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col.rgb = vertexColor.rgb;\n        col.a *= vertexColor.a;\n    #endif\n\n    if (col.a <= 0.0) discard;\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n}\n","pointmat_vert":"{{MODULES_HEAD}}\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\nIN float attrPointSize;\n\n#ifdef VERTEX_COLORS\n    IN vec4 attrVertColor;\n    OUT vec4 vertexColor;\n#endif\n\nOUT vec3 norm;\nOUT float ps;\n\nOUT vec2 texCoord;\n\n\n#ifdef HAS_TEXTURES\n#endif\n\n#ifdef HAS_TEXTURE_COLORIZE\n   UNI sampler2D texColorize;\n   OUT vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    UNI sampler2D texOpacity;\n    OUT float opacity;\n#endif\n\n#ifdef HAS_TEXTURE_POINTSIZE\n   UNI sampler2D texPointSize;\n   UNI float texPointSizeMul;\n#endif\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nUNI float pointSize;\nUNI vec3 camPos;\n\nUNI float canvasWidth;\nUNI float canvasHeight;\nUNI float camDistMul;\nUNI float randomSize;\n\nIN float attrVertIndex;\n\n\n\nfloat rand(float n){return fract(sin(n) * 5711.5711123);}\n\n#define POINTMATERIAL\n\nvoid main()\n{\n    norm=attrVertNormal;\n    #ifdef PIXELSIZE\n        float psMul=1.0;\n    #endif\n\n    #ifndef PIXELSIZE\n        float psMul=sqrt(canvasWidth/canvasHeight)+0.00000000001;\n    #endif\n\n    // float sizeMultiply=1.0;\n\n    vec3 tangent=attrTangent;\n    vec3 bitangent=attrBiTangent;\n\n\n    #ifdef VERTEX_COLORS\n        vertexColor=attrVertColor;\n    #endif\n\n    // #ifdef HAS_TEXTURES\n        texCoord=attrTexCoord;\n    // #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        // opacity=texture(texOpacity,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex))).r;\n        opacity=texture(texOpacity,texCoord).r;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        #ifdef RANDOM_COLORIZE\n            colorize=texture(texColorize,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex)));\n        #endif\n        #ifndef RANDOM_COLORIZE\n            colorize=texture(texColorize,texCoord);\n        #endif\n    #endif\n\n\n\n\n\n    mat4 mMatrix=modelMatrix;\n    vec4 pos = vec4( vPosition, 1. );\n\n    gl_PointSize=0.0;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    vec4 model=mMatrix * pos;\n\n    psMul+=rand(texCoord.x*texCoord.y+texCoord.y*3.0+texCoord.x*2.0+attrVertIndex)*randomSize;\n    // psMul*=sizeMultiply;\n\n    float addPointSize=0.0;\n    #ifdef HAS_TEXTURE_POINTSIZE\n\n        #ifdef POINTSIZE_CHAN_R\n            addPointSize=texture(texPointSize,texCoord).r;\n        #endif\n        #ifdef POINTSIZE_CHAN_G\n            addPointSize=texture(texPointSize,texCoord).g;\n        #endif\n        #ifdef POINTSIZE_CHAN_B\n            addPointSize=texture(texPointSize,texCoord).b;\n        #endif\n\n\n        #ifdef DOTSIZEREMAPABS\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n\n            addPointSize=1.0-(distance(addPointSize,0.5)*2.0);\n            // addPointSize=abs(1.0-(distance(addPointSize,0.5)*2.0));\n            addPointSize=addPointSize*addPointSize*addPointSize*2.0;\n\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n        #endif\n\n        addPointSize*=texPointSizeMul;\n\n    #endif\n\n    ps=0.0;\n    #ifndef SCALE_BY_DISTANCE\n        ps = (pointSize+addPointSize+attrPointSize) * psMul;\n    #endif\n    #ifdef SCALE_BY_DISTANCE\n        float cameraDist = distance(model.xyz, camPos);\n        ps = ( (pointSize+addPointSize+attrPointSize) / cameraDist) * psMul;\n    #endif\n\n    gl_PointSize += ps;\n\n\n    gl_Position = projMatrix * viewMatrix * model;\n}\n",};
+const cgl = op.patch.cgl;
+
+const
+    render = op.inTrigger("render"),
+    pointSize = op.inValueFloat("PointSize", 3),
+    inPixelSize = op.inBool("Size in Pixels", false),
+    randomSize = op.inValue("Random Size", 0),
+    makeRound = op.inValueBool("Round", true),
+    makeRoundAA = op.inValueBool("Round Antialias", false),
+    doScale = op.inValueBool("Scale by Distance", false),
+    r = op.inValueSlider("r", Math.random()),
+    g = op.inValueSlider("g", Math.random()),
+    b = op.inValueSlider("b", Math.random()),
+    a = op.inValueSlider("a", 1),
+    vertCols = op.inBool("Vertex Colors", false),
+    texture = op.inTexture("texture"),
+    textureMulColor = op.inBool("Colorize Texture"),
+    textureMask = op.inTexture("Texture Mask"),
+    texMaskChan = op.inSwitch("Mask Channel", ["R", "A", "Luminance"], "R"),
+    textureColorize = op.inTexture("Texture Colorize"),
+    colorizeRandom = op.inValueBool("Colorize Randomize", true),
+    textureOpacity = op.inTexture("Texture Opacity"),
+    texturePointSize = op.inTexture("Texture Point Size"),
+    texturePointSizeChannel = op.inSwitch("Point Size Channel", ["R", "G", "B"], "R"),
+    texturePointSizeMul = op.inFloat("Texture Point Size Mul", 1),
+    texturePointSizeMap = op.inSwitch("Map Size 0", ["Black", "Grey"], "Black"),
+    flipTex = op.inValueBool("Flip Texture", false),
+
+    trigger = op.outTrigger("trigger"),
+    shaderOut = op.outObject("shader", null, "shader");
+
+op.setPortGroup("Texture", [texture, textureMulColor, textureMask, texMaskChan, textureColorize, textureOpacity, colorizeRandom]);
+op.setPortGroup("Color", [r, g, b, a, vertCols]);
+op.setPortGroup("Size", [pointSize, randomSize, makeRound, makeRoundAA, doScale, inPixelSize, texturePointSize, texturePointSizeMul, texturePointSizeChannel, texturePointSizeMap]);
+r.setUiAttribs({ "colorPick": true });
+
+const shader = new CGL.Shader(cgl, "PointMaterial");
+shader.setModules(["MODULE_VERTEX_POSITION", "MODULE_COLOR", "MODULE_BEGIN_FRAG"]);
+shader.define("MAKE_ROUND");
+
+op.toWorkPortsNeedToBeLinked(render);
+
+const
+    uniPointSize = new CGL.Uniform(shader, "f", "pointSize", pointSize),
+    texturePointSizeMulUniform = new CGL.Uniform(shader, "f", "texPointSizeMul", texturePointSizeMul),
+    uniRandomSize = new CGL.Uniform(shader, "f", "randomSize", randomSize),
+    uniColor = new CGL.Uniform(shader, "4f", "color", r, g, b, a),
+    uniWidth = new CGL.Uniform(shader, "f", "canvasWidth", cgl.canvasWidth),
+    uniHeight = new CGL.Uniform(shader, "f", "canvasHeight", cgl.canvasHeight),
+    textureUniform = new CGL.Uniform(shader, "t", "diffTex"),
+    textureColorizeUniform = new CGL.Uniform(shader, "t", "texColorize"),
+    textureOpacityUniform = new CGL.Uniform(shader, "t", "texOpacity"),
+    textureColoPointSize = new CGL.Uniform(shader, "t", "texPointSize"),
+    texturePointSizeUniform = new CGL.Uniform(shader, "t", "texPointSize"),
+    textureMaskUniform = new CGL.Uniform(shader, "t", "texMask");
+
+shader.setSource(attachments.pointmat_vert, attachments.pointmat_frag);
+shader.glPrimitive = cgl.gl.POINTS;
+shaderOut.set(shader);
+shaderOut.ignoreValueSerialize = true;
+
+render.onTriggered = doRender;
+doScale.onChange =
+    makeRound.onChange =
+    makeRoundAA.onChange =
+    texture.onChange =
+    textureColorize.onChange =
+    textureMask.onChange =
+    colorizeRandom.onChange =
+    flipTex.onChange =
+    texMaskChan.onChange =
+    inPixelSize.onChange =
+    textureOpacity.onChange =
+    texturePointSize.onChange =
+    texturePointSizeMap.onChange =
+    texturePointSizeChannel.onChange =
+    textureMulColor.onChange =
+    vertCols.onChange = updateDefines;
+
+updateUi();
+
+op.preRender = function ()
+{
+    if (shader)shader.bind();
+    doRender();
+};
+
+function doRender()
+{
+    uniWidth.setValue(cgl.canvasWidth);
+    uniHeight.setValue(cgl.canvasHeight);
+
+    cgl.pushShader(shader);
+    shader.popTextures();
+    if (texture.get() && !texture.get().deleted) shader.pushTexture(textureUniform, texture.get());
+    if (textureMask.get()) shader.pushTexture(textureMaskUniform, textureMask.get());
+    if (textureColorize.get()) shader.pushTexture(textureColorizeUniform, textureColorize.get());
+    if (textureOpacity.get()) shader.pushTexture(textureOpacityUniform, textureOpacity.get());
+    if (texturePointSize.get()) shader.pushTexture(texturePointSizeUniform, texturePointSize.get());
+
+    trigger.trigger();
+
+    cgl.popShader();
+}
+
+function updateUi()
+{
+    texMaskChan.setUiAttribs({ "greyout": !textureMask.isLinked() });
+
+    texturePointSizeChannel.setUiAttribs({ "greyout": !texturePointSize.isLinked() });
+    texturePointSizeMul.setUiAttribs({ "greyout": !texturePointSize.isLinked() });
+    texturePointSizeMap.setUiAttribs({ "greyout": !texturePointSize.isLinked() });
+}
+
+function updateDefines()
+{
+    shader.toggleDefine("SCALE_BY_DISTANCE", doScale.get());
+    shader.toggleDefine("MAKE_ROUND", makeRound.get());
+    shader.toggleDefine("MAKE_ROUNDAA", makeRoundAA.get());
+
+    shader.toggleDefine("VERTEX_COLORS", vertCols.get());
+    shader.toggleDefine("RANDOM_COLORIZE", colorizeRandom.get());
+    shader.toggleDefine("HAS_TEXTURE_DIFFUSE", texture.get());
+    shader.toggleDefine("HAS_TEXTURE_MASK", textureMask.get());
+    shader.toggleDefine("HAS_TEXTURE_COLORIZE", textureColorize.get());
+    shader.toggleDefine("HAS_TEXTURE_OPACITY", textureOpacity.get());
+    shader.toggleDefine("HAS_TEXTURE_POINTSIZE", texturePointSize.get());
+
+    shader.toggleDefine("TEXTURE_COLORIZE_MUL", textureMulColor.get());
+
+    shader.toggleDefine("FLIP_TEX", flipTex.get());
+    shader.toggleDefine("TEXTURE_MASK_R", texMaskChan.get() == "R");
+    shader.toggleDefine("TEXTURE_MASK_A", texMaskChan.get() == "A");
+    shader.toggleDefine("TEXTURE_MASK_LUMI", texMaskChan.get() == "Luminance");
+    shader.toggleDefine("PIXELSIZE", inPixelSize.get());
+
+    shader.toggleDefine("POINTSIZE_CHAN_R", texturePointSizeChannel.get() == "R");
+    shader.toggleDefine("POINTSIZE_CHAN_G", texturePointSizeChannel.get() == "G");
+    shader.toggleDefine("POINTSIZE_CHAN_B", texturePointSizeChannel.get() == "B");
+
+    shader.toggleDefine("DOTSIZEREMAPABS", texturePointSizeMap.get() == "Grey");
+    updateUi();
+}
+
+
+};
+
+Ops.Gl.Shader.PointMaterial_v4.prototype = new CABLES.Op();
+CABLES.OPS["a7cb5d1c-cd4a-4c28-bb13-7bb9bda187ed"]={f:Ops.Gl.Shader.PointMaterial_v4,objName:"Ops.Gl.Shader.PointMaterial_v4"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Anim.Timer_v2
+// 
+// **************************************************************
+
+Ops.Anim.Timer_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inSpeed = op.inValue("Speed", 1),
+    playPause = op.inValueBool("Play", true),
+    reset = op.inTriggerButton("Reset"),
+    inSyncTimeline = op.inValueBool("Sync to timeline", false),
+    outTime = op.outNumber("Time");
+
+op.setPortGroup("Controls", [playPause, reset, inSpeed]);
+
+const timer = new CABLES.Timer();
+let lastTime = null;
+let time = 0;
+let syncTimeline = false;
+
+playPause.onChange = setState;
+setState();
+
+function setState()
+{
+    if (playPause.get())
+    {
+        timer.play();
+        op.patch.addOnAnimFrame(op);
+    }
+    else
+    {
+        timer.pause();
+        op.patch.removeOnAnimFrame(op);
+    }
+}
+
+reset.onTriggered = doReset;
+
+function doReset()
+{
+    time = 0;
+    lastTime = null;
+    timer.setTime(0);
+    outTime.set(0);
+}
+
+inSyncTimeline.onChange = function ()
+{
+    syncTimeline = inSyncTimeline.get();
+    playPause.setUiAttribs({ "greyout": syncTimeline });
+    reset.setUiAttribs({ "greyout": syncTimeline });
+};
+
+op.onAnimFrame = function (tt)
+{
+    if (timer.isPlaying())
+    {
+        if (CABLES.overwriteTime !== undefined)
+        {
+            outTime.set(CABLES.overwriteTime * inSpeed.get());
+        }
+        else
+
+        if (syncTimeline)
+        {
+            outTime.set(tt * inSpeed.get());
+        }
+        else
+        {
+            timer.update();
+            const timerVal = timer.get();
+
+            if (lastTime === null)
+            {
+                lastTime = timerVal;
+                return;
+            }
+
+            const t = Math.abs(timerVal - lastTime);
+            lastTime = timerVal;
+
+            time += t * inSpeed.get();
+            if (time != time)time = 0;
+            outTime.set(time);
+        }
+    }
+};
+
+
+};
+
+Ops.Anim.Timer_v2.prototype = new CABLES.Op();
+CABLES.OPS["aac7f721-208f-411a-adb3-79adae2e471a"]={f:Ops.Anim.Timer_v2,objName:"Ops.Anim.Timer_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Sine
+// 
+// **************************************************************
+
+Ops.Math.Sine = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    value = op.inValue("value"),
+    phase = op.inValue("phase", 0.0),
+    mul = op.inValue("frequency", 1.0),
+    amplitude = op.inValue("amplitude", 1.0),
+    invert = op.inValueBool("asine", false),
+    result = op.outNumber("result");
+
+let calculate = Math.sin;
+
+mul.onChange =
+amplitude.onChange =
+phase.onChange =
+value.onChange = function ()
+{
+    result.set(
+        amplitude.get() * calculate((value.get() * mul.get()) + phase.get())
+    );
+};
+
+invert.onChange = function ()
+{
+    if (invert.get()) calculate = Math.asin;
+    else calculate = Math.sin;
+};
+
+
+};
+
+Ops.Math.Sine.prototype = new CABLES.Op();
+CABLES.OPS["d24da018-9f3d-428b-85c9-6ff14d77548b"]={f:Ops.Math.Sine,objName:"Ops.Math.Sine"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Max
+// 
+// **************************************************************
+
+Ops.Math.Max = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    value = op.inValueFloat("value", 1),
+    max = op.inValueFloat("Maximum", 1),
+    result = op.outNumber("result");
+
+max.onChange =
+    value.onChange = exec;
+
+exec();
+
+function exec()
+{
+    let v = Math.max(value.get(), max.get());
+    if (v == v) result.set(v);
+}
+
+
+};
+
+Ops.Math.Max.prototype = new CABLES.Op();
+CABLES.OPS["07f0be49-c226-4029-8039-3b620145dc2a"]={f:Ops.Math.Max,objName:"Ops.Math.Max"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Texture_v2
+// 
+// **************************************************************
+
+Ops.Gl.Texture_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    filename = op.inUrl("File", [".jpg", ".png", ".webp", ".jpeg", ".avif"]),
+    tfilter = op.inSwitch("Filter", ["nearest", "linear", "mipmap"]),
+    wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
+    aniso = op.inSwitch("Anisotropic", ["0", "1", "2", "4", "8", "16"], "0"),
+    flip = op.inValueBool("Flip", false),
+    unpackAlpha = op.inValueBool("Pre Multiplied Alpha", false),
+    active = op.inValueBool("Active", true),
+    inFreeMemory = op.inBool("Save Memory", true),
+    textureOut = op.outTexture("Texture"),
+    width = op.outNumber("Width"),
+    height = op.outNumber("Height"),
+    ratio = op.outNumber("Aspect Ratio"),
+    loaded = op.outNumber("Loaded", false),
+    loading = op.outNumber("Loading", false);
+
+const cgl = op.patch.cgl;
+
+op.toWorkPortsNeedToBeLinked(textureOut);
+op.setPortGroup("Size", [width, height]);
+
+let loadedFilename = null;
+let loadingId = null;
+let tex = null;
+let cgl_filter = CGL.Texture.FILTER_MIPMAP;
+let cgl_wrap = CGL.Texture.WRAP_REPEAT;
+let cgl_aniso = 0;
+let timedLoader = 0;
+
+unpackAlpha.setUiAttribs({ "hidePort": true });
+unpackAlpha.onChange =
+    filename.onChange =
+    flip.onChange = reloadSoon;
+aniso.onChange = tfilter.onChange = onFilterChange;
+wrap.onChange = onWrapChange;
+
+tfilter.set("mipmap");
+wrap.set("repeat");
+
+textureOut.set(CGL.Texture.getEmptyTexture(cgl));
+
+active.onChange = function ()
+{
+    if (active.get())
+    {
+        if (loadedFilename != filename.get() || !tex) reloadSoon();
+        else textureOut.set(tex);
+    }
+    else
+    {
+        textureOut.set(CGL.Texture.getEmptyTexture(cgl));
+        width.set(CGL.Texture.getEmptyTexture(cgl).width);
+        height.set(CGL.Texture.getEmptyTexture(cgl).height);
+        if (tex)tex.delete();
+        op.setUiAttrib({ "extendTitle": "" });
+        tex = null;
+    }
+};
+
+const setTempTexture = function ()
+{
+    const t = CGL.Texture.getTempTexture(cgl);
+    textureOut.set(t);
+};
+
+function reloadSoon(nocache)
+{
+    clearTimeout(timedLoader);
+    timedLoader = setTimeout(function ()
+    {
+        realReload(nocache);
+    }, 30);
+}
+
+function realReload(nocache)
+{
+    if (!active.get()) return;
+    // if (filename.get() === null) return;
+    if (loadingId)loadingId = cgl.patch.loading.finished(loadingId);
+    loadingId = cgl.patch.loading.start("textureOp", filename.get(), op);
+
+    let url = op.patch.getFilePath(String(filename.get()));
+
+    if (nocache)url += "?rnd=" + CABLES.uuid();
+
+    if (String(filename.get()).indexOf("data:") == 0) url = filename.get();
+
+    let needsRefresh = false;
+    if (loadedFilename != filename.get()) needsRefresh = true;
+    loadedFilename = filename.get();
+
+    if ((filename.get() && filename.get().length > 1))
+    {
+        loaded.set(false);
+        loading.set(true);
+
+        const fileToLoad = filename.get();
+
+        op.setUiAttrib({ "extendTitle": CABLES.basename(url) });
+        if (needsRefresh) op.refreshParams();
+
+        cgl.patch.loading.addAssetLoadingTask(() =>
+        {
+            op.setUiError("urlerror", null);
+
+            CGL.Texture.load(cgl, url,
+                function (err, newTex)
+                {
+                    cgl.checkFrameStarted("texture inittexture");
+
+                    if (filename.get() != fileToLoad)
+                    {
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                        return;
+                    }
+
+                    if (err)
+                    {
+                        setTempTexture();
+                        op.setUiError("urlerror", "could not load texture: \"" + filename.get() + "\"", 2);
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                        return;
+                    }
+
+                    textureOut.set(newTex);
+
+                    width.set(newTex.width);
+                    height.set(newTex.height);
+                    ratio.set(newTex.width / newTex.height);
+
+                    // if (!newTex.isPowerOfTwo()) op.setUiError("npot", "Texture dimensions not power of two! - Texture filtering will not work in WebGL 1.", 0);
+                    // else op.setUiError("npot", null);
+
+                    if (tex)tex.delete();
+                    tex = newTex;
+                    // textureOut.set(null);
+                    textureOut.setRef(tex);
+
+                    loading.set(false);
+                    loaded.set(true);
+
+                    if (inFreeMemory.get()) tex.image = null;
+
+                    if (loadingId)
+                    {
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                    }
+                    // testTexture();
+                }, {
+                    "anisotropic": cgl_aniso,
+                    "wrap": cgl_wrap,
+                    "flip": flip.get(),
+                    "unpackAlpha": unpackAlpha.get(),
+                    "filter": cgl_filter
+                });
+
+            // textureOut.set(null);
+            // textureOut.set(tex);
+        });
+    }
+    else
+    {
+        cgl.patch.loading.finished(loadingId);
+        loadingId = null;
+        setTempTexture();
+    }
+}
+
+function onFilterChange()
+{
+    if (tfilter.get() == "nearest") cgl_filter = CGL.Texture.FILTER_NEAREST;
+    else if (tfilter.get() == "linear") cgl_filter = CGL.Texture.FILTER_LINEAR;
+    else if (tfilter.get() == "mipmap") cgl_filter = CGL.Texture.FILTER_MIPMAP;
+    else if (tfilter.get() == "Anisotropic") cgl_filter = CGL.Texture.FILTER_ANISOTROPIC;
+
+    aniso.setUiAttribs({ "greyout": cgl_filter != CGL.Texture.FILTER_MIPMAP });
+
+    cgl_aniso = parseFloat(aniso.get());
+
+    reloadSoon();
+}
+
+function onWrapChange()
+{
+    if (wrap.get() == "repeat") cgl_wrap = CGL.Texture.WRAP_REPEAT;
+    if (wrap.get() == "mirrored repeat") cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
+    if (wrap.get() == "clamp to edge") cgl_wrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
+
+    reloadSoon();
+}
+
+op.onFileChanged = function (fn)
+{
+    if (filename.get() && filename.get().indexOf(fn) > -1)
+    {
+        textureOut.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
+        textureOut.set(CGL.Texture.getTempTexture(cgl));
+        realReload(true);
+    }
+};
+
+// function testTexture()
+// {
+//     cgl.setTexture(0, tex.tex);
+
+//     const filter = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_MIN_FILTER);
+//     const wrap = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_WRAP_S);
+
+//     if (cgl_filter === CGL.Texture.FILTER_MIPMAP && filter != cgl.gl.LINEAR_MIPMAP_LINEAR) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_NEAREST && filter != cgl.gl.NEAREST) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_LINEAR && filter != cgl.gl.LINEAR) console.log("wrong texture filter!", filename.get());
+
+//     if (cgl_wrap === CGL.Texture.WRAP_REPEAT && wrap != cgl.gl.REPEAT) console.log("wrong texture wrap1!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_MIRRORED_REPEAT && wrap != cgl.gl.MIRRORED_REPEAT) console.log("wrong texture wrap2!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_CLAMP_TO_EDGE && wrap != cgl.gl.CLAMP_TO_EDGE) console.log("wrong texture wrap3!", filename.get());
+// }
+
+
+};
+
+Ops.Gl.Texture_v2.prototype = new CABLES.Op();
+CABLES.OPS["790f3702-9833-464e-8e37-6f0f813f7e16"]={f:Ops.Gl.Texture_v2,objName:"Ops.Gl.Texture_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.RandomString
+// 
+// **************************************************************
+
+Ops.String.RandomString = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+
+var chars=op.inValueString("chars","cables");
+var len=op.inValueInt("Length",10);
+
+var generate=op.inTriggerButton("Generate");
+
+var result=op.outValue("Result");
+
+generate.onTriggered=gen;
+gen();
+
+function gen()
+{
+    var numChars=chars.get().length-1;
+    var str='';
+    for(var i=0;i<Math.abs(len.get());i++)
+    {
+        str+=chars.get()[Math.round(Math.random()*numChars)];
+    }
+    
+    result.set(str);
+    
+}
+
+};
+
+Ops.String.RandomString.prototype = new CABLES.Op();
+CABLES.OPS["d0b2d550-1a80-49b9-a77d-6aa2f53c0f0e"]={f:Ops.String.RandomString,objName:"Ops.String.RandomString"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.Concat
+// 
+// **************************************************************
+
+Ops.String.Concat = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+var string1=op.inValueString("string1","ABC");
+var string2=op.inValueString("string2","XYZ");
+var newLine=op.inValueBool("New Line",false);
+
+var result=op.outValueString("result");
+
+function exec()
+{
+    var nl='';
+    if(newLine.get())nl='\n';
+    result.set( String(string1.get())+nl+String(string2.get()));
+}
+
+newLine.onChange=string2.onChange=string1.onChange=exec;
+
+
+
+};
+
+Ops.String.Concat.prototype = new CABLES.Op();
+CABLES.OPS["63fe337f-0509-4e6b-be40-c39973c8cca0"]={f:Ops.String.Concat,objName:"Ops.String.Concat"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.Polyhedron
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.Polyhedron = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const notation = op.inValueString("Receipt", "djmeD");
+
+const outGeom = op.outObject("Geometry");
+
+let obj = {};
+
+let faces = [];
+let vertices = [];
+let vertexColors = [];
+
+notation.onChange = buildMesh;
+buildMesh();
+
+function getCellVertices(cellArr)
+{
+    const verts = [];
+    for (let i = 0; i < cellArr.length; i++)
+    {
+        verts.push(obj.positions[cellArr[i]]);
+    }
+    return verts;
+}
+
+function addFace(verts)
+{
+    const colR = Math.random();
+    const colG = Math.random();
+    const colB = Math.random();
+
+    if (verts.length == 3)
+    {
+        for (var i = 0; i < verts.length; i++)
+        {
+            vertices.push(verts[i][0], verts[i][1], verts[i][2]);
+
+            var index = vertices.length / 3 - 1;
+            faces.push(index);
+            vertexColors.push(colR, colG, colB);
+        }
+    }
+    else
+    if (verts.length == 4)
+    {
+        for (var i = 0; i < verts.length; i++)
+        {
+            vertices.push(verts[i][0], verts[i][1], verts[i][2]);
+            vertexColors.push(colR, colG, colB);
+        }
+
+        var index = vertices.length / 3 - 4;
+        faces.push(index);
+        faces.push(index + 1);
+        faces.push(index + 2);
+
+        faces.push(index + 2);
+        faces.push(index + 3);
+        faces.push(index + 0);
+    }
+    else
+    {
+        let avgX = 0;
+        let avgY = 0;
+        let avgZ = 0;
+
+        for (var i = 0; i < verts.length; i++)
+        {
+            avgX += verts[i][0];
+            avgY += verts[i][1];
+            avgZ += verts[i][2];
+        }
+        avgX /= verts.length;
+        avgY /= verts.length;
+        avgZ /= verts.length;
+
+        vertices.push(avgX, avgY, avgZ);
+        vertexColors.push(colR, colG, colB);
+
+        var index = vertices.length / 3 - 1;
+
+        for (var i = 0; i < verts.length; i++)
+        {
+            vertices.push(verts[i][0], verts[i][1], verts[i][2]);
+            vertexColors.push(colR, colG, colB);
+        }
+
+        const indexEnd = vertices.length / 3 - 1;
+
+        for (var i = index; i < indexEnd; i++)
+        {
+            faces.push(index);
+            faces.push(i);
+            faces.push(i + 1);
+        }
+
+        faces.push(index);
+        faces.push(indexEnd);
+        faces.push(index + 1);
+    }
+}
+
+function buildMesh()
+{
+    obj = {};
+
+    faces = [];
+    vertices = [];
+    vertexColors = [];
+    const geom = new CGL.Geometry(op.name);
+
+    try
+    {
+        obj = conwayhart(String(notation.get()));
+    }
+    catch (ex)
+    {
+        op.logError(ex);
+        return;
+    }
+
+    for (let i = 0; i < obj.cells.length; i++)
+    {
+        const verts = getCellVertices(obj.cells[i]);
+        addFace(verts, geom);
+    }
+
+    geom.vertices = vertices;
+    geom.verticesIndices = faces;
+    geom.vertexColors = vertexColors;
+    geom.calculateNormals();
+    geom.calcTangentsBitangents();
+
+    outGeom.set(null);
+    outGeom.set(geom);
+}
+
+
+};
+
+Ops.Gl.Meshes.Polyhedron.prototype = new CABLES.Op();
+CABLES.OPS["8db7e954-81f4-4b34-a938-0155097410de"]={f:Ops.Gl.Meshes.Polyhedron,objName:"Ops.Gl.Meshes.Polyhedron"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Meshes.Rectangle_v3
+// 
+// **************************************************************
+
+Ops.Gl.Meshes.Rectangle_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    render = op.inTrigger("render"),
+    doRender = op.inValueBool("dorender", true),
+    width = op.inValue("width", 1),
+    height = op.inValue("height", 1),
+    pivotX = op.inSwitch("pivot x", ["left", "center", "right"], "center"),
+    pivotY = op.inSwitch("pivot y", ["top", "center", "bottom"], "center"),
+    axis = op.inSwitch("axis", ["xy", "xz"], "xy"),
+    flipTcX = op.inBool("Flip TexCoord X", false),
+    flipTcY = op.inBool("Flip TexCoord Y", true),
+    nColumns = op.inValueInt("num columns", 1),
+    nRows = op.inValueInt("num rows", 1),
+    trigger = op.outTrigger("trigger"),
+    geomOut = op.outObject("geometry", null, "geometry");
+
+geomOut.ignoreValueSerialize = true;
+
+const geom = new CGL.Geometry("rectangle");
+
+doRender.setUiAttribs({ "title": "Render" });
+render.setUiAttribs({ "title": "Trigger" });
+trigger.setUiAttribs({ "title": "Next" });
+op.setPortGroup("Pivot", [pivotX, pivotY, axis]);
+op.setPortGroup("Size", [width, height]);
+op.setPortGroup("Structure", [nColumns, nRows]);
+op.toWorkPortsNeedToBeLinked(render);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
+
+let mesh = null;
+let needsRebuild = true;
+
+axis.onChange =
+    pivotX.onChange =
+    pivotY.onChange =
+    flipTcX.onChange =
+    flipTcY.onChange =
+    width.onChange =
+    height.onChange =
+    nRows.onChange =
+    nColumns.onChange = rebuildLater;
+
+function rebuildLater()
+{
+    needsRebuild = true;
+}
+
+render.onLinkChanged = () =>
+{
+    if (!trigger.isLinked())
+    {
+        if (mesh) mesh.dispose();
+        mesh = null;
+        geomOut.set(null);
+        rebuildLater();
+    }
+};
+
+op.preRender =
+render.onTriggered = function ()
+{
+    if (needsRebuild) rebuild();
+    if (mesh && doRender.get()) mesh.render(op.patch.cg.getShader());
+    trigger.trigger();
+};
+
+op.onDelete = function ()
+{
+    if (mesh)mesh.dispose();
+    rebuildLater();
+};
+
+function rebuild()
+{
+    let w = width.get();
+    let h = parseFloat(height.get());
+    let x = 0;
+    let y = 0;
+
+    if (typeof w == "string")w = parseFloat(w);
+    if (typeof h == "string")h = parseFloat(h);
+
+    if (pivotX.get() == "center") x = 0;
+    else if (pivotX.get() == "right") x = -w / 2;
+    else if (pivotX.get() == "left") x = +w / 2;
+
+    if (pivotY.get() == "center") y = 0;
+    else if (pivotY.get() == "top") y = -h / 2;
+    else if (pivotY.get() == "bottom") y = +h / 2;
+
+    const verts = [];
+    const tc = [];
+    const norms = [];
+    const tangents = [];
+    const biTangents = [];
+    const indices = [];
+
+    const numRows = Math.round(nRows.get());
+    const numColumns = Math.round(nColumns.get());
+
+    const stepColumn = w / numColumns;
+    const stepRow = h / numRows;
+
+    op.log("rect build");
+
+    let c, r, a;
+    a = axis.get();
+    for (r = 0; r <= numRows; r++)
+    {
+        for (c = 0; c <= numColumns; c++)
+        {
+            verts.push(c * stepColumn - width.get() / 2 + x);
+            if (a == "xz") verts.push(0.0);
+            verts.push(r * stepRow - height.get() / 2 + y);
+            if (a == "xy") verts.push(0.0);
+
+            tc.push(c / numColumns);
+            tc.push(r / numRows);
+
+            if (a == "xy") // default
+            {
+                norms.push(0, 0, 1);
+                tangents.push(1, 0, 0);
+                biTangents.push(0, 1, 0);
+            }
+            else if (a == "xz")
+            {
+                norms.push(0, 1, 0);
+                tangents.push(1, 0, 0);
+                biTangents.push(0, 0, 1);
+            }
+        }
+    }
+
+    for (c = 0; c < numColumns; c++)
+    {
+        for (r = 0; r < numRows; r++)
+        {
+            const ind = c + (numColumns + 1) * r;
+            const v1 = ind;
+            const v2 = ind + 1;
+            const v3 = ind + numColumns + 1;
+            const v4 = ind + 1 + numColumns + 1;
+
+            if (a == "xy") // default
+            {
+                indices.push(v1);
+                indices.push(v2);
+                indices.push(v3);
+
+                indices.push(v3);
+                indices.push(v2);
+                indices.push(v4);
+            }
+            else
+            if (a == "xz")
+            {
+                indices.push(v1);
+                indices.push(v3);
+                indices.push(v2);
+
+                indices.push(v2);
+                indices.push(v3);
+                indices.push(v4);
+            }
+        }
+    }
+
+    if (flipTcY.get()) for (let i = 0; i < tc.length; i += 2)tc[i + 1] = 1.0 - tc[i + 1];
+    if (flipTcX.get()) for (let i = 0; i < tc.length; i += 2)tc[i] = 1.0 - tc[i];
+
+    geom.clear();
+    geom.vertices = verts;
+    geom.texCoords = tc;
+    geom.verticesIndices = indices;
+    geom.vertexNormals = norms;
+    geom.tangents = tangents;
+    geom.biTangents = biTangents;
+
+    // if (numColumns * numRows > 64000)geom.unIndex();
+
+    const cgl = op.patch.cgl;
+
+    if (!mesh) mesh = op.patch.cg.createMesh(geom);
+    else mesh.setGeom(geom);
+
+    geomOut.set(null);
+    geomOut.set(geom);
+    needsRebuild = false;
+}
+
+
+};
+
+Ops.Gl.Meshes.Rectangle_v3.prototype = new CABLES.Op();
+CABLES.OPS["82bb2f8a-77f4-4218-a3ae-8f158f1b7fb1"]={f:Ops.Gl.Meshes.Rectangle_v3,objName:"Ops.Gl.Meshes.Rectangle_v3"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_AccountSet
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_AccountSet = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for AccountSet
+const inClearFlag = op.inInt("ClearFlag");
+const inDomain = op.inString("Domain");
+const inEmailHash = op.inString("EmailHash");
+const inMessageKey = op.inString("MessageKey");
+const inNFTokenMinter = op.inString("NFTokenMinter");
+const inSetFlag = op.inInt("SetFlag");
+const inTransferRate = op.inInt("TransferRate");
+const inTickSize = op.inInt("TickSize");
+const inWalletLocator = op.inString("WalletLocator");
+const inWalletSize = op.inInt("WalletSize");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete AccountSet Transaction");
+
+// Trigger to add AccountSet fields
+const inTriggerAddAccountSetFields = op.inTriggerButton("Add AccountSet Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddAccountSetFields.onTriggered = addAccountSetFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addAccountSetFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "AccountSet"; // Set transaction type
+
+    let clearFlag = inClearFlag.get();
+    let domain = inDomain.get();
+    let emailHash = inEmailHash.get();
+    let messageKey = inMessageKey.get();
+    let nfTokenMinter = inNFTokenMinter.get();
+    let setFlag = inSetFlag.get();
+    let transferRate = inTransferRate.get();
+    let tickSize = inTickSize.get();
+    let walletLocator = inWalletLocator.get();
+    let walletSize = inWalletSize.get();
+
+    if (clearFlag) transaction.ClearFlag = clearFlag;
+    if (domain) transaction.Domain = domain;
+    if (emailHash) transaction.EmailHash = emailHash;
+    if (messageKey) transaction.MessageKey = messageKey;
+    if (nfTokenMinter) transaction.NFTokenMinter = nfTokenMinter;
+    if (setFlag) transaction.SetFlag = setFlag;
+    if (transferRate) transaction.TransferRate = transferRate;
+    if (tickSize) transaction.TickSize = tickSize;
+    if (walletLocator) transaction.WalletLocator = walletLocator;
+    if (walletSize) transaction.WalletSize = walletSize;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inClearFlag.set(null);
+    inDomain.set(null);
+    inEmailHash.set(null);
+    inMessageKey.set(null);
+    inNFTokenMinter.set(null);
+    inSetFlag.set(null);
+    inTransferRate.set(null);
+    inTickSize.set(null);
+    inWalletLocator.set(null);
+    inWalletSize.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_AccountSet.prototype = new CABLES.Op();
+CABLES.OPS["5a1bd0b2-580a-4d05-b883-3b540f34d914"]={f:Ops.User.rambodc.XRPL_AccountSet,objName:"Ops.User.rambodc.XRPL_AccountSet"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_Payment
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_Payment = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for Payment
+const inAccount = op.inString("Account"); // The account that will send the payment
+const inDestination = op.inString("Destination"); // The account that will receive the payment
+const inAmount = op.inObject("Amount"); // The amount to send, in either XRP or an issued currency format
+const inSendMax = op.inObject("SendMax"); // (Optional) The maximum amount of an issued currency to send
+const inDeliverMin = op.inObject("DeliverMin"); // (Optional) The minimum amount of an issued currency to deliver
+const inDestinationTag = op.inInt("DestinationTag"); // (Optional) Numerical tag that defines the reason for the payment
+const inInvoiceID = op.inString("InvoiceID"); // (Optional) Arbitrary 256-bit hash representing the reason for the payment
+const inPaths = op.inObject("Paths"); // (Optional) Array of payment paths to use
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete Payment Transaction");
+
+// Trigger to add Payment fields
+const inTriggerAddPaymentFields = op.inTriggerButton("Add Payment Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddPaymentFields.onTriggered = addPaymentFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addPaymentFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "Payment"; // Set transaction type
+
+    let account = inAccount.get();
+    let destination = inDestination.get();
+    let amount = inAmount.get();
+    let sendMax = inSendMax.get();
+    let deliverMin = inDeliverMin.get();
+    let destinationTag = inDestinationTag.get();
+    let invoiceID = inInvoiceID.get();
+    let paths = inPaths.get();
+
+    if (account) transaction.Account = account;
+    if (destination) transaction.Destination = destination;
+    if (amount) transaction.Amount = amount;
+    if (sendMax) transaction.SendMax = sendMax;
+    if (deliverMin) transaction.DeliverMin = deliverMin;
+    if (destinationTag) transaction.DestinationTag = destinationTag;
+    if (invoiceID) transaction.InvoiceID = invoiceID;
+    if (paths) transaction.Paths = paths;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inAccount.set(null);
+    inDestination.set(null);
+    inAmount.set(null);
+    inSendMax.set(null);
+    inDeliverMin.set(null);
+    inDestinationTag.set(null);
+    inInvoiceID.set(null);
+    inPaths.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_Payment.prototype = new CABLES.Op();
+CABLES.OPS["03ae6a97-9639-4a99-95c7-ac0406924001"]={f:Ops.User.rambodc.XRPL_Payment,objName:"Ops.User.rambodc.XRPL_Payment"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_TrustSet
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_TrustSet = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for TrustSet
+const inLimitAmount = op.inObject("LimitAmount"); // Should contain currency, value, and issuer fields
+const inQualityIn = op.inInt("QualityIn");
+const inQualityOut = op.inInt("QualityOut");
+const inSetfAuth = op.inBool("Authorize Other Party");
+const inSetNoRipple = op.inBool("Enable No Ripple");
+const inClearNoRipple = op.inBool("Disable No Ripple");
+const inSetFreeze = op.inBool("Freeze Trust Line");
+const inClearFreeze = op.inBool("Unfreeze Trust Line");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete TrustSet Transaction");
+
+// Trigger to add TrustSet fields
+const inTriggerAddTrustSetFields = op.inTriggerButton("Add TrustSet Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddTrustSetFields.onTriggered = addTrustSetFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addTrustSetFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "TrustSet"; // Set transaction type
+
+    let limitAmount = inLimitAmount.get();
+    let qualityIn = inQualityIn.get();
+    let qualityOut = inQualityOut.get();
+
+    // Setting the appropriate flag values based on input
+    if (inSetfAuth.get()) transaction.Flags |= 65536;  // tfSetfAuth
+    if (inSetNoRipple.get()) transaction.Flags |= 131072;  // tfSetNoRipple
+    if (inClearNoRipple.get()) transaction.Flags |= 262144;  // tfClearNoRipple
+    if (inSetFreeze.get()) transaction.Flags |= 1048576;  // tfSetFreeze
+    if (inClearFreeze.get()) transaction.Flags |= 2097152;  // tfClearFreeze
+
+    if (limitAmount) transaction.LimitAmount = limitAmount;
+    if (qualityIn) transaction.QualityIn = qualityIn;
+    if (qualityOut) transaction.QualityOut = qualityOut;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inLimitAmount.set(null);
+    inQualityIn.set(null);
+    inQualityOut.set(null);
+    inSetfAuth.set(null);
+    inSetNoRipple.set(null);
+    inClearNoRipple.set(null);
+    inSetFreeze.set(null);
+    inClearFreeze.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_TrustSet.prototype = new CABLES.Op();
+CABLES.OPS["9f823a3b-04bf-479c-bbdd-0a6c231d0e45"]={f:Ops.User.rambodc.XRPL_TrustSet,objName:"Ops.User.rambodc.XRPL_TrustSet"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_account_flags
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_account_flags = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const inTrigger = op.inTriggerButton("Trigger");
+const inAccountInfo = op.inObject("Account Info JSON");
+
+// Outputs
+const outObject = op.outArray("Account Flags");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+const outError = op.outString("Error");
+
+// Updated flag mapping according to provided values
+const flagMapping = {
+  131072: 'lsfRequireDestTag',
+  262144: 'lsfRequireAuth',
+  524288: 'lsfDisallowXRP',
+  1048576: 'lsfDisableMaster',
+  2097152: 'lsfNoFreeze',
+  4194304: 'lsfGlobalFreeze',
+  8388608: 'lsfDefaultRipple',
+  16777216: 'lsfDepositAuth',
+  67108864: 'lsfDisallowIncomingNFTokenOffer',
+  134217728: 'lsfDisallowIncomingCheck',
+  268435456: 'lsfDisallowIncomingPayChan',
+  536870912: 'lsfDisallowIncomingTrustline'
+};
+
+// Run the main function when the trigger input is activated
+inTrigger.onTriggered = main;
+
+function main() {
+  try {
+    const accountInfo = inAccountInfo.get();
+    const accountFlags = accountInfo.Flags;
+
+    // Calculate the set flags
+    const setFlags = [];
+    for (let flag in flagMapping) {
+      if ((accountFlags & flag) !== 0) { // Bitwise operation to check if a flag is set
+        setFlags.push(flagMapping[flag]);
+      }
+    }
+
+    outObject.set(setFlags);
+    outSuccess.trigger();
+  } catch (error) {
+    outError.set(error.message);
+    outFailure.trigger();
+  }
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_account_flags.prototype = new CABLES.Op();
+CABLES.OPS["0ed3b0b2-648c-4d19-840a-84f5a9616fcf"]={f:Ops.User.rambodc.XRPL_account_flags,objName:"Ops.User.rambodc.XRPL_account_flags"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_SecretNumber_Generate
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_SecretNumber_Generate = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const {Account} = require('xrpl-secret-numbers')
+
+//inputs
+const inTrigger = op.inTriggerButton("Trigger In");
+// const inSeed = op.inString("Seed");
+
+//outputs
+const outxrplWallet = op.outObject("XRPL Wallet");
+const outxummWallet = op.outObject("XUMM Wallet");
+const outSecret = op.outString("Secret");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+
+inTrigger.onTriggered = generateWalletFromSecretNumbers;
+
+function generateWalletFromSecretNumbers(){
+    let generatedAccount;
+
+    try{
+        generatedAccount = new Account();
+        //console.log(generatedAccount)
+    }catch(error){
+        outFailure.trigger();
+        outSuccess.trigger();
+        outError.set(error);
+        return;
+    }
+
+
+    const xrplWallet = {
+        classicAddress: generatedAccount.getAddress(),
+        privateKey:generatedAccount.getKeypair().privateKey,
+        publicKey:generatedAccount.getKeypair().publicKey,
+        seed:generatedAccount.getFamilySeed()
+    }
+
+
+    outxrplWallet.set(xrplWallet);
+    outxummWallet.set(generatedAccount.account);
+    outSecret.set(generatedAccount.secret.join(" "));
+
+    outSuccess.trigger();
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_SecretNumber_Generate.prototype = new CABLES.Op();
+CABLES.OPS["9f4e45f9-c8e2-4d8c-879c-982afbbed109"]={f:Ops.User.rambodc.XRPL_SecretNumber_Generate,objName:"Ops.User.rambodc.XRPL_SecretNumber_Generate"};
 
 
 

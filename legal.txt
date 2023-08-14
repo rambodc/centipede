@@ -8,6 +8,10 @@ MIT:
 
 - glmatrix by toji (https://github.com/toji/gl-matrix)
 
+GPL:
+
+- conway-heart by mikolalysenko (https://github.com/mikolalysenko/conway-hart)
+
 Apache-2.0:
 
 - echarts.js (https://echarts.apache.org/en/index.html)
