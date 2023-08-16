@@ -22,4 +22,5 @@
 * __uid__ ```String```
 * __width__ ```Number```
 * __wssSelect__ ```String```
+* __xrplErrorCode__ ```String```
 

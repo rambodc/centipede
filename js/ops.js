@@ -17580,214 +17580,535 @@ CABLES.OPS["03ae6a97-9639-4a99-95c7-ac0406924001"]={f:Ops.User.rambodc.XRPL_Paym
 
 // **************************************************************
 // 
-// Ops.User.rambodc.XRPL_TrustSet
+// Ops.Html.HyperLink_v2
 // 
 // **************************************************************
 
-Ops.User.rambodc.XRPL_TrustSet = function()
+Ops.Html.HyperLink_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-// Inputs for TrustSet
-const inLimitAmount = op.inObject("LimitAmount"); // Should contain currency, value, and issuer fields
-const inQualityIn = op.inInt("QualityIn");
-const inQualityOut = op.inInt("QualityOut");
-const inSetfAuth = op.inBool("Authorize Other Party");
-const inSetNoRipple = op.inBool("Enable No Ripple");
-const inClearNoRipple = op.inBool("Disable No Ripple");
-const inSetFreeze = op.inBool("Freeze Trust Line");
-const inClearFreeze = op.inBool("Unfreeze Trust Line");
+const
+    exec = op.inTriggerButton("Open"),
+    inUrl = op.inString("URL", "https://cables.gl"),
+    inTarget = op.inString("Target Name", "_self"),
+    inSpecs = op.inString("Specs", "");
 
-// Additional object as input
-const inAdditionalObject = op.inObject("Additional Object");
-
-// Output
-const outTransaction = op.outObject("Complete TrustSet Transaction");
-
-// Trigger to add TrustSet fields
-const inTriggerAddTrustSetFields = op.inTriggerButton("Add TrustSet Fields");
-
-// Clear trigger
-const inTriggerClearFields = op.inTriggerButton("Clear Fields");
-
-// Bind function to trigger
-inTriggerAddTrustSetFields.onTriggered = addTrustSetFields;
-inTriggerClearFields.onTriggered = clearFields;
-
-function addTrustSetFields() {
-    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
-    transaction.TransactionType = "TrustSet"; // Set transaction type
-
-    let limitAmount = inLimitAmount.get();
-    let qualityIn = inQualityIn.get();
-    let qualityOut = inQualityOut.get();
-
-    // Setting the appropriate flag values based on input
-    if (inSetfAuth.get()) transaction.Flags |= 65536;  // tfSetfAuth
-    if (inSetNoRipple.get()) transaction.Flags |= 131072;  // tfSetNoRipple
-    if (inClearNoRipple.get()) transaction.Flags |= 262144;  // tfClearNoRipple
-    if (inSetFreeze.get()) transaction.Flags |= 1048576;  // tfSetFreeze
-    if (inClearFreeze.get()) transaction.Flags |= 2097152;  // tfClearFreeze
-
-    if (limitAmount) transaction.LimitAmount = limitAmount;
-    if (qualityIn) transaction.QualityIn = qualityIn;
-    if (qualityOut) transaction.QualityOut = qualityOut;
-
-    outTransaction.set(transaction);
-}
-
-function clearFields() {
-    inLimitAmount.set(null);
-    inQualityIn.set(null);
-    inQualityOut.set(null);
-    inSetfAuth.set(null);
-    inSetNoRipple.set(null);
-    inClearNoRipple.set(null);
-    inSetFreeze.set(null);
-    inClearFreeze.set(null);
-    inAdditionalObject.set(null);
-}
+exec.onTriggered = function ()
+{
+    // document.location.href=inUrl.get();
+    window.open(inUrl.get(), inTarget.get(), inSpecs.get());
+};
 
 
 };
 
-Ops.User.rambodc.XRPL_TrustSet.prototype = new CABLES.Op();
-CABLES.OPS["9f823a3b-04bf-479c-bbdd-0a6c231d0e45"]={f:Ops.User.rambodc.XRPL_TrustSet,objName:"Ops.User.rambodc.XRPL_TrustSet"};
+Ops.Html.HyperLink_v2.prototype = new CABLES.Op();
+CABLES.OPS["a669d4f7-1e35-463c-bf8b-08c9f1b68e04"]={f:Ops.Html.HyperLink_v2,objName:"Ops.Html.HyperLink_v2"};
 
 
 
 
 // **************************************************************
 // 
-// Ops.User.rambodc.XRPL_account_flags
+// Ops.User.rambodc.XRPL_Errors
 // 
 // **************************************************************
 
-Ops.User.rambodc.XRPL_account_flags = function()
+Ops.User.rambodc.XRPL_Errors = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
+// Create the errorCodes object outside of the operator function
+const errorCodes = {
+
+
+// tec Codes
+
+
+        'tecCANT_ACCEPT_OWN_NFTOKEN_OFFER': {
+            value: 157,
+            explanation: 'Transaction tried to accept its own non-fungible token offer.'
+        },
+        'tecCLAIM': {
+            value: 100,
+            explanation: 'Unspecified failure; transaction cost destroyed.'
+        },
+        'tecCRYPTOCONDITION_ERROR': {
+            value: 146,
+            explanation: 'Malformed or mismatched crypto-condition in Escrow transaction.'
+        },
+        'tecDIR_FULL': {
+            value: 121,
+            explanation: 'Account cannot own more objects in the ledger.'
+        },
+        'tecDUPLICATE': {
+            value: 149,
+            explanation: 'Transaction tried to create an already existing object.'
+        },
+        'tecDST_TAG_NEEDED': {
+            value: 143,
+            explanation: 'Payment transaction omitted a necessary destination tag.'
+        },
+        'tecEXPIRED': {
+            value: 148,
+            explanation: 'Transaction object has a past expiration time.'
+        },
+        'tecFAILED_PROCESSING': {
+            value: 105,
+            explanation: 'Error occurred when processing the transaction.'
+        },
+        'tecFROZEN': {
+            value: 137,
+            explanation: 'Transaction failed due to a global freeze on assets.'
+        },
+        'tecHAS_OBLIGATIONS': {
+            value: 151,
+            explanation: 'Account to be deleted has undeletable objects.'
+        },
+        'tecINSUF_RESERVE_LINE': {
+            value: 122,
+            explanation: 'Insufficient XRP for new trust line; counterparty has non-default trust line.'
+        },
+        'tecINSUF_RESERVE_OFFER': {
+            value: 123,
+            explanation: 'Insufficient XRP for new offer.'
+        },
+        'tecINSUFF_FEE': {
+            value: 136,
+            explanation: 'Account lacks XRP for specified transaction cost.'
+        },
+        'tecINSUFFICIENT_FUNDS': {
+            value: 158,
+            explanation: 'Involved account lacks necessary asset.'
+        },
+        'tecINSUFFICIENT_PAYMENT': {
+            value: 161,
+            explanation: 'Specified amount insufficient for all transaction fees.'
+        },
+        'tecINSUFFICIENT_RESERVE': {
+            value: 141,
+            explanation: 'Transaction would exceed sender accounts XRP reserve requirement.'
+        },
+        'tecINTERNAL': {
+            value: 144,
+            explanation: 'Unspecified internal error; transaction cost applied.'
+        },
+        'tecINVARIANT_FAILED': {
+            value: 147,
+            explanation: 'Invariant check failed during transaction.'
+        },
+        'tecKILLED': {
+            value: 150,
+            explanation: 'Offer could not be filled; killed due to tfFillOrKill flag.'
+        },
+        'tecMAX_SEQUENCE_REACHED': {
+            value: 153,
+            explanation: 'Sequence number field has reached its maximum.'
+        },
+        'tecNEED_MASTER_KEY': {
+            value: 142,
+            explanation: 'Changes requiring the master key were attempted.'
+        },
+        'tecNFTOKEN_BUY_SELL_MISMATCH': {
+            value: 155,
+            explanation: 'Mismatch between NFToken buy and sell offers.'
+        },
+        'tecNFTOKEN_OFFER_TYPE_MISMATCH': {
+            value: 156,
+            explanation: 'Incorrect type of offer in NFToken transaction.'
+        },
+        'tecNO_ALTERNATIVE_KEY': {
+            value: 130,
+            explanation: 'Transaction tried to remove the only available authorization method.'
+        },
+        'tecNO_AUTH': {
+            value: 134,
+            explanation: 'Transaction failed due to lack of trust line authorization.'
+        },
+        'tecNO_DST': {
+            value: 124,
+            explanation: 'Destination account does not exist.'
+        },
+        'tecNO_DST_INSUF_XRP': {
+            value: 125,
+            explanation: 'Destination account does not exist and not enough XRP to create it.'
+        },
+        'tecNO_ENTRY': {
+            value: 140,
+            explanation: 'Transaction tried to modify non-existent ledger object.'
+        },
+        'tecNO_ISSUER': {
+            value: 133,
+            explanation: 'Issuer account in a currency amount does not exist.'
+        },
+        'tecNO_LINE': {
+            value: 135,
+            explanation: 'Trust line authorization required for OfferCreate transaction.'
+        },
+        'tecNO_LINE_INSUF_RESERVE': {
+            value: 126,
+            explanation: 'Insufficient XRP for new trust line; counterparty lacks trust line.'
+        },
+        'tecNO_LINE_REDUNDANT': {
+            value: 127,
+            explanation: 'Transaction tried to set a non-existent trust line to default.'
+        },
+        'tecNO_PERMISSION': {
+            value: 139,
+            explanation: 'Sender lacks permission for operation.'
+        },
+        'tecNO_REGULAR_KEY': {
+            value: 131,
+            explanation: 'Transaction tried to disable master key with no alternative set.'
+        },
+        'tecNO_SUITABLE_NFTOKEN_PAGE': {
+            value: 154,
+            explanation: 'No suitable directory page for non-fungible token.'
+        },
+        'tecNO_TARGET': {
+            value: 138,
+            explanation: 'Referenced Escrow or PayChannel object does not exist.'
+        },
+        'tecOBJECT_NOT_FOUND': {
+            value: 160,
+            explanation: 'Specified object not found in the ledger.'
+        },
+        'tecOVERSIZE': {
+            value: 145,
+            explanation: 'Transaction generated excessive metadata; could not process.'
+        },
+        'tecOWNERS': {
+            value: 132,
+            explanation: 'Transaction failed as sender owns ledger objects.'
+        },
+        'tecPATH_DRY': {
+            value: 128,
+            explanation: 'Provided paths lacked liquidity for any transaction.'
+        },
+        'tecPATH_PARTIAL': {
+            value: 101,
+            explanation: 'Provided paths lacked complete liquidity for transaction.'
+        },
+        'tecTOO_SOON': {
+            value: 152,
+            explanation: 'AccountDelete transaction premature due to high Sequence number.'
+        },
+        'tecUNFUNDED': {
+            value: 129,
+            explanation: 'Account lacks XRP for transaction amount and reserve.'
+        },
+        'tecUNFUNDED_ADD': {
+            value: 102,
+            explanation: 'DEPRECATED.'
+        },
+        'tecUNFUNDED_PAYMENT': {
+            value: 104,
+            explanation: 'Payment transaction exceeds sender XRP balance.'
+        },
+        'tecUNFUNDED_OFFER': {
+            value: 103,
+            explanation: 'OfferCreate transaction lacks required TakerGets currency.'
+        },
+
+// tef Codes
+
+    'tefALREADY': {
+        explanation: 'Transaction has already been applied.'
+    },
+    'tefBAD_ADD_AUTH': {
+        explanation: 'DEPRECATED.'
+    },
+    'tefBAD_AUTH': {
+        explanation: 'Signing key not authorized for this account.'
+    },
+    'tefBAD_AUTH_MASTER': {
+        explanation: "Signature doesn't match master key and no regular key found."
+    },
+    'tefBAD_LEDGER': {
+        explanation: "Unexpected ledger state during transaction. Please report if reproducible."
+    },
+    'tefBAD_QUORUM': {
+        explanation: "Multi-signature weights didn't meet the quorum."
+    },
+    'tefBAD_SIGNATURE': {
+        explanation: "Multi-signed with address not in account's SignerList."
+    },
+    'tefCREATED': {
+        explanation: 'DEPRECATED.'
+    },
+    'tefEXCEPTION': {
+        explanation: "Server error during transaction. Report if reproducible."
+    },
+    'tefFAILURE': {
+        explanation: "General transaction failure."
+    },
+    'tefINTERNAL': {
+        explanation: "Server internal error during transaction. Report if reproducible."
+    },
+    'tefINVARIANT_FAILED': {
+        explanation: "Invariant check failed for transaction cost."
+    },
+    'tefMASTER_DISABLED': {
+        explanation: "Transaction signed with master key, but master is disabled."
+    },
+    'tefMAX_LEDGER': {
+        explanation: "Current ledger's sequence higher than provided."
+    },
+    'tefNFTOKEN_IS_NOT_TRANSFERABLE': {
+        explanation: "Non-transferable NFToken transfer attempt."
+    },
+    'tefNO_AUTH_REQUIRED': {
+        explanation: "Authorization not necessary for TrustSet transaction."
+    },
+    'tefNO_TICKET': {
+        explanation: "Used Ticket doesn't exist or is out of sequence."
+    },
+    'tefNOT_MULTI_SIGNING': {
+        explanation: "Multi-signed but no SignerList for account."
+    },
+    'tefPAST_SEQ': {
+        explanation: "Transaction sequence lower than account's current sequence."
+    },
+    'tefTOO_BIG': {
+        explanation: "Transaction impacts too many ledger objects."
+    },
+    'tefWRONG_PRIOR': {
+        explanation: "Mismatch in AccountTxnID or deprecated PreviousTxnID."
+    },
+
+
+
+// tel Codes
+
+    'telBAD_DOMAIN': {
+        explanation: 'Specified domain value is invalid, likely too long.'
+    },
+    'telBAD_PATH_COUNT': {
+        explanation: 'Too many paths in transaction for server to process.'
+    },
+    'telBAD_PUBLIC_KEY': {
+        explanation: 'Specified public key is invalid, likely wrong length.'
+    },
+    'telCAN_NOT_QUEUE': {
+        explanation: 'Transaction missed open ledger cost and exceeded queuing restrictions.'
+    },
+    'telCAN_NOT_QUEUE_BALANCE': {
+        explanation: 'Transaction exceeded available balance and was not queued.'
+    },
+    'telCAN_NOT_QUEUE_BLOCKS': {
+        explanation: 'Transaction would block other queued transactions from same sender.'
+    },
+    'telCAN_NOT_QUEUE_BLOCKED': {
+        explanation: 'Transaction blocked by prior transaction from same sender in queue.'
+    },
+    'telCAN_NOT_QUEUE_FEE': {
+        explanation: 'Transaction fee too low to replace existing transaction in queue.'
+    },
+    'telCAN_NOT_QUEUE_FULL': {
+        explanation: 'Transaction missed open ledger cost and server queue is full.'
+    },
+    'telFAILED_PROCESSING': {
+        explanation: 'Error occurred during transaction processing.'
+    },
+    'telINSUF_FEE_P': {
+        explanation: "Transaction's fee is too low for server's current cost requirement."
+    },
+    'telLOCAL_ERROR': {
+        explanation: 'Unspecified local error.'
+    },
+    'telNO_DST_PARTIAL': {
+        explanation: 'XRP payment for new account with tfPartialPayment flag is disallowed.'
+    },
+
+
+
+// tem Codes
+
+    'temBAD_AMOUNT': {
+        explanation: 'Invalid transaction amount, possibly negative.'
+    },
+    'temBAD_AUTH_MASTER': {
+        explanation: 'Key mismatch or no Regular Key set for account.'
+    },
+    'temBAD_CURRENCY': {
+        explanation: 'Incorrectly formatted currency field.'
+    },
+    'temBAD_EXPIRATION': {
+        explanation: 'Invalid or missing expiration value.'
+    },
+    'temBAD_FEE': {
+        explanation: 'Invalid Fee value; possibly non-XRP or negative.'
+    },
+    'temBAD_ISSUER': {
+        explanation: 'Incorrect issuer field for currency.'
+    },
+    'temBAD_LIMIT': {
+        explanation: 'Invalid LimitAmount value in TrustSet.'
+    },
+    'temBAD_NFTOKEN_TRANSFER_FEE': {
+        explanation: 'Invalid TransferFee in NFTokenMint.'
+    },
+    'temBAD_OFFER': {
+        explanation: 'Invalid offer; might be self-trade or negative.'
+    },
+    'temBAD_PATH': {
+        explanation: 'Incorrectly specified Paths in Payment.'
+    },
+    'temBAD_PATH_LOOP': {
+        explanation: 'Detected loop in Payment Paths.'
+    },
+    'temBAD_SEND_XRP_LIMIT': {
+        explanation: 'tfLimitQuality flag misused in XRP payment.'
+    },
+    'temBAD_SEND_XRP_MAX': {
+        explanation: 'SendMax field misused in direct XRP payment.'
+    },
+    'temBAD_SEND_XRP_NO_DIRECT': {
+        explanation: 'tfNoDirectRipple misused in XRP payment.'
+    },
+    'temBAD_SEND_XRP_PARTIAL': {
+        explanation: 'tfPartialPayment misused in XRP payment.'
+    },
+    'temBAD_SEND_XRP_PATHS': {
+        explanation: 'Paths included in direct XRP payment.'
+    },
+    'temBAD_SEQUENCE': {
+        explanation: 'Mismatched sequence numbers.'
+    },
+    'temBAD_SIGNATURE': {
+        explanation: 'Missing or malformed signature.'
+    },
+    'temBAD_SRC_ACCOUNT': {
+        explanation: 'Invalid source account address.'
+    },
+    'temBAD_TRANSFER_RATE': {
+        explanation: 'Invalid TransferRate in AccountSet.'
+    },
+    'temCANNOT_PREAUTH_SELF': {
+        explanation: 'Cannot preauthorize own account.'
+    },
+    'temDST_IS_SRC': {
+        explanation: 'Destination matches the source account.'
+    },
+    'temDST_NEEDED': {
+        explanation: 'Missing required destination.'
+    },
+    'temINVALID': {
+        explanation: 'General invalid transaction format or ID.'
+    },
+    'temINVALID_COUNT': {
+        explanation: 'Invalid TicketCount field.'
+    },
+    'temINVALID_FLAG': {
+        explanation: 'Invalid or conflicting flags.'
+    },
+    'temMALFORMED': {
+        explanation: 'General transaction format issue.'
+    },
+    'temREDUNDANT': {
+        explanation: 'Transaction has no effect.'
+    },
+    'temREDUNDANT_SEND_MAX': {
+        explanation: 'Removed in rippled 0.28.0.'
+    },
+    'temRIPPLE_EMPTY': {
+        explanation: 'Empty Paths field in necessary payment.'
+    },
+    'temBAD_WEIGHT': {
+        explanation: 'Invalid SignerWeight value.'
+    },
+    'temBAD_SIGNER': {
+        explanation: 'Invalid signer in SignerListSet.'
+    },
+    'temBAD_QUORUM': {
+        explanation: 'Invalid SignerQuorum in SignerListSet.'
+    },
+    'temUNCERTAIN': {
+        explanation: 'Internal use only; should not be returned.'
+    },
+    'temUNKNOWN': {
+        explanation: 'Internal use only; should not be returned.'
+    },
+    'temDISABLED': {
+        explanation: 'Requires logic that is disabled.'
+    },
+
+
+
+// ter Codes
+
+    "terFUNDS_SPENT": {
+        explanation: "DEPRECATED."
+    },
+    "terINSUF_FEE_B": {
+        explanation: "Insufficient XRP for specified Fee."
+    },
+    "terLAST": {
+        explanation: "Internal use only; shouldn't be returned."
+    },
+    "terNO_ACCOUNT": {
+        explanation: "Sending address not funded in ledger."
+    },
+    "terNO_AUTH": {
+        explanation: "Transaction involves unauthorized currency."
+    },
+    "terNO_LINE": {
+        explanation: "Internal use only; shouldn't be returned."
+    },
+    "terNO_RIPPLE": {
+        explanation: "Internal use only; shouldn't be returned."
+    },
+    "terOWNERS": {
+        explanation: "Transaction needs nonzero \"owners count\"."
+    },
+    "terPRE_SEQ": {
+        explanation: "Transaction Sequence higher than account's current."
+    },
+    "terPRE_TICKET": {
+        explanation: "TicketSequence doesn't exist but could be created."
+    },
+    "terRETRY": {
+        explanation: "General retriable error."
+    },
+    "terQUEUED": {
+        explanation: "Transaction queued for future ledger."
+    }
+
+
+
+
+};
+
 // Inputs
-const inTrigger = op.inTriggerButton("Trigger");
-const inAccountInfo = op.inObject("Account Info JSON");
+const triggerInput = op.inTriggerButton("Trigger", "Trigger to process the error code");
+const errorCodeInput = op.inString("ErrorCode", "The error code to be processed");
 
 // Outputs
-const outObject = op.outArray("Account Flags");
-const outSuccess = op.outTrigger("Success");
-const outFailure = op.outTrigger("Failure");
-const outError = op.outString("Error");
+const triggerSuccessOutput = op.outTrigger("TriggerSuccess", "Triggered if error code matches");
+const triggerFailOutput = op.outTrigger("TriggerFail", "Triggered if error code doesn't match");
+const valueOutput = op.outValue("Value", "The value for the error code");
+const explanationOutput = op.outString("Explanation", "The explanation for the error code");
 
-// Updated flag mapping according to provided values
-const flagMapping = {
-  131072: 'lsfRequireDestTag',
-  262144: 'lsfRequireAuth',
-  524288: 'lsfDisallowXRP',
-  1048576: 'lsfDisableMaster',
-  2097152: 'lsfNoFreeze',
-  4194304: 'lsfGlobalFreeze',
-  8388608: 'lsfDefaultRipple',
-  16777216: 'lsfDepositAuth',
-  67108864: 'lsfDisallowIncomingNFTokenOffer',
-  134217728: 'lsfDisallowIncomingCheck',
-  268435456: 'lsfDisallowIncomingPayChan',
-  536870912: 'lsfDisallowIncomingTrustline'
-};
+triggerInput.onTriggered = function() {
+    const errorCode = errorCodeInput.get();
 
-// Run the main function when the trigger input is activated
-inTrigger.onTriggered = main;
-
-function main() {
-  try {
-    const accountInfo = inAccountInfo.get();
-    const accountFlags = accountInfo.Flags;
-
-    // Calculate the set flags
-    const setFlags = [];
-    for (let flag in flagMapping) {
-      if ((accountFlags & flag) !== 0) { // Bitwise operation to check if a flag is set
-        setFlags.push(flagMapping[flag]);
-      }
+    if (errorCodes[errorCode]) {
+        triggerSuccessOutput.trigger();
+        valueOutput.set(errorCodes[errorCode].value);
+        explanationOutput.set(errorCodes[errorCode].explanation);
+    } else {
+        triggerFailOutput.trigger();
     }
-
-    outObject.set(setFlags);
-    outSuccess.trigger();
-  } catch (error) {
-    outError.set(error.message);
-    outFailure.trigger();
-  }
-}
+};
 
 
 };
 
-Ops.User.rambodc.XRPL_account_flags.prototype = new CABLES.Op();
-CABLES.OPS["0ed3b0b2-648c-4d19-840a-84f5a9616fcf"]={f:Ops.User.rambodc.XRPL_account_flags,objName:"Ops.User.rambodc.XRPL_account_flags"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.User.rambodc.XRPL_SecretNumber_Generate
-// 
-// **************************************************************
-
-Ops.User.rambodc.XRPL_SecretNumber_Generate = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const {Account} = require('xrpl-secret-numbers')
-
-//inputs
-const inTrigger = op.inTriggerButton("Trigger In");
-// const inSeed = op.inString("Seed");
-
-//outputs
-const outxrplWallet = op.outObject("XRPL Wallet");
-const outxummWallet = op.outObject("XUMM Wallet");
-const outSecret = op.outString("Secret");
-const outSuccess = op.outTrigger("Success");
-const outFailure = op.outTrigger("Failure");
-
-inTrigger.onTriggered = generateWalletFromSecretNumbers;
-
-function generateWalletFromSecretNumbers(){
-    let generatedAccount;
-
-    try{
-        generatedAccount = new Account();
-        //console.log(generatedAccount)
-    }catch(error){
-        outFailure.trigger();
-        outSuccess.trigger();
-        outError.set(error);
-        return;
-    }
-
-
-    const xrplWallet = {
-        classicAddress: generatedAccount.getAddress(),
-        privateKey:generatedAccount.getKeypair().privateKey,
-        publicKey:generatedAccount.getKeypair().publicKey,
-        seed:generatedAccount.getFamilySeed()
-    }
-
-
-    outxrplWallet.set(xrplWallet);
-    outxummWallet.set(generatedAccount.account);
-    outSecret.set(generatedAccount.secret.join(" "));
-
-    outSuccess.trigger();
-}
-
-
-};
-
-Ops.User.rambodc.XRPL_SecretNumber_Generate.prototype = new CABLES.Op();
-CABLES.OPS["9f4e45f9-c8e2-4d8c-879c-982afbbed109"]={f:Ops.User.rambodc.XRPL_SecretNumber_Generate,objName:"Ops.User.rambodc.XRPL_SecretNumber_Generate"};
+Ops.User.rambodc.XRPL_Errors.prototype = new CABLES.Op();
+CABLES.OPS["7fe9525f-c767-48a1-bc53-68ec599b799e"]={f:Ops.User.rambodc.XRPL_Errors,objName:"Ops.User.rambodc.XRPL_Errors"};
 
 
 
