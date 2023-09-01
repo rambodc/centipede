@@ -10908,74 +10908,6 @@ CABLES.OPS["b7722f22-8ead-4479-a047-0ecb8720bb18"]={f:Ops.User.rambodc.Button_Ba
 
 // **************************************************************
 // 
-// Ops.User.rambodc.XRPL_FundWallet
-// 
-// **************************************************************
-
-Ops.User.rambodc.XRPL_FundWallet = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const inTrigger = op.inTriggerButton("Trigger In");
-const inWallet = op.inObject("Wallet");
-const inWss = op.inString("Wss");
-const inAmount = op.inString("Amount", "1000");
-
-const outFundWallet = op.outObject("Fund Wallet");
-const outSuccess = op.outTrigger("Success");
-const outFailure = op.outTrigger("Failure");
-const outError = op.outString("Error");
-const outMissingWss = op.outBool("Missing Wss");
-
-inTrigger.onTriggered = main;
-
-let client = null;
-
-async function main() {
-
-  if (!inWss.get()) {
-    outError.set(true);
-    outMissingWss.set(true);
-    outFailure.trigger();
-    return;
-  }
-  try {
-    if (client === null) {
-      client = new xrpl.Client(inWss.get());
-      await client.connect();
-    }
-
-    let wallet;
-
-    if (inWallet.get()) {
-      wallet = await client.fundWallet(inWallet.get(), { amount: inAmount.get() });
-    } else {
-      wallet = await client.fundWallet(null, {
-        amount: inAmount.get(),
-      });
-    }
-
-    outFundWallet.set(wallet);
-    outSuccess.trigger();
-  } catch (error) {
-
-    outError.set(error);
-    outFailure.trigger();
-  }
-}
-
-
-};
-
-Ops.User.rambodc.XRPL_FundWallet.prototype = new CABLES.Op();
-CABLES.OPS["a09799a9-fc66-47eb-801d-4c3de4a33769"]={f:Ops.User.rambodc.XRPL_FundWallet,objName:"Ops.User.rambodc.XRPL_FundWallet"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.User.rambodc.StringCompose3
 // 
 // **************************************************************
@@ -12373,151 +12305,6 @@ function removeElementFromDOM(element)
 
 Ops.Sidebar.NumberInput_v2.prototype = new CABLES.Op();
 CABLES.OPS["c4f3f1d7-de07-4c06-921e-32baeef4fc68"]={f:Ops.Sidebar.NumberInput_v2,objName:"Ops.Sidebar.NumberInput_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.User.rambodc.Sidebar_input_number
-// 
-// **************************************************************
-
-Ops.User.rambodc.Sidebar_input_number = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// inputs
-const parentPort = op.inObject("Link");
-const labelPort = op.inString("Text", "Number");
-const inputValuePort = op.inValue("Input", 0);
-const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
-const defaultValuePort = op.inValue("Default", 0);
-const clearInputButtonPort = op.inTriggerButton("Clear");
-defaultValuePort.setUiAttribs({ "hidePort": true, "greyout": true });
-
-// outputs
-const siblingsPort = op.outObject("Children");
-const valuePort = op.outNumber("Result", defaultValuePort.get());
-
-// vars
-const el = document.createElement("div");
-el.addEventListener("dblclick", function ()
-{
-    valuePort.set(parseFloat(defaultValuePort.get()));
-    inputValuePort.set(parseFloat(defaultValuePort.get()));
-});
-el.dataset.op = op.id;
-el.classList.add("cablesEle");
-el.classList.add("sidebar__item");
-el.classList.add("sidebar__text-input");
-el.classList.add("sidebar__reloadable");
-
-const label = document.createElement("div");
-label.classList.add("sidebar__item-label");
-const labelTextNode = document.createTextNode(labelPort.get());
-label.appendChild(labelTextNode);
-el.appendChild(label);
-
-const input = document.createElement("input");
-input.classList.add("sidebar__text-input-input-number");
-input.setAttribute("type", "text");
-input.setAttribute("value", defaultValuePort.get());
-el.appendChild(input);
-input.addEventListener("input", onInput);
-
-// events
-parentPort.onChange = onParentChanged;
-labelPort.onChange = onLabelTextChanged;
-defaultValuePort.onChange = onDefaultValueChanged;
-op.onDelete = onDelete;
-inputValuePort.onChange = onInputValuePortChanged;
-setDefaultValueButtonPort.onTriggered = setDefaultValue;
-clearInputButtonPort.onTriggered = clearInput;
-
-// functions
-function setDefaultValue()
-{
-    defaultValuePort.set(parseFloat(inputValuePort.get()));
-    op.refreshParams();
-}
-
-function clearInput() {
-    let defaultValue = 0;
-    input.value = defaultValue;
-    valuePort.set(defaultValue);
-    inputValuePort.set(defaultValue);
-    op.refreshParams();
-}
-
-function onInputValuePortChanged()
-{
-    let val = parseFloat(inputValuePort.get());
-    if (isNaN(val)) { val = 0; }
-    input.value = val;
-    valuePort.set(val);
-}
-
-function onInput(ev)
-{
-    let newVal = parseFloat(ev.target.value);
-    if (isNaN(newVal)) { newVal = 0; }
-    valuePort.set(newVal);
-    inputValuePort.set(newVal);
-    op.refreshParams();
-}
-
-function onDefaultValueChanged()
-{
-}
-
-function onLabelTextChanged()
-{
-    const labelText = labelPort.get();
-    label.textContent = labelText;
-    if (CABLES.UI)
-    {
-        op.setTitle("Number Input: " + labelText);
-    }
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    }
-    else
-    { // detach
-        if (el.parentElement)
-        {
-            el.parentElement.removeChild(el);
-        }
-    }
-}
-
-function onDelete()
-{
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(element)
-{
-    if (element && element.parentNode && element.parentNode.removeChild)
-    {
-        element.parentNode.removeChild(element);
-    }
-}
-
-
-};
-
-Ops.User.rambodc.Sidebar_input_number.prototype = new CABLES.Op();
-CABLES.OPS["baa17184-bdd2-4e3a-8054-9f9d19b3eedf"]={f:Ops.User.rambodc.Sidebar_input_number,objName:"Ops.User.rambodc.Sidebar_input_number"};
 
 
 
@@ -17406,180 +17193,6 @@ CABLES.OPS["82bb2f8a-77f4-4218-a3ae-8f158f1b7fb1"]={f:Ops.Gl.Meshes.Rectangle_v3
 
 // **************************************************************
 // 
-// Ops.User.rambodc.XRPL_AccountSet
-// 
-// **************************************************************
-
-Ops.User.rambodc.XRPL_AccountSet = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// Inputs for AccountSet
-const inClearFlag = op.inInt("ClearFlag");
-const inDomain = op.inString("Domain");
-const inEmailHash = op.inString("EmailHash");
-const inMessageKey = op.inString("MessageKey");
-const inNFTokenMinter = op.inString("NFTokenMinter");
-const inSetFlag = op.inInt("SetFlag");
-const inTransferRate = op.inInt("TransferRate");
-const inTickSize = op.inInt("TickSize");
-const inWalletLocator = op.inString("WalletLocator");
-const inWalletSize = op.inInt("WalletSize");
-
-// Additional object as input
-const inAdditionalObject = op.inObject("Additional Object");
-
-// Output
-const outTransaction = op.outObject("Complete AccountSet Transaction");
-
-// Trigger to add AccountSet fields
-const inTriggerAddAccountSetFields = op.inTriggerButton("Add AccountSet Fields");
-
-// Clear trigger
-const inTriggerClearFields = op.inTriggerButton("Clear Fields");
-
-// Bind function to trigger
-inTriggerAddAccountSetFields.onTriggered = addAccountSetFields;
-inTriggerClearFields.onTriggered = clearFields;
-
-function addAccountSetFields() {
-    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
-    transaction.TransactionType = "AccountSet"; // Set transaction type
-
-    let clearFlag = inClearFlag.get();
-    let domain = inDomain.get();
-    let emailHash = inEmailHash.get();
-    let messageKey = inMessageKey.get();
-    let nfTokenMinter = inNFTokenMinter.get();
-    let setFlag = inSetFlag.get();
-    let transferRate = inTransferRate.get();
-    let tickSize = inTickSize.get();
-    let walletLocator = inWalletLocator.get();
-    let walletSize = inWalletSize.get();
-
-    if (clearFlag) transaction.ClearFlag = clearFlag;
-    if (domain) transaction.Domain = domain;
-    if (emailHash) transaction.EmailHash = emailHash;
-    if (messageKey) transaction.MessageKey = messageKey;
-    if (nfTokenMinter) transaction.NFTokenMinter = nfTokenMinter;
-    if (setFlag) transaction.SetFlag = setFlag;
-    if (transferRate) transaction.TransferRate = transferRate;
-    if (tickSize) transaction.TickSize = tickSize;
-    if (walletLocator) transaction.WalletLocator = walletLocator;
-    if (walletSize) transaction.WalletSize = walletSize;
-
-    outTransaction.set(transaction);
-}
-
-function clearFields() {
-    inClearFlag.set(null);
-    inDomain.set(null);
-    inEmailHash.set(null);
-    inMessageKey.set(null);
-    inNFTokenMinter.set(null);
-    inSetFlag.set(null);
-    inTransferRate.set(null);
-    inTickSize.set(null);
-    inWalletLocator.set(null);
-    inWalletSize.set(null);
-    inAdditionalObject.set(null);
-}
-
-
-};
-
-Ops.User.rambodc.XRPL_AccountSet.prototype = new CABLES.Op();
-CABLES.OPS["5a1bd0b2-580a-4d05-b883-3b540f34d914"]={f:Ops.User.rambodc.XRPL_AccountSet,objName:"Ops.User.rambodc.XRPL_AccountSet"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.User.rambodc.XRPL_Payment
-// 
-// **************************************************************
-
-Ops.User.rambodc.XRPL_Payment = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// Inputs for Payment
-const inAccount = op.inString("Account"); // The account that will send the payment
-const inDestination = op.inString("Destination"); // The account that will receive the payment
-const inAmount = op.inObject("Amount"); // The amount to send, in either XRP or an issued currency format
-const inSendMax = op.inObject("SendMax"); // (Optional) The maximum amount of an issued currency to send
-const inDeliverMin = op.inObject("DeliverMin"); // (Optional) The minimum amount of an issued currency to deliver
-const inDestinationTag = op.inInt("DestinationTag"); // (Optional) Numerical tag that defines the reason for the payment
-const inInvoiceID = op.inString("InvoiceID"); // (Optional) Arbitrary 256-bit hash representing the reason for the payment
-const inPaths = op.inObject("Paths"); // (Optional) Array of payment paths to use
-
-// Additional object as input
-const inAdditionalObject = op.inObject("Additional Object");
-
-// Output
-const outTransaction = op.outObject("Complete Payment Transaction");
-
-// Trigger to add Payment fields
-const inTriggerAddPaymentFields = op.inTriggerButton("Add Payment Fields");
-
-// Clear trigger
-const inTriggerClearFields = op.inTriggerButton("Clear Fields");
-
-// Bind function to trigger
-inTriggerAddPaymentFields.onTriggered = addPaymentFields;
-inTriggerClearFields.onTriggered = clearFields;
-
-function addPaymentFields() {
-    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
-    transaction.TransactionType = "Payment"; // Set transaction type
-
-    let account = inAccount.get();
-    let destination = inDestination.get();
-    let amount = inAmount.get();
-    let sendMax = inSendMax.get();
-    let deliverMin = inDeliverMin.get();
-    let destinationTag = inDestinationTag.get();
-    let invoiceID = inInvoiceID.get();
-    let paths = inPaths.get();
-
-    if (account) transaction.Account = account;
-    if (destination) transaction.Destination = destination;
-    if (amount) transaction.Amount = amount;
-    if (sendMax) transaction.SendMax = sendMax;
-    if (deliverMin) transaction.DeliverMin = deliverMin;
-    if (destinationTag) transaction.DestinationTag = destinationTag;
-    if (invoiceID) transaction.InvoiceID = invoiceID;
-    if (paths) transaction.Paths = paths;
-
-    outTransaction.set(transaction);
-}
-
-function clearFields() {
-    inAccount.set(null);
-    inDestination.set(null);
-    inAmount.set(null);
-    inSendMax.set(null);
-    inDeliverMin.set(null);
-    inDestinationTag.set(null);
-    inInvoiceID.set(null);
-    inPaths.set(null);
-    inAdditionalObject.set(null);
-}
-
-
-};
-
-Ops.User.rambodc.XRPL_Payment.prototype = new CABLES.Op();
-CABLES.OPS["03ae6a97-9639-4a99-95c7-ac0406924001"]={f:Ops.User.rambodc.XRPL_Payment,objName:"Ops.User.rambodc.XRPL_Payment"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Html.HyperLink_v2
 // 
 // **************************************************************
@@ -18109,6 +17722,933 @@ triggerInput.onTriggered = function() {
 
 Ops.User.rambodc.XRPL_Errors.prototype = new CABLES.Op();
 CABLES.OPS["7fe9525f-c767-48a1-bc53-68ec599b799e"]={f:Ops.User.rambodc.XRPL_Errors,objName:"Ops.User.rambodc.XRPL_Errors"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Sidebar_input_number
+// 
+// **************************************************************
+
+Ops.User.rambodc.Sidebar_input_number = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// inputs
+const parentPort = op.inObject("Link");
+const labelPort = op.inString("Text", "Number");
+const inputValuePort = op.inValue("Input");
+const setDefaultValueButtonPort = op.inTriggerButton("Set Default");
+const defaultValuePort = op.inValue("Default", 0);
+const clearInputButtonPort = op.inTriggerButton("Clear");
+defaultValuePort.setUiAttribs({ "hidePort": true, "greyout": true });
+
+// outputs
+const siblingsPort = op.outObject("Children");
+const valuePort = op.outNumber("Result", defaultValuePort.get());
+
+// vars
+const el = document.createElement("div");
+el.addEventListener("dblclick", function ()
+{
+    valuePort.set(parseFloat(defaultValuePort.get()));
+    inputValuePort.set(parseFloat(defaultValuePort.get()));
+});
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar__text-input");
+el.classList.add("sidebar__reloadable");
+
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+const labelTextNode = document.createTextNode(labelPort.get());
+label.appendChild(labelTextNode);
+el.appendChild(label);
+
+const input = document.createElement("input");
+input.classList.add("sidebar__text-input-input-number");
+input.setAttribute("type", "text");
+input.setAttribute("value", defaultValuePort.get());
+el.appendChild(input);
+input.addEventListener("input", onInput);
+
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
+op.onDelete = onDelete;
+inputValuePort.onChange = onInputValuePortChanged;
+setDefaultValueButtonPort.onTriggered = setDefaultValue;
+clearInputButtonPort.onTriggered = clearInput;
+
+// functions
+function setDefaultValue()
+{
+    defaultValuePort.set(parseFloat(inputValuePort.get()));
+    op.refreshParams();
+}
+
+function clearInput() {
+    let defaultValue = 0;
+    input.value = defaultValue;
+    valuePort.set(defaultValue);
+    inputValuePort.set(defaultValue);
+    op.refreshParams();
+}
+
+function onInputValuePortChanged()
+{
+    let val = parseFloat(inputValuePort.get());
+    if (isNaN(val)) { val = 0; }
+    input.value = val;
+    valuePort.set(val);
+}
+
+function onInput(ev)
+{
+    let newVal = parseFloat(ev.target.value);
+    if (isNaN(newVal)) { newVal = 0; }
+    valuePort.set(newVal);
+    inputValuePort.set(newVal);
+    op.refreshParams();
+}
+
+function onDefaultValueChanged()
+{
+}
+
+function onLabelTextChanged()
+{
+    const labelText = labelPort.get();
+    label.textContent = labelText;
+    if (CABLES.UI)
+    {
+        op.setTitle("Number Input: " + labelText);
+    }
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(element)
+{
+    if (element && element.parentNode && element.parentNode.removeChild)
+    {
+        element.parentNode.removeChild(element);
+    }
+}
+
+
+};
+
+Ops.User.rambodc.Sidebar_input_number.prototype = new CABLES.Op();
+CABLES.OPS["baa17184-bdd2-4e3a-8054-9f9d19b3eedf"]={f:Ops.User.rambodc.Sidebar_input_number,objName:"Ops.User.rambodc.Sidebar_input_number"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_AccountSet
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_AccountSet = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Helper function to convert domain string to its hex representation
+function stringToHex(domainString) {
+    if (typeof domainString !== 'string') {
+        throw new Error("Expected domainString to be a string, but received: " + typeof domainString);
+    }
+
+    let hex = '';
+    for (let i = 0; i < domainString.length; i++) {
+        hex += domainString.charCodeAt(i).toString(16);
+    }
+    return hex;
+}
+
+// Inputs for AccountSet
+const inClearFlag = op.inInt("ClearFlag");
+const inDomain = op.inString("Domain");
+const inEmailHash = op.inString("EmailHash");
+const inMessageKey = op.inString("MessageKey");
+const inNFTokenMinter = op.inString("NFTokenMinter");
+const inSetFlag = op.inInt("SetFlag");
+const inTransferRate = op.inInt("TransferRate");
+const inTickSize = op.inInt("TickSize");
+const inWalletLocator = op.inString("WalletLocator");
+const inWalletSize = op.inInt("WalletSize");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete AccountSet Transaction");
+
+// Trigger to add AccountSet fields
+const inTriggerAddAccountSetFields = op.inTriggerButton("Add AccountSet Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddAccountSetFields.onTriggered = addAccountSetFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addAccountSetFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "AccountSet"; // Set transaction type
+
+    let clearFlag = inClearFlag.get();
+    let domain = inDomain.get();
+    let emailHash = inEmailHash.get();
+    let messageKey = inMessageKey.get();
+    let nfTokenMinter = inNFTokenMinter.get();
+    let setFlag = inSetFlag.get();
+    let transferRate = inTransferRate.get();
+    let tickSize = inTickSize.get();
+    let walletLocator = inWalletLocator.get();
+    let walletSize = inWalletSize.get();
+
+    if (clearFlag) transaction.ClearFlag = clearFlag;
+    if (domain) transaction.Domain = stringToHex(domain); // Convert domain to hex representation
+    if (emailHash) transaction.EmailHash = emailHash;
+    if (messageKey) transaction.MessageKey = messageKey;
+    if (nfTokenMinter) transaction.NFTokenMinter = nfTokenMinter;
+    if (setFlag) transaction.SetFlag = setFlag;
+    if (transferRate) transaction.TransferRate = transferRate;
+    if (tickSize) transaction.TickSize = tickSize;
+    if (walletLocator) transaction.WalletLocator = walletLocator;
+    if (walletSize) transaction.WalletSize = walletSize;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inClearFlag.set(null);
+    inDomain.set(null);
+    inEmailHash.set(null);
+    inMessageKey.set(null);
+    inNFTokenMinter.set(null);
+    inSetFlag.set(null);
+    inTransferRate.set(null);
+    inTickSize.set(null);
+    inWalletLocator.set(null);
+    inWalletSize.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_AccountSet.prototype = new CABLES.Op();
+CABLES.OPS["5a1bd0b2-580a-4d05-b883-3b540f34d914"]={f:Ops.User.rambodc.XRPL_AccountSet,objName:"Ops.User.rambodc.XRPL_AccountSet"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ArrayGetStringByPath
+// 
+// **************************************************************
+
+Ops.Json.ArrayGetStringByPath = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const objectIn = op.inArray("Array");
+const pathIn = op.inString("Path");
+const returnPathIn = op.inBool("Return path if missing", false);
+const resultOut = op.outString("Output");
+const foundOut = op.outBool("Found");
+
+objectIn.onChange = update;
+pathIn.onChange = update;
+returnPathIn.onChange = update;
+
+function update()
+{
+    const data = objectIn.get();
+    const path = pathIn.get();
+    op.setUiError("missing", null);
+    if (data && path)
+    {
+        if (!Array.isArray(data) && !(typeof data === "object"))
+        {
+            foundOut.set(false);
+            op.setUiError("notiterable", "input object of type " + (typeof data) + " is not travesable by path");
+        }
+        else
+        {
+            op.setUiError("notiterable", null);
+            const parts = path.split(".");
+            op.setUiAttrib({ "extendTitle": parts[parts.length - 1] + "" });
+            let result = resolve(path, data);
+            if (result === undefined)
+            {
+                const errorMsg = "could not find element at path " + path;
+                let errorLevel = 2;
+                result = null;
+                foundOut.set(false);
+                if (returnPathIn.get())
+                {
+                    result = path;
+                    errorLevel = 1;
+                }
+                else
+                {
+                    result = null;
+                }
+                op.setUiError("missing", errorMsg, errorLevel);
+            }
+            else
+            {
+                foundOut.set(true);
+                result = String(result);
+            }
+            resultOut.set(result);
+        }
+    }
+    else
+    {
+        foundOut.set(false);
+    }
+}
+
+function resolve(path, obj = self, separator = ".")
+{
+    const properties = Array.isArray(path) ? path : path.split(separator);
+    return properties.reduce((prev, curr) => prev && prev[curr], obj);
+}
+
+
+};
+
+Ops.Json.ArrayGetStringByPath.prototype = new CABLES.Op();
+CABLES.OPS["064fc275-f61d-4c5f-9692-28c2062248bf"]={f:Ops.Json.ArrayGetStringByPath,objName:"Ops.Json.ArrayGetStringByPath"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBGetPromiseAllDocuments
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBGetPromiseAllDocuments = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+//input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentIDs = op.inArray("Document IDs");
+const inSubcollectionName = op.inString("Subcollection name", "");
+const inParentDocumentID = op.inString("Parent Document ID", "");
+
+//output
+const outError = op.outBoolNum("Error", false);
+const outErrorMessage = op.outString("Error Message");
+const outDocuments = op.outArray("Documents");
+const outDocumentsNotFound = op.outValueBool("Documents Not Found");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+
+inTrigger.onTriggered = getDocuments;
+
+function getDocuments() {
+    if (!inCollectionName.get() || inDocumentIDs.get().length === 0) {
+        outError.set(true);
+        outErrorMessage.set(
+            "Missing Arguments: Collection name or Document IDs are missing!"
+        );
+        outDocuments.set([]);
+        outDocumentsNotFound.set(false);
+        return;
+    }
+
+    let db;
+    try {
+        db = firebase.firestore();
+    } catch (e) {
+        console.log(e);
+    }
+
+    let docRefs = inDocumentIDs.get().map(docId => {
+        if(inSubcollectionName.get() && inParentDocumentID.get()) {
+            return db.collection(inCollectionName.get())
+                      .doc(inParentDocumentID.get())
+                      .collection(inSubcollectionName.get())
+                      .doc(docId).get();
+        } else {
+            return db.collection(inCollectionName.get())
+                      .doc(docId).get();
+        }
+    });
+
+    Promise.all(docRefs)
+        .then((docs) => {
+            let docsData = [];
+            docs.forEach(doc => {
+                if(doc.exists) {
+                    docsData.push(doc.data());
+                }
+            });
+
+            if(docsData.length > 0) {
+                outDocuments.set(docsData);
+                outDocumentsNotFound.set(false);
+                outSuccess.trigger();
+            } else {
+                outDocuments.set([]);
+                outDocumentsNotFound.set(true);
+                outFailure.trigger();
+            }
+            outError.set(false);
+            outErrorMessage.set(null);
+        })
+        .catch((error) => {
+            outError.set(true);
+            outErrorMessage.set(error.message);
+            outFailure.trigger();
+        });
+}
+
+
+};
+
+Ops.User.rambodc.FBGetPromiseAllDocuments.prototype = new CABLES.Op();
+CABLES.OPS["32ec0308-d824-4399-8e3e-5dfaecd5b83e"]={f:Ops.User.rambodc.FBGetPromiseAllDocuments,objName:"Ops.User.rambodc.FBGetPromiseAllDocuments"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Boolean.ParseBoolean_v2
+// 
+// **************************************************************
+
+Ops.Boolean.ParseBoolean_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inVal = op.inString("String"),
+    result = op.outBoolNum("Result");
+
+inVal.onChange = function ()
+{
+    let v = inVal.get();
+    if (v === "false" || v == false || v === 0 || v == null || v == undefined)result.set(false);
+    else result.set(true);
+};
+
+
+};
+
+Ops.Boolean.ParseBoolean_v2.prototype = new CABLES.Op();
+CABLES.OPS["b436e831-36f5-4e0c-838e-4a82c4b07ec0"]={f:Ops.Boolean.ParseBoolean_v2,objName:"Ops.Boolean.ParseBoolean_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_Payment
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_Payment = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for Payment
+const inAccount = op.inString("Account"); // The account that will send the payment
+const inDestination = op.inString("Destination"); // The account that will receive the payment
+const inAmount = op.inObject("Amount"); // The amount to send, in either XRP or an issued currency format
+const inSendMax = op.inObject("SendMax"); // (Optional) The maximum amount of an issued currency to send
+const inDeliverMin = op.inObject("DeliverMin"); // (Optional) The minimum amount of an issued currency to deliver
+const inDestinationTag = op.inInt("DestinationTag"); // (Optional) Numerical tag that defines the reason for the payment
+const inInvoiceID = op.inString("InvoiceID"); // (Optional) Arbitrary 256-bit hash representing the reason for the payment
+const inPaths = op.inObject("Paths"); // (Optional) Array of payment paths to use
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete Payment Transaction");
+
+// Trigger to add Payment fields
+const inTriggerAddPaymentFields = op.inTriggerButton("Add Payment Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddPaymentFields.onTriggered = addPaymentFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addPaymentFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "Payment"; // Set transaction type
+
+    let account = inAccount.get();
+    let destination = inDestination.get();
+    let amount = inAmount.get();
+    let sendMax = inSendMax.get();
+    let deliverMin = inDeliverMin.get();
+    let destinationTag = inDestinationTag.get();
+    let invoiceID = inInvoiceID.get();
+    let paths = inPaths.get();
+
+    if (account) transaction.Account = account;
+    if (destination) transaction.Destination = destination;
+    if (amount) transaction.Amount = amount;
+    if (sendMax) transaction.SendMax = sendMax;
+    if (deliverMin) transaction.DeliverMin = deliverMin;
+    if (destinationTag) transaction.DestinationTag = destinationTag;
+    if (invoiceID) transaction.InvoiceID = invoiceID;
+    if (paths) transaction.Paths = paths;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inAccount.set(null);
+    inDestination.set(null);
+    inAmount.set(null);
+    inSendMax.set(null);
+    inDeliverMin.set(null);
+    inDestinationTag.set(null);
+    inInvoiceID.set(null);
+    inPaths.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_Payment.prototype = new CABLES.Op();
+CABLES.OPS["03ae6a97-9639-4a99-95c7-ac0406924001"]={f:Ops.User.rambodc.XRPL_Payment,objName:"Ops.User.rambodc.XRPL_Payment"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_TrustSet
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_TrustSet = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for TrustSet
+const inLimitAmount = op.inObject("LimitAmount"); // Should contain currency, value, and issuer fields
+const inQualityIn = op.inInt("QualityIn");
+const inQualityOut = op.inInt("QualityOut");
+const inSetfAuth = op.inBool("Authorize Other Party");
+const inSetNoRipple = op.inBool("Enable No Ripple");
+const inClearNoRipple = op.inBool("Disable No Ripple");
+const inSetFreeze = op.inBool("Freeze Trust Line");
+const inClearFreeze = op.inBool("Unfreeze Trust Line");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete TrustSet Transaction");
+
+// Trigger to add TrustSet fields
+const inTriggerAddTrustSetFields = op.inTriggerButton("Add TrustSet Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddTrustSetFields.onTriggered = addTrustSetFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addTrustSetFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "TrustSet"; // Set transaction type
+
+    let limitAmount = inLimitAmount.get();
+    let qualityIn = inQualityIn.get();
+    let qualityOut = inQualityOut.get();
+
+    // Setting the appropriate flag values based on input
+    if (inSetfAuth.get()) transaction.Flags |= 65536;  // tfSetfAuth
+    if (inSetNoRipple.get()) transaction.Flags |= 131072;  // tfSetNoRipple
+    if (inClearNoRipple.get()) transaction.Flags |= 262144;  // tfClearNoRipple
+    if (inSetFreeze.get()) transaction.Flags |= 1048576;  // tfSetFreeze
+    if (inClearFreeze.get()) transaction.Flags |= 2097152;  // tfClearFreeze
+
+    if (limitAmount) transaction.LimitAmount = limitAmount;
+    if (qualityIn) transaction.QualityIn = qualityIn;
+    if (qualityOut) transaction.QualityOut = qualityOut;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inLimitAmount.set(null);
+    inQualityIn.set(null);
+    inQualityOut.set(null);
+    inSetfAuth.set(null);
+    inSetNoRipple.set(null);
+    inClearNoRipple.set(null);
+    inSetFreeze.set(null);
+    inClearFreeze.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_TrustSet.prototype = new CABLES.Op();
+CABLES.OPS["9f823a3b-04bf-479c-bbdd-0a6c231d0e45"]={f:Ops.User.rambodc.XRPL_TrustSet,objName:"Ops.User.rambodc.XRPL_TrustSet"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Trigger.TriggerButton
+// 
+// **************************************************************
+
+Ops.Trigger.TriggerButton = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inTrig = op.inTriggerButton("Trigger"),
+    outTrig = op.outTrigger("Next");
+
+inTrig.onTriggered = function ()
+{
+    outTrig.trigger();
+};
+
+
+};
+
+Ops.Trigger.TriggerButton.prototype = new CABLES.Op();
+CABLES.OPS["21630924-39e4-4df5-9965-b9136510d156"]={f:Ops.Trigger.TriggerButton,objName:"Ops.Trigger.TriggerButton"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Filter_Array1
+// 
+// **************************************************************
+
+Ops.User.rambodc.Filter_Array1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const inDocuments = op.inArray("Input Documents");
+const inIncludeKey = op.inString("Include Key");
+const inIncludeValue = op.inString("Include Value");
+const inExcludeKey = op.inString("Exclude Key");
+const inExcludeValue = op.inString("Exclude Value");
+
+// Output
+const outFilteredDocuments = op.outArray("Filtered Documents");
+
+// Trigger for filtering action
+const inFilterTrigger = op.inTriggerButton("Filter Documents");
+inFilterTrigger.onTriggered = filterDocuments;
+
+function filterDocuments() {
+    const documents = inDocuments.get();
+    const includeKey = inIncludeKey.get();
+    const includeValue = inIncludeValue.get();
+    const excludeKey = inExcludeKey.get();
+    const excludeValue = inExcludeValue.get();
+
+    if(!documents || !Array.isArray(documents)) {
+        console.log("No documents found for filtering.");
+        return;
+    }
+
+    let filteredDocs = documents;
+
+    // If include criteria are set, use them for filtering
+    if(includeKey && includeValue !== undefined) {
+        filteredDocs = filteredDocs.filter(doc => doc[includeKey] === includeValue);
+    }
+
+    // If exclude criteria are set, use them for filtering
+    if(excludeKey && excludeValue !== undefined) {
+        filteredDocs = filteredDocs.filter(doc => doc[excludeKey] !== excludeValue);
+    }
+
+    outFilteredDocuments.set(filteredDocs);
+}
+
+
+};
+
+Ops.User.rambodc.Filter_Array1.prototype = new CABLES.Op();
+CABLES.OPS["0f97b1f4-5202-4dbb-8d61-1370d95b5d21"]={f:Ops.User.rambodc.Filter_Array1,objName:"Ops.User.rambodc.Filter_Array1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Array.ArrayLength
+// 
+// **************************************************************
+
+Ops.Array.ArrayLength = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    array = op.inArray("array"),
+    outLength = op.outNumber("length");
+
+outLength.ignoreValueSerialize = true;
+
+function update()
+{
+    let l = 0;
+    if (array.get()) l = array.get().length;
+    else l = -1;
+    outLength.set(l);
+}
+
+array.onChange = update;
+
+
+};
+
+Ops.Array.ArrayLength.prototype = new CABLES.Op();
+CABLES.OPS["ea508405-833d-411a-86b4-1a012c135c8a"]={f:Ops.Array.ArrayLength,objName:"Ops.Array.ArrayLength"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Math.Compare.GreaterThan
+// 
+// **************************************************************
+
+Ops.Math.Compare.GreaterThan = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    number1 = op.inValueFloat("number1"),
+    number2 = op.inValueFloat("number2"),
+    result = op.outBoolNum("result");
+
+op.setTitle(">");
+
+number1.onChange = number2.onChange = exec;
+
+function exec()
+{
+    result.set(number1.get() > number2.get());
+}
+
+
+};
+
+Ops.Math.Compare.GreaterThan.prototype = new CABLES.Op();
+CABLES.OPS["b250d606-f7f8-44d3-b099-c29efff2608a"]={f:Ops.Math.Compare.GreaterThan,objName:"Ops.Math.Compare.GreaterThan"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_FundWallet
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_FundWallet = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const inTrigger = op.inTriggerButton("Trigger In");
+const inWallet = op.inObject("Wallet");
+const inWss = op.inString("Wss");
+const inAmount = op.inString("Amount", "1000");
+
+const outFundWallet = op.outObject("Fund Wallet");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+const outError = op.outString("Error");
+const outMissingWss = op.outBool("Missing Wss");
+
+inTrigger.onTriggered = main;
+
+let client = null;
+
+async function main() {
+
+  if (!inWss.get()) {
+    outError.set(true);
+    outMissingWss.set(true);
+    outFailure.trigger();
+    return;
+  }
+  try {
+    if (client === null) {
+      client = new xrpl.Client(inWss.get());
+      await client.connect();
+    }
+
+    let wallet;
+
+    if (inWallet.get()) {
+      wallet = await client.fundWallet(inWallet.get(), { amount: inAmount.get() });
+    } else {
+      wallet = await client.fundWallet(null, {
+        amount: inAmount.get(),
+      });
+    }
+
+    outFundWallet.set(wallet);
+    outSuccess.trigger();
+  } catch (error) {
+
+    outError.set(error);
+    outFailure.trigger();
+  }
+}
+
+};
+
+Ops.User.rambodc.XRPL_FundWallet.prototype = new CABLES.Op();
+CABLES.OPS["a09799a9-fc66-47eb-801d-4c3de4a33769"]={f:Ops.User.rambodc.XRPL_FundWallet,objName:"Ops.User.rambodc.XRPL_FundWallet"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_tx
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_tx = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const inTrigger = op.inTriggerButton("Trigger In");
+const inWss = op.inString("WSS URL");
+const inTransactionID = op.inString("Transaction ID");
+
+// Outputs
+const outTx = op.outObject("Transaction");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+const outError = op.outString("Error");
+const outMissingFields = op.outBool("Missing Fields");
+
+// Internal variables
+let client = null;
+
+// Main function
+inTrigger.onTriggered = main;
+
+async function main() {
+  // Check for missing required fields
+  if (!inWss.get() || !inTransactionID.get()) {
+    outError.set("Missing fields");
+    outMissingFields.set(true);
+    outFailure.trigger();
+    return;
+  }
+
+  // Initialize the XRPL client
+  try {
+    if (client === null) {
+      client = new xrpl.Client(inWss.get());
+      await client.connect();
+    }
+
+    // Prepare tx request parameters
+    const requestParams = {
+      command: "tx",
+      transaction: inTransactionID.get()
+    };
+
+    // Fetch transaction data using tx API
+    const txResponse = await client.request(requestParams);
+
+    // Send outputs
+    outTx.set(txResponse.result);
+    outSuccess.trigger();
+  } catch (error) {
+    outError.set(error.message);
+    outFailure.trigger();
+  } finally {
+    if (client !== null) {
+      client.disconnect();
+      client = null;
+    }
+  }
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_tx.prototype = new CABLES.Op();
+CABLES.OPS["cbc9601c-a030-4f14-af18-dd5169b30eb4"]={f:Ops.User.rambodc.XRPL_tx,objName:"Ops.User.rambodc.XRPL_tx"};
 
 
 

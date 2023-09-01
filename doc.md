@@ -19,6 +19,7 @@
 * __tabAdd__ ```String```
 * __tabObject__ ```Object```
 * __tabRemove__ ```String```
+* __timezone__ ```String```
 * __uid__ ```String```
 * __width__ ```Number```
 * __wssSelect__ ```String```
