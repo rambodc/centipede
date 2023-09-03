@@ -16,6 +16,7 @@
 * __retailPages__ ```Number```
 * __SeCheck__ ```Number```
 * __seed__ ```String```
+* __sidebarOpen__ ```Number```
 * __tabAdd__ ```String```
 * __tabObject__ ```Object```
 * __tabRemove__ ```String```
