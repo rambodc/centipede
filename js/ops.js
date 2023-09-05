@@ -14004,314 +14004,6 @@ CABLES.OPS["22a734aa-8b08-4db7-929b-393d4704e1d6"]={f:Ops.Boolean.BoolToString,o
 
 // **************************************************************
 // 
-// Ops.User.rambodc.Button_icon_desc
-// 
-// **************************************************************
-
-Ops.User.rambodc.Button_icon_desc = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// inputs
-const parentPort = op.inObject("link");
-const iconPort = op.inString("Icon", "https://firebasestorage.googleapis.com/v0/b/cables-5b10a.appspot.com/o/assets%2FAccountsNodes.png?alt=media&token=36471c6c-5487-491f-ac31-76eddf2abd5d");
-const buttonTextPort = op.inString("Text", "Button");
-const buttonText2Port = op.inString("Text 2", "Second Line");
-const rightTextPort = op.inString("Text Right", "Button");
-const rightText2Port = op.inString("Text Right 2", "Second Line Right");
-const rightIconPort = op.inString("Icon Right","https://firebasestorage.googleapis.com/v0/b/cables-5b10a.appspot.com/o/assets%2Fright-arrow%20(1).png?alt=media&token=d86bbe34-2ced-42f6-b4e4-7f5d752ff5f1");
-
-// outputs
-const siblingsPort = op.outObject("childs");
-const buttonPressedPort = op.outTrigger("Pressed Trigger");
-
-const inVisible = op.inBool("Visible", true);
-
-// vars
-const el = document.createElement("div");
-el.dataset.op = op.id;
-el.style.height = "60px";
-el.style.display = "flex";
-el.style.justifyContent = "space-between";
-el.style.alignItems = "center";
-el.style.backgroundColor = "transparent";
-el.style.cursor = "pointer";
-el.style.padding = "10px 10px";
-el.style.transition = "background-color 0.3s, border-color 0.3s";
-el.style.fontSize = "16px";
-el.style.color = "white";
-el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
-el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
-
-const leftContainer = document.createElement("div");
-leftContainer.style.display = "flex";
-leftContainer.style.alignItems = "center";
-el.appendChild(leftContainer);
-
-const leftIcon = document.createElement("img");
-leftIcon.src = iconPort.get();
-leftIcon.style.width = "50px";
-leftIcon.style.height = "50px";
-leftIcon.style.padding = "10px";
-leftContainer.appendChild(leftIcon);
-
-const textContainer = document.createElement("div");
-textContainer.style.display = "flex";
-textContainer.style.flexDirection = "column";
-textContainer.style.justifyContent = "center";
-leftContainer.appendChild(textContainer);
-
-const input = document.createElement("div");
-input.style.textAlign = "left";
-input.style.fontSize = "16px";
-input.style.fontWeight = "bold";
-input.style.marginBottom = "5px";
-textContainer.appendChild(input);
-const inputText = document.createTextNode(buttonTextPort.get());
-input.appendChild(inputText);
-
-const input2 = document.createElement("div");
-input2.style.textAlign = "left";
-input2.style.fontSize = "14px";
-textContainer.appendChild(input2);
-const inputText2 = document.createTextNode(buttonText2Port.get());
-input2.appendChild(inputText2);
-
-const rightContainer = document.createElement("div");
-rightContainer.style.display = "flex";
-rightContainer.style.alignItems = "center";
-el.appendChild(rightContainer);
-
-const rightTextContainer = document.createElement("div");
-rightTextContainer.style.display = "flex";
-rightTextContainer.style.flexDirection = "column";
-rightTextContainer.style.justifyContent = "center";
-rightContainer.appendChild(rightTextContainer);
-
-const rightText = document.createElement("div");
-rightText.innerText = rightTextPort.get();
-rightText.style.fontWeight = "bold";
-rightText.style.fontSize = "16px";
-rightText.style.lineHeight = "1";
-rightText.style.marginBottom = "5px";
-rightTextContainer.appendChild(rightText);
-
-const rightText2 = document.createElement("div");
-rightText2.innerText = rightText2Port.get();
-rightText2.style.fontSize = "14px";
-rightTextContainer.appendChild(rightText2);
-
-const rightIcon = document.createElement("img");
-rightIcon.src = rightIconPort.get();
-rightIcon.style.width = "20px";
-rightIcon.style.height = "20px";
-rightIcon.style.padding = "0 10px";
-rightContainer.appendChild(rightIcon);
-
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
-
-// Attach click event to the entire button
-el.addEventListener("click", onButtonClick);
-el.addEventListener("mouseenter", onButtonMouseEnter);
-el.addEventListener("mouseleave", onButtonMouseLeave);
-
-// events
-parentPort.onChange = onParentChanged;
-buttonTextPort.onChange = buttonText2Port.onChange = onButtonTextChanged;
-rightTextPort.onChange = rightText2Port.onChange = onRightTextChanged;
-iconPort.onChange = updateIcon;
-rightIconPort.onChange = updateRightIcon;
-op.onDelete = onDelete;
-inVisible.onChange = updateVisibility;
-
-function onButtonClick() {
-    buttonPressedPort.trigger();
-    el.style.borderColor = "rgba(255, 255, 255, 0.3)";
-}
-
-function onButtonMouseEnter() {
-    el.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
-    el.style.color = "rgba(255, 255, 255, 0.9)";
-    el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
-    el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
-}
-
-function onButtonMouseLeave() {
-    el.style.backgroundColor = "transparent";
-    el.style.color = "rgba(255, 255, 255, 0.9)";
-    el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
-    el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
-}
-
-function onButtonTextChanged() {
-    input.textContent = buttonTextPort.get();
-    input2.textContent = buttonText2Port.get();
-    if (CABLES.UI) {
-        op.setTitle("Button: " + buttonTextPort.get() + "\n" + buttonText2Port.get());
-    }
-}
-
-function onRightTextChanged() {
-    rightText.innerText = rightTextPort.get();
-    rightText2.innerText = rightText2Port.get();
-}
-
-function onParentChanged() {
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement) {
-        parent.parentElement.appendChild(el);
-        siblingsPort.set(parent);
-    } else { // detach
-        if (el.parentElement) {
-            el.parentElement.removeChild(el);
-        }
-    }
-}
-
-function updateIcon() {
-    leftIcon.src = iconPort.get();
-}
-
-function updateRightIcon() {
-    rightIcon.src = rightIconPort.get();
-}
-
-function updateVisibility() {
-    el.style.display = inVisible.get() ? "flex" : "none";
-}
-
-function onDelete() {
-    removeElementFromDOM(el);
-}
-
-function removeElementFromDOM(el) {
-    if (el && el.parentNode && el.parentNode.removeChild) {
-        el.parentNode.removeChild(el);
-    }
-}
-
-
-};
-
-Ops.User.rambodc.Button_icon_desc.prototype = new CABLES.Op();
-CABLES.OPS["9da902e8-0e1c-4851-9321-3b0e1a50b32e"]={f:Ops.User.rambodc.Button_icon_desc,objName:"Ops.User.rambodc.Button_icon_desc"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.User.rambodc.FBQueryAllDocuments1
-// 
-// **************************************************************
-
-Ops.User.rambodc.FBQueryAllDocuments1 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// input
-const inTrigger = op.inTriggerButton("Trigger");
-const inCollectionName = op.inString("Collection name");
-const inUseQuery = op.inBool("Use Query");
-const inQueryField = op.inString("Query Field");
-const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="]);
-const inQueryValueAs = op.inDropDown("Query Value As", ["String", "Number", "Boolean", "Array", "Object"]);
-const inQueryValueString = op.inString("Query Value String");
-const inQueryValueNumber = op.inValue("Query Value Number");
-const inQueryValueBool = op.inBool("Query Value Boolean");
-const inQueryValueArray = op.inArray("Query Value Array");
-const inQueryValueObject = op.inObject("Query Value Object");
-const inFilterOnOrOff = op.inBool("Filter On or Off");
-const inFilterKey = op.inString("Filter Key");
-const inValueMustBe = op.inString("Value Must Be");
-
-// output
-const outSuccess = op.outTrigger("Success");
-const outError = op.outTrigger("Error");
-const outErrorMessage = op.outString("Error Message");
-const outDocumentNotFound = op.outBool("Document Not Found");
-const outDocuments = op.outArray("Documents");
-
-// events
-inTrigger.onTriggered = getDocuments;
-
-function getDocuments() {
-  const db = firebase.firestore();
-  let docRef = db.collection(inCollectionName.get());
-
-  if (inUseQuery.get()) {
-    if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get()) {
-      outErrorMessage.set(
-        "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
-      );
-      outError.trigger();
-      outDocuments.set(null);
-      outDocumentNotFound.set(false);
-      return;
-    }
-    let value = getValue();
-    docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
-  }
-
-  if (inFilterOnOrOff.get()) {
-    docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
-  }
-
-  docRef.get().then((querySnapshot) => {
-    if (!querySnapshot.empty) {
-      let documents = [];
-      querySnapshot.forEach((doc) => {
-        let docData = doc.data();
-        docData.id = doc.id; // Add this line
-        documents.push(docData);
-      });
-      outDocuments.set(documents);
-      outDocumentNotFound.set(false);
-      outSuccess.trigger();
-    } else {
-      outDocuments.set(null);
-      outDocumentNotFound.set(true);
-      outError.trigger();
-    }
-  }).catch((error) => {
-    outErrorMessage.set(error.message);
-    outError.trigger();
-  });
-}
-
-function getValue() {
-  let valueAs = inQueryValueAs.get();
-  if (valueAs === "String") {
-    return inQueryValueString.get();
-  }
-  if (valueAs === "Number") {
-    return Number(inQueryValueNumber.get()); // Convert to number
-  }
-  if (valueAs === "Boolean") {
-    return inQueryValueBool.get();
-  }
-  if (valueAs === "Array") {
-    return inQueryValueArray.get();
-  }
-  if (valueAs === "Object") {
-    return inQueryValueObject.get();
-  }
-}
-
-
-};
-
-Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
-CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Gl.Meshes.TextMesh_v2
 // 
 // **************************************************************
@@ -18649,6 +18341,391 @@ async function main() {
 
 Ops.User.rambodc.XRPL_tx.prototype = new CABLES.Op();
 CABLES.OPS["cbc9601c-a030-4f14-af18-dd5169b30eb4"]={f:Ops.User.rambodc.XRPL_tx,objName:"Ops.User.rambodc.XRPL_tx"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBQueryAllDocuments1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBQueryAllDocuments1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inUseQuery = op.inBool("Use Query");
+const inQueryField = op.inString("Query Field");
+const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="]);
+const inQueryValueAs = op.inDropDown("Query Value As", ["String", "Number", "Boolean", "Array", "Object"]);
+const inQueryValueString = op.inString("Query Value String");
+const inQueryValueNumber = op.inValue("Query Value Number");
+const inQueryValueBool = op.inBool("Query Value Boolean");
+const inQueryValueArray = op.inArray("Query Value Array");
+const inQueryValueObject = op.inObject("Query Value Object");
+const inFilterOnOrOff = op.inBool("Filter On or Off");
+const inFilterKey = op.inString("Filter Key");
+const inValueMustBe = op.inString("Value Must Be");
+
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+const outDocumentNotFound = op.outBool("Document Not Found");
+const outDocuments = op.outArray("Documents");
+
+// events
+inTrigger.onTriggered = getDocuments;
+
+function getDocuments() {
+  const db = firebase.firestore();
+  let docRef = db.collection(inCollectionName.get());
+
+  if (inUseQuery.get()) {
+    if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get()) {
+      outErrorMessage.set(
+        "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
+      );
+      outError.trigger();
+      outDocuments.set(null);
+      outDocumentNotFound.set(false);
+      return;
+    }
+    let value = getValue();
+    docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
+  }
+
+  if (inFilterOnOrOff.get()) {
+    docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
+  }
+
+  docRef.get().then((querySnapshot) => {
+    if (!querySnapshot.empty) {
+      let documents = [];
+      querySnapshot.forEach((doc) => {
+        let docData = doc.data();
+        docData.id = doc.id; // Add this line
+        documents.push(docData);
+      });
+      outDocuments.set(documents);
+      outDocumentNotFound.set(false);
+      outSuccess.trigger();
+    } else {
+      outDocuments.set(null);
+      outDocumentNotFound.set(true);
+      outError.trigger();
+    }
+  }).catch((error) => {
+    outErrorMessage.set(error.message);
+    outError.trigger();
+  });
+}
+
+function getValue() {
+  let valueAs = inQueryValueAs.get();
+  if (valueAs === "String") {
+    return inQueryValueString.get();
+  }
+  if (valueAs === "Number") {
+    return Number(inQueryValueNumber.get()); // Convert to number
+  }
+  if (valueAs === "Boolean") {
+    return inQueryValueBool.get();
+  }
+  if (valueAs === "Array") {
+    return inQueryValueArray.get();
+  }
+  if (valueAs === "Object") {
+    return inQueryValueObject.get();
+  }
+}
+
+
+};
+
+Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
+CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Not_Outbool
+// 
+// **************************************************************
+
+Ops.User.rambodc.Not_Outbool = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    bool = op.inValueBool("Boolean"),
+    outbool = op.outBool("Result");
+
+bool.changeAlways = true;
+
+bool.onChange = function ()
+{
+    outbool.set((!bool.get()));
+};
+
+
+};
+
+Ops.User.rambodc.Not_Outbool.prototype = new CABLES.Op();
+CABLES.OPS["a8f17a95-a1a3-474e-adc5-fa045234c79b"]={f:Ops.User.rambodc.Not_Outbool,objName:"Ops.User.rambodc.Not_Outbool"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_NFTokenMint
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_NFTokenMint = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Helper function to convert string to its hex representation
+function stringToHex(str) {
+    let hex = '';
+    for (let i = 0; i < str.length; i++) {
+        hex += str.charCodeAt(i).toString(16);
+    }
+    return hex;
+}
+
+// Inputs for NFTokenMint
+const inAccount = op.inString("Account");
+const inIssuer = op.inString("Issuer");
+const inTransferFee = op.inInt("TransferFee");
+const inNFTokenTaxon = op.inInt("NFTokenTaxon");
+const inFlags = op.inInt("Flags");
+const inFee = op.inString("Fee");
+const inURI = op.inString("URI");
+const inMemos = op.inObject("Memos");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete NFTokenMint Transaction");
+
+// Trigger to add NFTokenMint fields
+const inTriggerAddNFTokenMintFields = op.inTriggerButton("Add NFTokenMint Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddNFTokenMintFields.onTriggered = addNFTokenMintFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addNFTokenMintFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "NFTokenMint"; // Set transaction type
+
+    let account = inAccount.get();
+    let issuer = inIssuer.get();
+    let transferFee = inTransferFee.get();
+    let nfTokenTaxon = inNFTokenTaxon.get();
+    let flags = inFlags.get();
+    let fee = inFee.get();
+    let uri = inURI.get();
+    let memos = inMemos.get();
+
+    if (account) transaction.Account = account;
+    if (issuer) transaction.Issuer = issuer;
+    if (transferFee) transaction.TransferFee = transferFee;
+    if (nfTokenTaxon) transaction.NFTokenTaxon = nfTokenTaxon;
+    if (flags) transaction.Flags = flags;
+    if (fee) transaction.Fee = fee;
+    if (uri) transaction.URI = stringToHex(uri); // Convert URI to hex representation
+    if (memos) transaction.Memos = memos;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inAccount.set(null);
+    inIssuer.set(null);
+    inTransferFee.set(null);
+    inNFTokenTaxon.set(null);
+    inFlags.set(null);
+    inFee.set(null);
+    inURI.set(null);
+    inMemos.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_NFTokenMint.prototype = new CABLES.Op();
+CABLES.OPS["6a531dcf-1085-4eee-9f84-585bd40c3293"]={f:Ops.User.rambodc.XRPL_NFTokenMint,objName:"Ops.User.rambodc.XRPL_NFTokenMint"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Sidebar.Button_v2
+// 
+// **************************************************************
+
+Ops.Sidebar.Button_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// inputs
+const parentPort = op.inObject("link");
+const buttonTextPort = op.inString("Text", "Button");
+
+// outputs
+const siblingsPort = op.outObject("childs");
+const buttonPressedPort = op.outTrigger("Pressed Trigger");
+
+const inGreyOut = op.inBool("Grey Out", false);
+const inVisible = op.inBool("Visible", true);
+
+// vars
+const el = document.createElement("div");
+el.dataset.op = op.id;
+el.classList.add("cablesEle");
+el.classList.add("sidebar__item");
+el.classList.add("sidebar--button");
+const input = document.createElement("div");
+input.classList.add("sidebar__button-input");
+el.appendChild(input);
+input.addEventListener("click", onButtonClick);
+const inputText = document.createTextNode(buttonTextPort.get());
+input.appendChild(inputText);
+op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+
+// events
+parentPort.onChange = onParentChanged;
+buttonTextPort.onChange = onButtonTextChanged;
+op.onDelete = onDelete;
+
+const greyOut = document.createElement("div");
+greyOut.classList.add("sidebar__greyout");
+el.appendChild(greyOut);
+greyOut.style.display = "none";
+
+inGreyOut.onChange = function ()
+{
+    greyOut.style.display = inGreyOut.get() ? "block" : "none";
+};
+
+inVisible.onChange = function ()
+{
+    el.style.display = inVisible.get() ? "block" : "none";
+};
+
+function onButtonClick()
+{
+    buttonPressedPort.trigger();
+}
+
+function onButtonTextChanged()
+{
+    const buttonText = buttonTextPort.get();
+    input.textContent = buttonText;
+    if (CABLES.UI)
+    {
+        op.setTitle("Button: " + buttonText);
+    }
+}
+
+function onParentChanged()
+{
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement)
+    {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else
+    { // detach
+        if (el.parentElement)
+        {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function showElement(el)
+{
+    if (el)
+    {
+        el.style.display = "block";
+    }
+}
+
+function hideElement(el)
+{
+    if (el)
+    {
+        el.style.display = "none";
+    }
+}
+
+function onDelete()
+{
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(el)
+{
+    if (el && el.parentNode && el.parentNode.removeChild)
+    {
+        el.parentNode.removeChild(el);
+    }
+}
+
+
+};
+
+Ops.Sidebar.Button_v2.prototype = new CABLES.Op();
+CABLES.OPS["5e9c6933-0605-4bf7-8671-a016d917f327"]={f:Ops.Sidebar.Button_v2,objName:"Ops.Sidebar.Button_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.WindowScrollTo
+// 
+// **************************************************************
+
+Ops.User.rambodc.WindowScrollTo = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const triggerScrollToTop = op.inTriggerButton("Scroll To Top");
+
+triggerScrollToTop.onTriggered = function() {
+    window.scrollToTop(); // Call the function defined in index.js
+};
+
+
+};
+
+Ops.User.rambodc.WindowScrollTo.prototype = new CABLES.Op();
+CABLES.OPS["6b7bcfeb-a93c-42ad-9033-8e1f1806e94e"]={f:Ops.User.rambodc.WindowScrollTo,objName:"Ops.User.rambodc.WindowScrollTo"};
 
 
 
