@@ -2,6 +2,8 @@
 
 * __classicAddress__ ```String```
 * __commercialPages__ ```Number```
+* __contactSelect__ ```String```
+* __ContactSelect__ ```Object```
 * __email__ ```String```
 * __emailVer__ ```String```
 * __firstName__ ```String```
