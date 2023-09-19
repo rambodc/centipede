@@ -9,6 +9,7 @@
 * __firstName__ ```String```
 * __height__ ```Number```
 * __institutionName__ ```String```
+* __is_portrait__ ```Number```
 * __isSignedIn__ ```Number```
 * __lastName__ ```String```
 * __loader__ ```Number```

@@ -27,10 +27,12 @@ Ops.Extension=Ops.Extension || {};
 Ops.Gl.Matrix=Ops.Gl.Matrix || {};
 Ops.Gl.Meshes=Ops.Gl.Meshes || {};
 Ops.Gl.Shader=Ops.Gl.Shader || {};
+Ops.Deprecated=Ops.Deprecated || {};
 Ops.Math.Compare=Ops.Math.Compare || {};
 Ops.User.rambodc=Ops.User.rambodc || {};
 Ops.Devices.Mouse=Ops.Devices.Mouse || {};
 Ops.Devices.Keyboard=Ops.Devices.Keyboard || {};
+Ops.Deprecated.Cables=Ops.Deprecated.Cables || {};
 Ops.Extension.ECharts=Ops.Extension.ECharts || {};
 Ops.Graphics.Geometry=Ops.Graphics.Geometry || {};
 
@@ -332,396 +334,6 @@ CABLES.OPS["19b441eb-9f63-4f35-ba08-b87841517c4d"]={f:Ops.Gl.ClearColor,objName:
 
 // **************************************************************
 // 
-// Ops.Gl.Shader.BasicMaterial_v3
-// 
-// **************************************************************
-
-Ops.Gl.Shader.BasicMaterial_v3 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={"basicmaterial_frag":"{{MODULES_HEAD}}\n\nIN vec2 texCoord;\n\n#ifdef VERTEX_COLORS\nIN vec4 vertCol;\n#endif\n\n#ifdef HAS_TEXTURES\n    IN vec2 texCoordOrig;\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D tex;\n    #endif\n    #ifdef HAS_TEXTURE_OPACITY\n        UNI sampler2D texOpacity;\n   #endif\n#endif\n\n\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n    vec4 col=color;\n\n\n    #ifdef HAS_TEXTURES\n        vec2 uv=texCoord;\n\n        #ifdef CROP_TEXCOORDS\n            if(uv.x<0.0 || uv.x>1.0 || uv.y<0.0 || uv.y>1.0) discard;\n        #endif\n\n        #ifdef HAS_TEXTURE_DIFFUSE\n            col=texture(tex,uv);\n\n            #ifdef COLORIZE_TEXTURE\n                col.r*=color.r;\n                col.g*=color.g;\n                col.b*=color.b;\n            #endif\n        #endif\n        col.a*=color.a;\n        #ifdef HAS_TEXTURE_OPACITY\n            #ifdef TRANSFORMALPHATEXCOORDS\n                uv=texCoordOrig;\n            #endif\n            #ifdef ALPHA_MASK_IALPHA\n                col.a*=1.0-texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_ALPHA\n                col.a*=texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_LUMI\n                col.a*=dot(vec3(0.2126,0.7152,0.0722), texture(texOpacity,uv).rgb);\n            #endif\n            #ifdef ALPHA_MASK_R\n                col.a*=texture(texOpacity,uv).r;\n            #endif\n            #ifdef ALPHA_MASK_G\n                col.a*=texture(texOpacity,uv).g;\n            #endif\n            #ifdef ALPHA_MASK_B\n                col.a*=texture(texOpacity,uv).b;\n            #endif\n            // #endif\n        #endif\n    #endif\n\n    {{MODULE_COLOR}}\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col*=vertCol;\n    #endif\n\n    outColor = col;\n}\n","basicmaterial_vert":"\n{{MODULES_HEAD}}\n\nOUT vec2 texCoord;\nOUT vec2 texCoordOrig;\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI float diffuseRepeatX;\n    UNI float diffuseRepeatY;\n    UNI float texOffsetX;\n    UNI float texOffsetY;\n#endif\n\n#ifdef VERTEX_COLORS\n    in vec4 attrVertColor;\n    out vec4 vertCol;\n\n#endif\n\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    mat4 mvMatrix;\n\n    norm=attrVertNormal;\n    texCoordOrig=attrTexCoord;\n    texCoord=attrTexCoord;\n    #ifdef HAS_TEXTURES\n        texCoord.x=texCoord.x*diffuseRepeatX+texOffsetX;\n        texCoord.y=(1.0-texCoord.y)*diffuseRepeatY+texOffsetY;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        vertCol=attrVertColor;\n    #endif\n\n    vec4 pos = vec4(vPosition, 1.0);\n\n    #ifdef BILLBOARD\n       vec3 position=vPosition;\n       mvMatrix=viewMatrix*modelMatrix;\n\n       gl_Position = projMatrix * mvMatrix * vec4((\n           position.x * vec3(\n               mvMatrix[0][0],\n               mvMatrix[1][0],\n               mvMatrix[2][0] ) +\n           position.y * vec3(\n               mvMatrix[0][1],\n               mvMatrix[1][1],\n               mvMatrix[2][1]) ), 1.0);\n    #endif\n\n    {{MODULE_VERTEX_POSITION}}\n\n    #ifndef BILLBOARD\n        mvMatrix=viewMatrix * mMatrix;\n    #endif\n\n\n    #ifndef BILLBOARD\n        // gl_Position = projMatrix * viewMatrix * modelMatrix * pos;\n        gl_Position = projMatrix * mvMatrix * pos;\n    #endif\n}\n",};
-const render = op.inTrigger("render");
-
-const trigger = op.outTrigger("trigger");
-const shaderOut = op.outObject("shader", null, "shader");
-
-shaderOut.ignoreValueSerialize = true;
-
-op.toWorkPortsNeedToBeLinked(render);
-op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
-
-const cgl = op.patch.cgl;
-const shader = new CGL.Shader(cgl, "basicmaterialnew");
-shader.addAttribute({ "type": "vec3", "name": "vPosition" });
-shader.addAttribute({ "type": "vec2", "name": "attrTexCoord" });
-shader.addAttribute({ "type": "vec3", "name": "attrVertNormal", "nameFrag": "norm" });
-shader.addAttribute({ "type": "float", "name": "attrVertIndex" });
-
-shader.setModules(["MODULE_VERTEX_POSITION", "MODULE_COLOR", "MODULE_BEGIN_FRAG"]);
-
-shader.setSource(attachments.basicmaterial_vert, attachments.basicmaterial_frag);
-
-shaderOut.setRef(shader);
-
-render.onTriggered = doRender;
-
-// rgba colors
-const r = op.inValueSlider("r", Math.random());
-const g = op.inValueSlider("g", Math.random());
-const b = op.inValueSlider("b", Math.random());
-const a = op.inValueSlider("a", 1);
-r.setUiAttribs({ "colorPick": true });
-
-// const uniColor=new CGL.Uniform(shader,'4f','color',r,g,b,a);
-const colUni = shader.addUniformFrag("4f", "color", r, g, b, a);
-
-shader.uniformColorDiffuse = colUni;
-
-// diffuse outTexture
-
-const diffuseTexture = op.inTexture("texture");
-let diffuseTextureUniform = null;
-diffuseTexture.onChange = updateDiffuseTexture;
-
-const colorizeTexture = op.inValueBool("colorizeTexture", false);
-const vertexColors = op.inValueBool("Vertex Colors", false);
-
-// opacity texture
-const textureOpacity = op.inTexture("textureOpacity");
-let textureOpacityUniform = null;
-
-const alphaMaskSource = op.inSwitch("Alpha Mask Source", ["Luminance", "R", "G", "B", "A", "1-A"], "Luminance");
-alphaMaskSource.setUiAttribs({ "greyout": true });
-textureOpacity.onChange = updateOpacity;
-
-const texCoordAlpha = op.inValueBool("Opacity TexCoords Transform", false);
-const discardTransPxl = op.inValueBool("Discard Transparent Pixels");
-
-// texture coords
-const
-    diffuseRepeatX = op.inValue("diffuseRepeatX", 1),
-    diffuseRepeatY = op.inValue("diffuseRepeatY", 1),
-    diffuseOffsetX = op.inValue("Tex Offset X", 0),
-    diffuseOffsetY = op.inValue("Tex Offset Y", 0),
-    cropRepeat = op.inBool("Crop TexCoords", false);
-
-shader.addUniformFrag("f", "diffuseRepeatX", diffuseRepeatX);
-shader.addUniformFrag("f", "diffuseRepeatY", diffuseRepeatY);
-shader.addUniformFrag("f", "texOffsetX", diffuseOffsetX);
-shader.addUniformFrag("f", "texOffsetY", diffuseOffsetY);
-
-const doBillboard = op.inValueBool("billboard", false);
-
-alphaMaskSource.onChange =
-    doBillboard.onChange =
-    discardTransPxl.onChange =
-    texCoordAlpha.onChange =
-    cropRepeat.onChange =
-    vertexColors.onChange =
-    colorizeTexture.onChange = updateDefines;
-
-op.setPortGroup("Color", [r, g, b, a]);
-op.setPortGroup("Color Texture", [diffuseTexture, vertexColors, colorizeTexture]);
-op.setPortGroup("Opacity", [textureOpacity, alphaMaskSource, discardTransPxl, texCoordAlpha]);
-op.setPortGroup("Texture Transform", [diffuseRepeatX, diffuseRepeatY, diffuseOffsetX, diffuseOffsetY, cropRepeat]);
-
-updateOpacity();
-updateDiffuseTexture();
-
-op.preRender = function ()
-{
-    shader.bind();
-    doRender();
-};
-
-function doRender()
-{
-    if (!shader) return;
-
-    cgl.pushShader(shader);
-    shader.popTextures();
-
-    if (diffuseTextureUniform && diffuseTexture.get()) shader.pushTexture(diffuseTextureUniform, diffuseTexture.get());
-    if (textureOpacityUniform && textureOpacity.get()) shader.pushTexture(textureOpacityUniform, textureOpacity.get());
-
-    trigger.trigger();
-
-    cgl.popShader();
-}
-
-function updateOpacity()
-{
-    if (textureOpacity.get())
-    {
-        if (textureOpacityUniform !== null) return;
-        shader.removeUniform("texOpacity");
-        shader.define("HAS_TEXTURE_OPACITY");
-        if (!textureOpacityUniform)textureOpacityUniform = new CGL.Uniform(shader, "t", "texOpacity");
-
-        alphaMaskSource.setUiAttribs({ "greyout": false });
-        texCoordAlpha.setUiAttribs({ "greyout": false });
-    }
-    else
-    {
-        shader.removeUniform("texOpacity");
-        shader.removeDefine("HAS_TEXTURE_OPACITY");
-        textureOpacityUniform = null;
-
-        alphaMaskSource.setUiAttribs({ "greyout": true });
-        texCoordAlpha.setUiAttribs({ "greyout": true });
-    }
-
-    updateDefines();
-}
-
-function updateDiffuseTexture()
-{
-    if (diffuseTexture.get())
-    {
-        if (!shader.hasDefine("HAS_TEXTURE_DIFFUSE"))shader.define("HAS_TEXTURE_DIFFUSE");
-        if (!diffuseTextureUniform)diffuseTextureUniform = new CGL.Uniform(shader, "t", "texDiffuse");
-
-        diffuseRepeatX.setUiAttribs({ "greyout": false });
-        diffuseRepeatY.setUiAttribs({ "greyout": false });
-        diffuseOffsetX.setUiAttribs({ "greyout": false });
-        diffuseOffsetY.setUiAttribs({ "greyout": false });
-        colorizeTexture.setUiAttribs({ "greyout": false });
-    }
-    else
-    {
-        shader.removeUniform("texDiffuse");
-        shader.removeDefine("HAS_TEXTURE_DIFFUSE");
-        diffuseTextureUniform = null;
-
-        diffuseRepeatX.setUiAttribs({ "greyout": true });
-        diffuseRepeatY.setUiAttribs({ "greyout": true });
-        diffuseOffsetX.setUiAttribs({ "greyout": true });
-        diffuseOffsetY.setUiAttribs({ "greyout": true });
-        colorizeTexture.setUiAttribs({ "greyout": true });
-    }
-}
-
-function updateDefines()
-{
-    shader.toggleDefine("VERTEX_COLORS", vertexColors.get());
-    shader.toggleDefine("CROP_TEXCOORDS", cropRepeat.get());
-    shader.toggleDefine("COLORIZE_TEXTURE", colorizeTexture.get());
-    shader.toggleDefine("TRANSFORMALPHATEXCOORDS", texCoordAlpha.get());
-    shader.toggleDefine("DISCARDTRANS", discardTransPxl.get());
-    shader.toggleDefine("BILLBOARD", doBillboard.get());
-
-    shader.toggleDefine("ALPHA_MASK_ALPHA", alphaMaskSource.get() == "A");
-    shader.toggleDefine("ALPHA_MASK_IALPHA", alphaMaskSource.get() == "1-A");
-    shader.toggleDefine("ALPHA_MASK_LUMI", alphaMaskSource.get() == "Luminance");
-    shader.toggleDefine("ALPHA_MASK_R", alphaMaskSource.get() == "R");
-    shader.toggleDefine("ALPHA_MASK_G", alphaMaskSource.get() == "G");
-    shader.toggleDefine("ALPHA_MASK_B", alphaMaskSource.get() == "B");
-}
-
-
-};
-
-Ops.Gl.Shader.BasicMaterial_v3.prototype = new CABLES.Op();
-CABLES.OPS["ec55d252-3843-41b1-b731-0482dbd9e72b"]={f:Ops.Gl.Shader.BasicMaterial_v3,objName:"Ops.Gl.Shader.BasicMaterial_v3"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Sidebar.SideBarStyle
-// 
-// **************************************************************
-
-Ops.Sidebar.SideBarStyle = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const parentPort = op.inObject("link"),
-    inWidth = op.inInt("Width", 220),
-    inBorderRadius = op.inFloat("Round Corners", 10),
-    inColorSpecial = op.inString("Special Color", "#07f78c"),
-
-    siblingsPort = op.outObject("childs");
-
-inColorSpecial.onChange =
-inBorderRadius.onChange =
-inWidth.onChange = setStyle;
-
-parentPort.onChange = onParentChanged;
-op.onDelete = onDelete;
-
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
-
-let sideBarEle = null;
-
-function setStyle()
-{
-    if (!sideBarEle) return;
-
-    sideBarEle.style.setProperty("--sidebar-width", inWidth.get() + "px");
-
-    sideBarEle.style.setProperty("--sidebar-color", inColorSpecial.get());
-
-    sideBarEle.style.setProperty("--sidebar-border-radius", Math.round(inBorderRadius.get()) + "px");
-
-    op.patch.emitEvent("sidebarStylesChanged");
-}
-
-function onParentChanged()
-{
-    siblingsPort.set(null);
-    const parent = parentPort.get();
-    if (parent && parent.parentElement)
-    {
-        siblingsPort.set(parent);
-        sideBarEle = parent.parentElement.parentElement;
-        setStyle();
-    }
-    else
-    {
-        sideBarEle = null;
-    }
-}
-
-function showElement(el)
-{
-    if (!el) return;
-    el.style.display = "block";
-}
-
-function hideElement(el)
-{
-    if (!el) return;
-    el.style.display = "none";
-}
-
-function onDelete()
-{
-}
-
-
-};
-
-Ops.Sidebar.SideBarStyle.prototype = new CABLES.Op();
-CABLES.OPS["87d78a59-c8d4-4269-a3f8-af273741aae4"]={f:Ops.Sidebar.SideBarStyle,objName:"Ops.Sidebar.SideBarStyle"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Gl.Meshes.Grid
-// 
-// **************************************************************
-
-Ops.Gl.Meshes.Grid = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("Render"),
-    inNum = op.inValue("Num", 10),
-    inSpacing = op.inValue("Spacing", 1),
-    inCenter = op.inBool("Center", true),
-    next = op.outTrigger("Next");
-
-const cgl = op.patch.cgl;
-let mesh = null;
-
-inCenter.onChange =
-    inNum.onChange =
-    inSpacing.onChange = function ()
-    {
-        if (mesh)mesh.dispose();
-        mesh = null;
-    };
-
-function init()
-{
-    const geomStepsOne = new CGL.Geometry(op.name);
-    const geomX = new CGL.Geometry(op.name);
-
-    const space = inSpacing.get();
-    const num = Math.floor(inNum.get());
-    const l = space * num / 2;
-
-    const tc = [];
-
-    let start = -num / 2;
-    let end = num / 2 + 1;
-
-    for (let i = start; i < end; i++)
-    {
-        geomStepsOne.vertices.push(-l);
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(l);
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(-l);
-        geomStepsOne.vertices.push(0);
-
-        geomStepsOne.vertices.push(i * space);
-        geomStepsOne.vertices.push(l);
-        geomStepsOne.vertices.push(0);
-
-        tc.push(0, 0);
-        tc.push(0, 0);
-        tc.push(0, 0);
-        tc.push(0, 0);
-    }
-
-    if (!inCenter.get())
-    {
-        for (let i = 0; i < geomStepsOne.vertices.length; i += 3)
-        {
-            geomStepsOne.vertices[i + 0] += l;
-            geomStepsOne.vertices[i + 1] += l;
-        }
-    }
-
-    geomStepsOne.setTexCoords(tc);
-    geomStepsOne.calculateNormals();
-
-    if (!mesh) mesh = new CGL.Mesh(cgl, geomStepsOne);
-    else mesh.setGeom(geomStepsOne);
-}
-
-render.onTriggered = function ()
-{
-    if (!mesh)init();
-    let shader = cgl.getShader();
-    if (!shader) return;
-
-    let oldPrim = shader.glPrimitive;
-
-    shader.glPrimitive = cgl.gl.LINES;
-
-    mesh.render(shader);
-
-    shader.glPrimitive = oldPrim;
-
-    next.trigger();
-};
-
-
-};
-
-Ops.Gl.Meshes.Grid.prototype = new CABLES.Op();
-CABLES.OPS["677a7c03-6885-46b4-8a64-e4ea54ee5d7f"]={f:Ops.Gl.Meshes.Grid,objName:"Ops.Gl.Meshes.Grid"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Array.StringToArray_v2
 // 
 // **************************************************************
@@ -978,149 +590,6 @@ CABLES.OPS["86ea2333-b51c-48ed-94c2-8b7b6e9ff34c"]={f:Ops.Sidebar.Group,objName:
 
 // **************************************************************
 // 
-// Ops.Gl.Matrix.Transform
-// 
-// **************************************************************
-
-Ops.Gl.Matrix.Transform = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("render"),
-    posX = op.inValue("posX", 0),
-    posY = op.inValue("posY", 0),
-    posZ = op.inValue("posZ", 0),
-    scale = op.inValue("scale", 1),
-    rotX = op.inValue("rotX", 0),
-    rotY = op.inValue("rotY", 0),
-    rotZ = op.inValue("rotZ", 0),
-    trigger = op.outTrigger("trigger");
-
-op.setPortGroup("Rotation", [rotX, rotY, rotZ]);
-op.setPortGroup("Position", [posX, posY, posZ]);
-op.setPortGroup("Scale", [scale]);
-op.setUiAxisPorts(posX, posY, posZ);
-
-op.toWorkPortsNeedToBeLinked(render, trigger);
-
-const vPos = vec3.create();
-const vScale = vec3.create();
-const transMatrix = mat4.create();
-mat4.identity(transMatrix);
-
-let
-    doScale = false,
-    doTranslate = false,
-    translationChanged = true,
-    scaleChanged = true,
-    rotChanged = true;
-
-rotX.onChange = rotY.onChange = rotZ.onChange = setRotChanged;
-posX.onChange = posY.onChange = posZ.onChange = setTranslateChanged;
-scale.onChange = setScaleChanged;
-
-render.onTriggered = function ()
-{
-    // if(!CGL.TextureEffect.checkOpNotInTextureEffect(op)) return;
-
-    let updateMatrix = false;
-    if (translationChanged)
-    {
-        updateTranslation();
-        updateMatrix = true;
-    }
-    if (scaleChanged)
-    {
-        updateScale();
-        updateMatrix = true;
-    }
-    if (rotChanged) updateMatrix = true;
-
-    if (updateMatrix) doUpdateMatrix();
-
-    const cg = op.patch.cgl;
-    cg.pushModelMatrix();
-    mat4.multiply(cg.mMatrix, cg.mMatrix, transMatrix);
-
-    trigger.trigger();
-    cg.popModelMatrix();
-
-    if (CABLES.UI && CABLES.UI.showCanvasTransforms) gui.setTransform(op.id, posX.get(), posY.get(), posZ.get());
-
-    if (op.isCurrentUiOp())
-        gui.setTransformGizmo(
-            {
-                "posX": posX,
-                "posY": posY,
-                "posZ": posZ,
-            });
-};
-
-op.transform3d = function ()
-{
-    return { "pos": [posX, posY, posZ] };
-};
-
-function doUpdateMatrix()
-{
-    mat4.identity(transMatrix);
-    if (doTranslate)mat4.translate(transMatrix, transMatrix, vPos);
-
-    if (rotX.get() !== 0)mat4.rotateX(transMatrix, transMatrix, rotX.get() * CGL.DEG2RAD);
-    if (rotY.get() !== 0)mat4.rotateY(transMatrix, transMatrix, rotY.get() * CGL.DEG2RAD);
-    if (rotZ.get() !== 0)mat4.rotateZ(transMatrix, transMatrix, rotZ.get() * CGL.DEG2RAD);
-
-    if (doScale)mat4.scale(transMatrix, transMatrix, vScale);
-    rotChanged = false;
-}
-
-function updateTranslation()
-{
-    doTranslate = false;
-    if (posX.get() !== 0.0 || posY.get() !== 0.0 || posZ.get() !== 0.0) doTranslate = true;
-    vec3.set(vPos, posX.get(), posY.get(), posZ.get());
-    translationChanged = false;
-}
-
-function updateScale()
-{
-    // doScale=false;
-    // if(scale.get()!==0.0)
-    doScale = true;
-    vec3.set(vScale, scale.get(), scale.get(), scale.get());
-    scaleChanged = false;
-}
-
-function setTranslateChanged()
-{
-    translationChanged = true;
-}
-
-function setScaleChanged()
-{
-    scaleChanged = true;
-}
-
-function setRotChanged()
-{
-    rotChanged = true;
-}
-
-doUpdateMatrix();
-
-
-};
-
-Ops.Gl.Matrix.Transform.prototype = new CABLES.Op();
-CABLES.OPS["650baeb1-db2d-4781-9af6-ab4e9d4277be"]={f:Ops.Gl.Matrix.Transform,objName:"Ops.Gl.Matrix.Transform"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Sidebar.Sidebar
 // 
 // **************************************************************
@@ -1129,7 +598,7 @@ Ops.Sidebar.Sidebar = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"style_css":" /*\n * SIDEBAR\n  http://danielstern.ca/range.css/#/\n  https://developer.mozilla.org/en-US/docs/Web/CSS/::-webkit-progress-value\n */\n\n.sidebar-icon-undo\n{\n    width:10px;\n    height:10px;\n    background-image: url(\"data:image/svg+xml;charset=utf8, %3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='grey' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7v6h6'/%3E%3Cpath d='M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13'/%3E%3C/svg%3E\");\n    background-size: 19px;\n    background-repeat: no-repeat;\n    top: -19px;\n    margin-top: -7px;\n}\n\n.icon-chevron-down {\n    top: 2px;\n    right: 9px;\n}\n\n.iconsidebar-chevron-up,.sidebar__close-button {\n\tbackground-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tdXAiPjxwb2x5bGluZSBwb2ludHM9IjE4IDE1IDEyIDkgNiAxNSI+PC9wb2x5bGluZT48L3N2Zz4=);\n}\n\n.iconsidebar-minimizebutton {\n    background-position: 98% center;\n    background-repeat: no-repeat;\n}\n\n.sidebar-cables-right\n{\n    right: 15px;\n    left: initial !important;\n}\n\n.sidebar-cables {\n    --sidebar-color: #07f78c;\n    --sidebar-width: 220px;\n    --sidebar-border-radius: 10px;\n    --sidebar-monospace-font-stack: \"SFMono-Regular\", Consolas, \"Liberation Mono\", Menlo, Courier, monospace;\n    --sidebar-hover-transition-time: .2s;\n\n    position: absolute;\n    top: 15px;\n    left: 15px;\n    border-radius: var(--sidebar-border-radius);\n    z-index: 100000;\n    color: #BBBBBB;\n    width: var(  --sidebar-width);\n    max-height: 100%;\n    box-sizing: border-box;\n    overflow-y: auto;\n    overflow-x: hidden;\n    font-size: 13px;\n    font-family: Arial;\n    line-height: 1em; /* prevent emojis from breaking height of the title */\n}\n\n.sidebar-cables::selection {\n    background-color: var(--sidebar-color);\n    color: #EEEEEE;\n}\n\n.sidebar-cables::-webkit-scrollbar {\n    background-color: transparent;\n    --cables-scrollbar-width: 8px;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables::-webkit-scrollbar-track {\n    background-color: transparent;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables::-webkit-scrollbar-thumb {\n    background-color: #333333;\n    border-radius: 4px;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables--closed {\n    width: auto;\n}\n\n.sidebar__close-button {\n    background-color: #222;\n    /*-webkit-user-select: none;  */\n    /*-moz-user-select: none;     */\n    /*-ms-user-select: none;      */\n    /*user-select: none;          */\n    /*transition: background-color var(--sidebar-hover-transition-time);*/\n    /*color: #CCCCCC;*/\n    height: 2px;\n    /*border-bottom:20px solid #222;*/\n\n    /*box-sizing: border-box;*/\n    /*padding-top: 2px;*/\n    /*text-align: center;*/\n    /*cursor: pointer;*/\n    /*border-radius: 0 0 var(--sidebar-border-radius) var(--sidebar-border-radius);*/\n    /*opacity: 1.0;*/\n    /*transition: opacity 0.3s;*/\n    /*overflow: hidden;*/\n}\n\n.sidebar__close-button-icon {\n    display: inline-block;\n    /*opacity: 0;*/\n    width: 20px;\n    height: 20px;\n    /*position: relative;*/\n    /*top: -1px;*/\n\n\n}\n\n.sidebar--closed {\n    width: auto;\n    margin-right: 20px;\n}\n\n.sidebar--closed .sidebar__close-button {\n    margin-top: 8px;\n    margin-left: 8px;\n    padding:10px;\n\n    height: 25px;\n    width:25px;\n    border-radius: 50%;\n    cursor: pointer;\n    opacity: 0.3;\n    background-repeat: no-repeat;\n    background-position: center center;\n    transform:rotate(180deg);\n}\n\n.sidebar--closed .sidebar__group\n{\n    display:none;\n\n}\n.sidebar--closed .sidebar__close-button-icon {\n    background-position: 0px 0px;\n}\n\n.sidebar__close-button:hover {\n    background-color: #111111;\n    opacity: 1.0 !important;\n}\n\n/*\n * SIDEBAR ITEMS\n */\n\n.sidebar__items {\n    /* max-height: 1000px; */\n    /* transition: max-height 0.5;*/\n    background-color: #222;\n    padding-bottom: 20px;\n}\n\n.sidebar--closed .sidebar__items {\n    /* max-height: 0; */\n    height: 0;\n    display: none;\n    pointer-interactions: none;\n}\n\n.sidebar__item__right {\n    float: right;\n}\n\n/*\n * SIDEBAR GROUP\n */\n\n.sidebar__group {\n    /*background-color: #1A1A1A;*/\n    overflow: hidden;\n    box-sizing: border-box;\n    animate: height;\n    /*background-color: #151515;*/\n    /* max-height: 1000px; */\n    /* transition: max-height 0.5s; */\n--sidebar-group-header-height: 33px;\n}\n\n.sidebar__group-items\n{\n    padding-top: 15px;\n    padding-bottom: 15px;\n}\n\n.sidebar__group--closed {\n    /* max-height: 13px; */\n    height: var(--sidebar-group-header-height);\n}\n\n.sidebar__group-header {\n    box-sizing: border-box;\n    color: #EEEEEE;\n    background-color: #151515;\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n\n    /*height: 100%;//var(--sidebar-group-header-height);*/\n\n    padding-top: 7px;\n    text-transform: uppercase;\n    letter-spacing: 0.08em;\n    cursor: pointer;\n    /*transition: background-color var(--sidebar-hover-transition-time);*/\n    position: relative;\n}\n\n.sidebar__group-header:hover {\n  background-color: #111111;\n}\n\n.sidebar__group-header-title {\n  /*float: left;*/\n  overflow: hidden;\n  padding: 0 15px;\n  padding-top:5px;\n  padding-bottom:10px;\n  font-weight:bold;\n}\n\n.sidebar__group-header-undo {\n    float: right;\n    overflow: hidden;\n    padding-right: 15px;\n    padding-top:5px;\n    font-weight:bold;\n  }\n\n.sidebar__group-header-icon {\n    width: 17px;\n    height: 14px;\n    background-repeat: no-repeat;\n    display: inline-block;\n    position: absolute;\n    background-size: cover;\n\n    /* icon open */\n    /* feather icon: chevron up */\n    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tdXAiPjxwb2x5bGluZSBwb2ludHM9IjE4IDE1IDEyIDkgNiAxNSI+PC9wb2x5bGluZT48L3N2Zz4=);\n    top: 4px;\n    right: 5px;\n    opacity: 0.0;\n    transition: opacity 0.3;\n}\n\n.sidebar__group-header:hover .sidebar__group-header-icon {\n    opacity: 1.0;\n}\n\n/* icon closed */\n.sidebar__group--closed .sidebar__group-header-icon {\n    /* feather icon: chevron down */\n    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tZG93biI+PHBvbHlsaW5lIHBvaW50cz0iNiA5IDEyIDE1IDE4IDkiPjwvcG9seWxpbmU+PC9zdmc+);\n    top: 4px;\n    right: 5px;\n}\n\n/*\n * SIDEBAR ITEM\n */\n\n.sidebar__item\n{\n    box-sizing: border-box;\n    padding: 7px;\n    padding-left:15px;\n    padding-right:15px;\n\n    overflow: hidden;\n    position: relative;\n}\n\n.sidebar__item-label {\n    display: inline-block;\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    width: calc(50% - 7px);\n    margin-right: 7px;\n    margin-top: 2px;\n    text-overflow: ellipsis;\n    /* overflow: hidden; */\n}\n\n.sidebar__item-value-label {\n    font-family: var(--sidebar-monospace-font-stack);\n    display: inline-block;\n    text-overflow: ellipsis;\n    overflow: hidden;\n    white-space: nowrap;\n    max-width: 60%;\n}\n\n.sidebar__item-value-label::selection {\n    background-color: var(--sidebar-color);\n    color: #EEEEEE;\n}\n\n.sidebar__item + .sidebar__item,\n.sidebar__item + .sidebar__group,\n.sidebar__group + .sidebar__item,\n.sidebar__group + .sidebar__group {\n    /*border-top: 1px solid #272727;*/\n}\n\n/*\n * SIDEBAR ITEM TOGGLE\n */\n\n/*.sidebar__toggle */\n.icon_toggle{\n    cursor: pointer;\n}\n\n.sidebar__toggle-input {\n    --sidebar-toggle-input-color: #CCCCCC;\n    --sidebar-toggle-input-color-hover: #EEEEEE;\n    --sidebar-toggle-input-border-size: 2px;\n    display: inline;\n    float: right;\n    box-sizing: border-box;\n    border-radius: 50%;\n    cursor: pointer;\n    --toggle-size: 11px;\n    margin-top: 2px;\n    background-color: transparent !important;\n    border: var(--sidebar-toggle-input-border-size) solid var(--sidebar-toggle-input-color);\n    width: var(--toggle-size);\n    height: var(--toggle-size);\n    transition: background-color var(--sidebar-hover-transition-time);\n    transition: border-color var(--sidebar-hover-transition-time);\n}\n.sidebar__toggle:hover .sidebar__toggle-input {\n    border-color: var(--sidebar-toggle-input-color-hover);\n}\n\n.sidebar__toggle .sidebar__item-value-label {\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    max-width: calc(50% - 12px);\n}\n.sidebar__toggle-input::after { clear: both; }\n\n.sidebar__toggle--active .icon_toggle\n{\n\n    background-image: url(data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjE1cHgiIHdpZHRoPSIzMHB4IiBmaWxsPSIjMDZmNzhiIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgZW5hYmxlLWJhY2tncm91bmQ9Im5ldyAwIDAgMTAwIDEwMCIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZmlsbD0iIzA2Zjc4YiIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCBjMTIuNjUsMCwyMy0xMC4zNSwyMy0yM2wwLDBjMC0xMi42NS0xMC4zNS0yMy0yMy0yM0gzMHogTTcwLDY3Yy05LjM4OSwwLTE3LTcuNjEtMTctMTdzNy42MTEtMTcsMTctMTdzMTcsNy42MSwxNywxNyAgICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PC9nPjwvZz48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMweiBNNzAsNjdjLTkuMzg5LDAtMTctNy42MS0xNy0xN3M3LjYxMS0xNywxNy0xN3MxNyw3LjYxLDE3LDE3ICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48cGF0aCBmaWxsPSIjMDZmNzhiIiBzdHJva2U9IiMwNmY3OGIiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNNyw1MGMwLDEyLjY1LDEwLjM1LDIzLDIzLDIzaDQwICAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMwQzE3LjM1LDI3LDcsMzcuMzUsNyw1MEw3LDUweiI+PC9wYXRoPjwvZz48Y2lyY2xlIGRpc3BsYXk9ImlubGluZSIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGZpbGw9IiMwNmY3OGIiIHN0cm9rZT0iIzA2Zjc4YiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbWl0ZXJsaW1pdD0iMTAiIGN4PSI3MCIgY3k9IjUwIiByPSIxNyI+PC9jaXJjbGU+PC9nPjxnIGRpc3BsYXk9Im5vbmUiPjxwYXRoIGRpc3BsYXk9ImlubGluZSIgZD0iTTcwLDI1SDMwQzE2LjIxNSwyNSw1LDM2LjIxNSw1LDUwczExLjIxNSwyNSwyNSwyNWg0MGMxMy43ODUsMCwyNS0xMS4yMTUsMjUtMjVTODMuNzg1LDI1LDcwLDI1eiBNNzAsNzEgICBIMzBDMTguNDIxLDcxLDksNjEuNTc5LDksNTBzOS40MjEtMjEsMjEtMjFoNDBjMTEuNTc5LDAsMjEsOS40MjEsMjEsMjFTODEuNTc5LDcxLDcwLDcxeiBNNzAsMzFjLTEwLjQ3NywwLTE5LDguNTIzLTE5LDE5ICAgczguNTIzLDE5LDE5LDE5czE5LTguNTIzLDE5LTE5UzgwLjQ3NywzMSw3MCwzMXogTTcwLDY1Yy04LjI3MSwwLTE1LTYuNzI5LTE1LTE1czYuNzI5LTE1LDE1LTE1czE1LDYuNzI5LDE1LDE1Uzc4LjI3MSw2NSw3MCw2NXoiPjwvcGF0aD48L2c+PC9zdmc+);\n    opacity: 1;\n    transform: rotate(0deg);\n}\n\n\n.icon_toggle\n{\n    float: right;\n    width:40px;\n    height:18px;\n    background-image: url(data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjE1cHgiIHdpZHRoPSIzMHB4IiBmaWxsPSIjYWFhYWFhIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgZW5hYmxlLWJhY2tncm91bmQ9Im5ldyAwIDAgMTAwIDEwMCIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZmlsbD0iI2FhYWFhYSIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCBjMTIuNjUsMCwyMy0xMC4zNSwyMy0yM2wwLDBjMC0xMi42NS0xMC4zNS0yMy0yMy0yM0gzMHogTTcwLDY3Yy05LjM4OSwwLTE3LTcuNjEtMTctMTdzNy42MTEtMTcsMTctMTdzMTcsNy42MSwxNywxNyAgICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PC9nPjwvZz48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMweiBNNzAsNjdjLTkuMzg5LDAtMTctNy42MS0xNy0xN3M3LjYxMS0xNywxNy0xN3MxNyw3LjYxLDE3LDE3ICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48cGF0aCBmaWxsPSIjYWFhYWFhIiBzdHJva2U9IiNhYWFhYWEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNNyw1MGMwLDEyLjY1LDEwLjM1LDIzLDIzLDIzaDQwICAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMwQzE3LjM1LDI3LDcsMzcuMzUsNyw1MEw3LDUweiI+PC9wYXRoPjwvZz48Y2lyY2xlIGRpc3BsYXk9ImlubGluZSIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGZpbGw9IiNhYWFhYWEiIHN0cm9rZT0iI2FhYWFhYSIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbWl0ZXJsaW1pdD0iMTAiIGN4PSI3MCIgY3k9IjUwIiByPSIxNyI+PC9jaXJjbGU+PC9nPjxnIGRpc3BsYXk9Im5vbmUiPjxwYXRoIGRpc3BsYXk9ImlubGluZSIgZD0iTTcwLDI1SDMwQzE2LjIxNSwyNSw1LDM2LjIxNSw1LDUwczExLjIxNSwyNSwyNSwyNWg0MGMxMy43ODUsMCwyNS0xMS4yMTUsMjUtMjVTODMuNzg1LDI1LDcwLDI1eiBNNzAsNzEgICBIMzBDMTguNDIxLDcxLDksNjEuNTc5LDksNTBzOS40MjEtMjEsMjEtMjFoNDBjMTEuNTc5LDAsMjEsOS40MjEsMjEsMjFTODEuNTc5LDcxLDcwLDcxeiBNNzAsMzFjLTEwLjQ3NywwLTE5LDguNTIzLTE5LDE5ICAgczguNTIzLDE5LDE5LDE5czE5LTguNTIzLDE5LTE5UzgwLjQ3NywzMSw3MCwzMXogTTcwLDY1Yy04LjI3MSwwLTE1LTYuNzI5LTE1LTE1czYuNzI5LTE1LDE1LTE1czE1LDYuNzI5LDE1LDE1Uzc4LjI3MSw2NSw3MCw2NXoiPjwvcGF0aD48L2c+PC9zdmc+);\n    background-size: 50px 37px;\n    background-position: -6px -10px;\n    transform: rotate(180deg);\n    opacity: 0.4;\n}\n\n\n\n/*.sidebar__toggle--active .sidebar__toggle-input {*/\n/*    transition: background-color var(--sidebar-hover-transition-time);*/\n/*    background-color: var(--sidebar-toggle-input-color);*/\n/*}*/\n/*.sidebar__toggle--active .sidebar__toggle-input:hover*/\n/*{*/\n/*    background-color: var(--sidebar-toggle-input-color-hover);*/\n/*    border-color: var(--sidebar-toggle-input-color-hover);*/\n/*    transition: background-color var(--sidebar-hover-transition-time);*/\n/*    transition: border-color var(--sidebar-hover-transition-time);*/\n/*}*/\n\n/*\n * SIDEBAR ITEM BUTTON\n */\n\n.sidebar__button {}\n\n.sidebar__button-input {\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    min-height: 24px;\n    background-color: transparent;\n    color: #CCCCCC;\n    box-sizing: border-box;\n    padding-top: 3px;\n    text-align: center;\n    border-radius: 125px;\n    border:2px solid #555;\n    cursor: pointer;\n    padding-bottom: 3px;\n}\n\n.sidebar__button-input.plus, .sidebar__button-input.minus {\n    display: inline-block;\n    min-width: 20px;\n}\n\n.sidebar__button-input:hover {\n  background-color: #333;\n  border:2px solid var(--sidebar-color);\n}\n\n/*\n * VALUE DISPLAY (shows a value)\n */\n\n.sidebar__value-display {}\n\n/*\n * SLIDER\n */\n\n.sidebar__slider {\n    --sidebar-slider-input-height: 3px;\n}\n\n.sidebar__slider-input-wrapper {\n    width: 100%;\n\n    margin-top: 8px;\n    position: relative;\n}\n\n.sidebar__slider-input {\n    -webkit-appearance: none;\n    appearance: none;\n    margin: 0;\n    width: 100%;\n    height: var(--sidebar-slider-input-height);\n    background: #555;\n    cursor: pointer;\n    outline: 0;\n\n    -webkit-transition: .2s;\n    transition: background-color .2s;\n    border: none;\n}\n\n.sidebar__slider-input:focus, .sidebar__slider-input:hover {\n    border: none;\n}\n\n.sidebar__slider-input-active-track {\n    user-select: none;\n    position: absolute;\n    z-index: 11;\n    top: 0;\n    left: 0;\n    background-color: var(--sidebar-color);\n    pointer-events: none;\n    height: var(--sidebar-slider-input-height);\n    max-width: 100%;\n}\n\n/* Mouse-over effects */\n.sidebar__slider-input:hover {\n    /*background-color: #444444;*/\n}\n\n/*.sidebar__slider-input::-webkit-progress-value {*/\n/*    background-color: green;*/\n/*    color:green;*/\n\n/*    }*/\n\n/* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */\n\n.sidebar__slider-input::-moz-range-thumb\n{\n    position: absolute;\n    height: 15px;\n    width: 15px;\n    z-index: 900 !important;\n    border-radius: 20px !important;\n    cursor: pointer;\n    background: var(--sidebar-color) !important;\n    user-select: none;\n\n}\n\n.sidebar__slider-input::-webkit-slider-thumb\n{\n    position: relative;\n    appearance: none;\n    -webkit-appearance: none;\n    user-select: none;\n    height: 15px;\n    width: 15px;\n    display: block;\n    z-index: 900 !important;\n    border: 0;\n    border-radius: 20px !important;\n    cursor: pointer;\n    background: #777 !important;\n}\n\n.sidebar__slider-input:hover ::-webkit-slider-thumb {\n    background-color: #EEEEEE !important;\n}\n\n/*.sidebar__slider-input::-moz-range-thumb {*/\n\n/*    width: 0 !important;*/\n/*    height: var(--sidebar-slider-input-height);*/\n/*    background: #EEEEEE;*/\n/*    cursor: pointer;*/\n/*    border-radius: 0 !important;*/\n/*    border: none;*/\n/*    outline: 0;*/\n/*    z-index: 100 !important;*/\n/*}*/\n\n.sidebar__slider-input::-moz-range-track {\n    background-color: transparent;\n    z-index: 11;\n}\n\n/*.sidebar__slider-input::-moz-range-thumb:hover {*/\n  /* background-color: #EEEEEE; */\n/*}*/\n\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input-active-track {*/\n/*    background-color: #EEEEEE;*/\n/*}*/\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input::-moz-range-thumb {*/\n/*    background-color: #fff !important;*/\n/*}*/\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input::-webkit-slider-thumb {*/\n/*    background-color: #EEEEEE;*/\n/*}*/\n\n.sidebar__slider input[type=text],\n.sidebar__slider input[type=paddword]\n{\n    box-sizing: border-box;\n    /*background-color: #333333;*/\n    text-align: right;\n    color: #BBBBBB;\n    display: inline-block;\n    background-color: transparent !important;\n\n    width: 40%;\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n}\n\n.sidebar__slider input[type=text]:active,\n.sidebar__slider input[type=text]:focus,\n.sidebar__slider input[type=text]:hover\n.sidebar__slider input[type=password]:active,\n.sidebar__slider input[type=password]:focus,\n.sidebar__slider input[type=password]:hover\n{\n\n    color: #EEEEEE;\n}\n\n/*\n * TEXT / DESCRIPTION\n */\n\n.sidebar__text .sidebar__item-label {\n    width: auto;\n    display: block;\n    max-height: none;\n    margin-right: 0;\n    line-height: 1.1em;\n}\n\n/*\n * SIDEBAR INPUT\n */\n.sidebar__text-input textarea,\n.sidebar__text-input input[type=text],\n.sidebar__text-input input[type=password] {\n    box-sizing: border-box;\n    background-color: #333333;\n    color: #BBBBBB;\n    display: inline-block;\n    width: 50%;\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    border:1px solid #666;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n}\n\n.sidebar__text-input textarea:focus::placeholder {\n  color: transparent;\n}\n\n.sidebar__color-picker .sidebar__item-label\n{\n    width:45%;\n}\n\n.sidebar__text-input textarea,\n.sidebar__text-input input[type=text]:active,\n.sidebar__text-input input[type=text]:focus,\n.sidebar__text-input input[type=text]:hover,\n.sidebar__text-input input[type=password]:active,\n.sidebar__text-input input[type=password]:focus,\n.sidebar__text-input input[type=password]:hover {\n    background-color: transparent;\n    color: #EEEEEE;\n}\n\n.sidebar__text-input textarea\n{\n    margin-top:10px;\n    height:60px;\n    width:100%;\n}\n\n/*\n * SIDEBAR SELECT\n */\n\n\n\n .sidebar__select {}\n .sidebar__select-select {\n    color: #BBBBBB;\n    /*-webkit-appearance: none;*/\n    /*-moz-appearance: none;*/\n    appearance: none;\n    /*box-sizing: border-box;*/\n    width: 50%;\n    /*height: 20px;*/\n    background-color: #333333;\n    /*background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tZG93biI+PHBvbHlsaW5lIHBvaW50cz0iNiA5IDEyIDE1IDE4IDkiPjwvcG9seWxpbmU+PC9zdmc+);*/\n    background-repeat: no-repeat;\n    background-position: right center;\n    background-size: 16px 16px;\n    margin: 0;\n    /*padding: 0 2 2 6px;*/\n    border-radius: 5px;\n    border: 1px solid #777;\n    background-color: #444;\n    cursor: pointer;\n    outline: none;\n    padding-left: 5px;\n\n }\n\n.sidebar__select-select:hover,\n.sidebar__select-select:active,\n.sidebar__select-select:active {\n    background-color: #444444;\n    color: #EEEEEE;\n}\n\n/*\n * COLOR PICKER\n */\n\n\n .sidebar__color-picker input[type=text] {\n    box-sizing: border-box;\n    background-color: #333333;\n    color: #BBBBBB;\n    display: inline-block;\n    width: calc(50% - 21px); /* 50% minus space of picker circle */\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n    margin-right: 7px;\n}\n\n.sidebar__color-picker input[type=text]:active,\n.sidebar__color-picker input[type=text]:focus,\n.sidebar__color-picker input[type=text]:hover {\n    background-color: #444444;\n    color: #EEEEEE;\n}\n\ndiv.sidebar__color-picker-color-input,\n.sidebar__color-picker input[type=color],\n.sidebar__palette-picker input[type=color] {\n    display: inline-block;\n    border-radius: 100%;\n    height: 14px;\n    width: 14px;\n\n    padding: 0;\n    border: none;\n    /*border:2px solid red;*/\n    border-color: transparent;\n    outline: none;\n    background: none;\n    appearance: none;\n    -moz-appearance: none;\n    -webkit-appearance: none;\n    cursor: pointer;\n    position: relative;\n    top: 3px;\n}\n.sidebar__color-picker input[type=color]:focus,\n.sidebar__palette-picker input[type=color]:focus {\n    outline: none;\n}\n.sidebar__color-picker input[type=color]::-moz-color-swatch,\n.sidebar__palette-picker input[type=color]::-moz-color-swatch {\n    border: none;\n}\n.sidebar__color-picker input[type=color]::-webkit-color-swatch-wrapper,\n.sidebar__palette-picker input[type=color]::-webkit-color-swatch-wrapper {\n    padding: 0;\n}\n.sidebar__color-picker input[type=color]::-webkit-color-swatch,\n.sidebar__palette-picker input[type=color]::-webkit-color-swatch {\n    border: none;\n    border-radius: 100%;\n}\n\n/*\n * Palette Picker\n */\n.sidebar__palette-picker .sidebar__palette-picker-color-input.first {\n    margin-left: 0;\n}\n.sidebar__palette-picker .sidebar__palette-picker-color-input.last {\n    margin-right: 0;\n}\n.sidebar__palette-picker .sidebar__palette-picker-color-input {\n    margin: 0 4px;\n}\n\n.sidebar__palette-picker .circlebutton {\n    width: 14px;\n    height: 14px;\n    border-radius: 1em;\n    display: inline-block;\n    top: 3px;\n    position: relative;\n}\n\n/*\n * Preset\n */\n.sidebar__item-presets-preset\n{\n    padding:4px;\n    cursor:pointer;\n    padding-left:8px;\n    padding-right:8px;\n    margin-right:4px;\n    background-color:#444;\n}\n\n.sidebar__item-presets-preset:hover\n{\n    background-color:#666;\n}\n\n.sidebar__greyout\n{\n    background: #222;\n    opacity: 0.8;\n    width: 100%;\n    height: 100%;\n    position: absolute;\n    z-index: 1000;\n    right: 0;\n    top: 0;\n}\n\n.sidebar_tabs\n{\n    background-color: #151515;\n    padding-bottom: 0px;\n}\n\n.sidebar_switchs\n{\n    float: right;\n}\n\n.sidebar_tab\n{\n    float:left;\n    background-color: #151515;\n    border-bottom:1px solid transparent;\n    padding-right:7px;\n    padding-left:7px;\n    padding-bottom: 5px;\n    padding-top: 5px;\n    cursor:pointer;\n}\n\n.sidebar_tab_active\n{\n    background-color: #272727;\n    color:white;\n}\n\n.sidebar_tab:hover\n{\n    border-bottom:1px solid #777;\n    color:white;\n}\n\n\n.sidebar_switch\n{\n    float:left;\n    background-color: #444;\n    padding-right:7px;\n    padding-left:7px;\n    padding-bottom: 5px;\n    padding-top: 5px;\n    cursor:pointer;\n}\n\n.sidebar_switch:last-child\n{\n    border-top-right-radius: 7px;\n    border-bottom-right-radius: 7px;\n}\n\n.sidebar_switch:first-child\n{\n    border-top-left-radius: 7px;\n    border-bottom-left-radius: 7px;\n}\n\n\n.sidebar_switch_active\n{\n    background-color: #999;\n    color:white;\n}\n\n.sidebar_switch:hover\n{\n    color:white;\n}\n",};
+const attachments={"style_css":" /*\n * SIDEBAR\n  http://danielstern.ca/range.css/#/\n  https://developer.mozilla.org/en-US/docs/Web/CSS/::-webkit-progress-value\n */\n\n.sidebar-icon-undo\n{\n    width:10px;\n    height:10px;\n    background-image: url(\"data:image/svg+xml;charset=utf8, %3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none' stroke='grey' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7v6h6'/%3E%3Cpath d='M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13'/%3E%3C/svg%3E\");\n    background-size: 19px;\n    background-repeat: no-repeat;\n    top: -19px;\n    margin-top: -7px;\n}\n\n.icon-chevron-down {\n    top: 2px;\n    right: 9px;\n}\n\n.iconsidebar-chevron-up,.sidebar__close-button {\n\tbackground-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tdXAiPjxwb2x5bGluZSBwb2ludHM9IjE4IDE1IDEyIDkgNiAxNSI+PC9wb2x5bGluZT48L3N2Zz4=);\n}\n\n.iconsidebar-minimizebutton {\n    background-position: 98% center;\n    background-repeat: no-repeat;\n}\n\n.sidebar-cables-right\n{\n    right: 15px;\n    left: initial !important;\n}\n\n.sidebar-cables {\n    --sidebar-color: #07f78c;\n    --sidebar-width: 220px;\n    --sidebar-border-radius: 10px;\n    --sidebar-monospace-font-stack: \"SFMono-Regular\", Consolas, \"Liberation Mono\", Menlo, Courier, monospace;\n    --sidebar-hover-transition-time: .2s;\n\n    position: absolute;\n    top: 15px;\n    left: 15px;\n    border-radius: var(--sidebar-border-radius);\n    z-index: 100000;\n    color: #BBBBBB;\n    width: var(  --sidebar-width);\n    max-height: 100%;\n    box-sizing: border-box;\n    overflow-y: auto;\n    overflow-x: hidden;\n    font-size: 13px;\n    font-family: Arial;\n    line-height: 1em; /* prevent emojis from breaking height of the title */\n}\n\n.sidebar-cables::selection {\n    background-color: var(--sidebar-color);\n    color: #EEEEEE;\n}\n\n.sidebar-cables::-webkit-scrollbar {\n    background-color: transparent;\n    --cables-scrollbar-width: 8px;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables::-webkit-scrollbar-track {\n    background-color: transparent;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables::-webkit-scrollbar-thumb {\n    background-color: #333333;\n    border-radius: 4px;\n    width: var(--cables-scrollbar-width);\n}\n\n.sidebar-cables--closed {\n    width: auto;\n}\n\n.sidebar__close-button {\n    background-color: #222;\n    /*-webkit-user-select: none;  */\n    /*-moz-user-select: none;     */\n    /*-ms-user-select: none;      */\n    /*user-select: none;          */\n    /*transition: background-color var(--sidebar-hover-transition-time);*/\n    /*color: #CCCCCC;*/\n    height: 2px;\n    /*border-bottom:20px solid #222;*/\n\n    /*box-sizing: border-box;*/\n    /*padding-top: 2px;*/\n    /*text-align: center;*/\n    /*cursor: pointer;*/\n    /*border-radius: 0 0 var(--sidebar-border-radius) var(--sidebar-border-radius);*/\n    /*opacity: 1.0;*/\n    /*transition: opacity 0.3s;*/\n    /*overflow: hidden;*/\n}\n\n.sidebar__close-button-icon {\n    display: inline-block;\n    /*opacity: 0;*/\n    width: 20px;\n    height: 20px;\n    /*position: relative;*/\n    /*top: -1px;*/\n\n\n}\n\n.sidebar--closed {\n    width: auto;\n    margin-right: 20px;\n}\n\n.sidebar--closed .sidebar__close-button {\n    margin-top: 8px;\n    margin-left: 8px;\n    padding:10px;\n\n    height: 25px;\n    width:25px;\n    border-radius: 50%;\n    cursor: pointer;\n    opacity: 0.3;\n    background-repeat: no-repeat;\n    background-position: center center;\n    transform:rotate(180deg);\n}\n\n.sidebar--closed .sidebar__group\n{\n    display:none;\n\n}\n.sidebar--closed .sidebar__close-button-icon {\n    background-position: 0px 0px;\n}\n\n.sidebar__close-button:hover {\n    background-color: #111111;\n    opacity: 1.0 !important;\n}\n\n/*\n * SIDEBAR ITEMS\n */\n\n.sidebar__items {\n    /* max-height: 1000px; */\n    /* transition: max-height 0.5;*/\n    background-color: #222;\n    padding-bottom: 20px;\n}\n\n.sidebar--closed .sidebar__items {\n    /* max-height: 0; */\n    height: 0;\n    display: none;\n    pointer-interactions: none;\n}\n\n.sidebar__item__right {\n    float: right;\n}\n\n/*\n * SIDEBAR GROUP\n */\n\n.sidebar__group {\n    /*background-color: #1A1A1A;*/\n    overflow: hidden;\n    box-sizing: border-box;\n    animate: height;\n    /*background-color: #151515;*/\n    /* max-height: 1000px; */\n    /* transition: max-height 0.5s; */\n--sidebar-group-header-height: 33px;\n}\n\n.sidebar__group-items\n{\n    padding-top: 15px;\n    padding-bottom: 15px;\n}\n\n.sidebar__group--closed {\n    /* max-height: 13px; */\n    height: var(--sidebar-group-header-height);\n}\n\n.sidebar__group-header {\n    box-sizing: border-box;\n    color: #EEEEEE;\n    background-color: #151515;\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n\n    /*height: 100%;//var(--sidebar-group-header-height);*/\n\n    padding-top: 7px;\n    text-transform: uppercase;\n    letter-spacing: 0.08em;\n    cursor: pointer;\n    /*transition: background-color var(--sidebar-hover-transition-time);*/\n    position: relative;\n}\n\n.sidebar__group-header:hover {\n  background-color: #111111;\n}\n\n.sidebar__group-header-title {\n  /*float: left;*/\n  overflow: hidden;\n  padding: 0 15px;\n  padding-top:5px;\n  padding-bottom:10px;\n  font-weight:bold;\n}\n\n.sidebar__group-header-undo {\n    float: right;\n    overflow: hidden;\n    padding-right: 15px;\n    padding-top:5px;\n    font-weight:bold;\n  }\n\n.sidebar__group-header-icon {\n    width: 17px;\n    height: 14px;\n    background-repeat: no-repeat;\n    display: inline-block;\n    position: absolute;\n    background-size: cover;\n\n    /* icon open */\n    /* feather icon: chevron up */\n    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tdXAiPjxwb2x5bGluZSBwb2ludHM9IjE4IDE1IDEyIDkgNiAxNSI+PC9wb2x5bGluZT48L3N2Zz4=);\n    top: 4px;\n    right: 5px;\n    opacity: 0.0;\n    transition: opacity 0.3;\n}\n\n.sidebar__group-header:hover .sidebar__group-header-icon {\n    opacity: 1.0;\n}\n\n/* icon closed */\n.sidebar__group--closed .sidebar__group-header-icon {\n    /* feather icon: chevron down */\n    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tZG93biI+PHBvbHlsaW5lIHBvaW50cz0iNiA5IDEyIDE1IDE4IDkiPjwvcG9seWxpbmU+PC9zdmc+);\n    top: 4px;\n    right: 5px;\n}\n\n/*\n * SIDEBAR ITEM\n */\n\n.sidebar__item\n{\n    box-sizing: border-box;\n    padding: 7px;\n    padding-left:15px;\n    padding-right:15px;\n\n    overflow: hidden;\n    position: relative;\n}\n\n.sidebar__item-label {\n    display: inline-block;\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    width: calc(50% - 7px);\n    margin-right: 7px;\n    margin-top: 2px;\n    text-overflow: ellipsis;\n    /* overflow: hidden; */\n}\n\n.sidebar__item-value-label {\n    font-family: var(--sidebar-monospace-font-stack);\n    display: inline-block;\n    text-overflow: ellipsis;\n    overflow: hidden;\n    white-space: nowrap;\n    max-width: 60%;\n}\n\n.sidebar__item-value-label::selection {\n    background-color: var(--sidebar-color);\n    color: #EEEEEE;\n}\n\n.sidebar__item + .sidebar__item,\n.sidebar__item + .sidebar__group,\n.sidebar__group + .sidebar__item,\n.sidebar__group + .sidebar__group {\n    /*border-top: 1px solid #272727;*/\n}\n\n/*\n * SIDEBAR ITEM TOGGLE\n */\n\n/*.sidebar__toggle */\n.icon_toggle{\n    cursor: pointer;\n}\n\n.sidebar__toggle-input {\n    --sidebar-toggle-input-color: #CCCCCC;\n    --sidebar-toggle-input-color-hover: #EEEEEE;\n    --sidebar-toggle-input-border-size: 2px;\n    display: inline;\n    float: right;\n    box-sizing: border-box;\n    border-radius: 50%;\n    cursor: pointer;\n    --toggle-size: 11px;\n    margin-top: 2px;\n    background-color: transparent !important;\n    border: var(--sidebar-toggle-input-border-size) solid var(--sidebar-toggle-input-color);\n    width: var(--toggle-size);\n    height: var(--toggle-size);\n    transition: background-color var(--sidebar-hover-transition-time);\n    transition: border-color var(--sidebar-hover-transition-time);\n}\n.sidebar__toggle:hover .sidebar__toggle-input {\n    border-color: var(--sidebar-toggle-input-color-hover);\n}\n\n.sidebar__toggle .sidebar__item-value-label {\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    max-width: calc(50% - 12px);\n}\n.sidebar__toggle-input::after { clear: both; }\n\n.sidebar__toggle--active .icon_toggle\n{\n\n    background-image: url(data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjE1cHgiIHdpZHRoPSIzMHB4IiBmaWxsPSIjMDZmNzhiIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgZW5hYmxlLWJhY2tncm91bmQ9Im5ldyAwIDAgMTAwIDEwMCIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZmlsbD0iIzA2Zjc4YiIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCBjMTIuNjUsMCwyMy0xMC4zNSwyMy0yM2wwLDBjMC0xMi42NS0xMC4zNS0yMy0yMy0yM0gzMHogTTcwLDY3Yy05LjM4OSwwLTE3LTcuNjEtMTctMTdzNy42MTEtMTcsMTctMTdzMTcsNy42MSwxNywxNyAgICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PC9nPjwvZz48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMweiBNNzAsNjdjLTkuMzg5LDAtMTctNy42MS0xNy0xN3M3LjYxMS0xNywxNy0xN3MxNyw3LjYxLDE3LDE3ICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48cGF0aCBmaWxsPSIjMDZmNzhiIiBzdHJva2U9IiMwNmY3OGIiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNNyw1MGMwLDEyLjY1LDEwLjM1LDIzLDIzLDIzaDQwICAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMwQzE3LjM1LDI3LDcsMzcuMzUsNyw1MEw3LDUweiI+PC9wYXRoPjwvZz48Y2lyY2xlIGRpc3BsYXk9ImlubGluZSIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGZpbGw9IiMwNmY3OGIiIHN0cm9rZT0iIzA2Zjc4YiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbWl0ZXJsaW1pdD0iMTAiIGN4PSI3MCIgY3k9IjUwIiByPSIxNyI+PC9jaXJjbGU+PC9nPjxnIGRpc3BsYXk9Im5vbmUiPjxwYXRoIGRpc3BsYXk9ImlubGluZSIgZD0iTTcwLDI1SDMwQzE2LjIxNSwyNSw1LDM2LjIxNSw1LDUwczExLjIxNSwyNSwyNSwyNWg0MGMxMy43ODUsMCwyNS0xMS4yMTUsMjUtMjVTODMuNzg1LDI1LDcwLDI1eiBNNzAsNzEgICBIMzBDMTguNDIxLDcxLDksNjEuNTc5LDksNTBzOS40MjEtMjEsMjEtMjFoNDBjMTEuNTc5LDAsMjEsOS40MjEsMjEsMjFTODEuNTc5LDcxLDcwLDcxeiBNNzAsMzFjLTEwLjQ3NywwLTE5LDguNTIzLTE5LDE5ICAgczguNTIzLDE5LDE5LDE5czE5LTguNTIzLDE5LTE5UzgwLjQ3NywzMSw3MCwzMXogTTcwLDY1Yy04LjI3MSwwLTE1LTYuNzI5LTE1LTE1czYuNzI5LTE1LDE1LTE1czE1LDYuNzI5LDE1LDE1Uzc4LjI3MSw2NSw3MCw2NXoiPjwvcGF0aD48L2c+PC9zdmc+);\n    opacity: 1;\n    transform: rotate(0deg);\n}\n\n\n.icon_toggle\n{\n    float: right;\n    width:40px;\n    height:18px;\n    background-image: url(data:image/svg+xml;base64,PHN2ZyBoZWlnaHQ9IjE1cHgiIHdpZHRoPSIzMHB4IiBmaWxsPSIjYWFhYWFhIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIHg9IjBweCIgeT0iMHB4IiB2aWV3Qm94PSIwIDAgMTAwIDEwMCIgZW5hYmxlLWJhY2tncm91bmQ9Im5ldyAwIDAgMTAwIDEwMCIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZmlsbD0iI2FhYWFhYSIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCBjMTIuNjUsMCwyMy0xMC4zNSwyMy0yM2wwLDBjMC0xMi42NS0xMC4zNS0yMy0yMy0yM0gzMHogTTcwLDY3Yy05LjM4OSwwLTE3LTcuNjEtMTctMTdzNy42MTEtMTcsMTctMTdzMTcsNy42MSwxNywxNyAgICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PC9nPjwvZz48Zz48cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTMwLDI3QzE3LjM1LDI3LDcsMzcuMzUsNyw1MGwwLDBjMCwxMi42NSwxMC4zNSwyMywyMywyM2g0MCAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMweiBNNzAsNjdjLTkuMzg5LDAtMTctNy42MS0xNy0xN3M3LjYxMS0xNywxNy0xN3MxNyw3LjYxLDE3LDE3ICAgUzc5LjM4OSw2Nyw3MCw2N3oiPjwvcGF0aD48L2c+PGcgZGlzcGxheT0ibm9uZSI+PGcgZGlzcGxheT0iaW5saW5lIj48cGF0aCBmaWxsPSIjYWFhYWFhIiBzdHJva2U9IiNhYWFhYWEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBkPSJNNyw1MGMwLDEyLjY1LDEwLjM1LDIzLDIzLDIzaDQwICAgIGMxMi42NSwwLDIzLTEwLjM1LDIzLTIzbDAsMGMwLTEyLjY1LTEwLjM1LTIzLTIzLTIzSDMwQzE3LjM1LDI3LDcsMzcuMzUsNyw1MEw3LDUweiI+PC9wYXRoPjwvZz48Y2lyY2xlIGRpc3BsYXk9ImlubGluZSIgZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGZpbGw9IiNhYWFhYWEiIHN0cm9rZT0iI2FhYWFhYSIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbWl0ZXJsaW1pdD0iMTAiIGN4PSI3MCIgY3k9IjUwIiByPSIxNyI+PC9jaXJjbGU+PC9nPjxnIGRpc3BsYXk9Im5vbmUiPjxwYXRoIGRpc3BsYXk9ImlubGluZSIgZD0iTTcwLDI1SDMwQzE2LjIxNSwyNSw1LDM2LjIxNSw1LDUwczExLjIxNSwyNSwyNSwyNWg0MGMxMy43ODUsMCwyNS0xMS4yMTUsMjUtMjVTODMuNzg1LDI1LDcwLDI1eiBNNzAsNzEgICBIMzBDMTguNDIxLDcxLDksNjEuNTc5LDksNTBzOS40MjEtMjEsMjEtMjFoNDBjMTEuNTc5LDAsMjEsOS40MjEsMjEsMjFTODEuNTc5LDcxLDcwLDcxeiBNNzAsMzFjLTEwLjQ3NywwLTE5LDguNTIzLTE5LDE5ICAgczguNTIzLDE5LDE5LDE5czE5LTguNTIzLDE5LTE5UzgwLjQ3NywzMSw3MCwzMXogTTcwLDY1Yy04LjI3MSwwLTE1LTYuNzI5LTE1LTE1czYuNzI5LTE1LDE1LTE1czE1LDYuNzI5LDE1LDE1Uzc4LjI3MSw2NSw3MCw2NXoiPjwvcGF0aD48L2c+PC9zdmc+);\n    background-size: 50px 37px;\n    background-position: -6px -10px;\n    transform: rotate(180deg);\n    opacity: 0.4;\n}\n\n\n\n/*.sidebar__toggle--active .sidebar__toggle-input {*/\n/*    transition: background-color var(--sidebar-hover-transition-time);*/\n/*    background-color: var(--sidebar-toggle-input-color);*/\n/*}*/\n/*.sidebar__toggle--active .sidebar__toggle-input:hover*/\n/*{*/\n/*    background-color: var(--sidebar-toggle-input-color-hover);*/\n/*    border-color: var(--sidebar-toggle-input-color-hover);*/\n/*    transition: background-color var(--sidebar-hover-transition-time);*/\n/*    transition: border-color var(--sidebar-hover-transition-time);*/\n/*}*/\n\n/*\n * SIDEBAR ITEM BUTTON\n */\n\n.sidebar__button {}\n\n.sidebar__button-input {\n    -webkit-user-select: none;  /* Chrome all / Safari all */\n    -moz-user-select: none;     /* Firefox all */\n    -ms-user-select: none;      /* IE 10+ */\n    user-select: none;          /* Likely future */\n    min-height: 24px;\n    background-color: transparent;\n    color: #CCCCCC;\n    box-sizing: border-box;\n    padding-top: 3px;\n    text-align: center;\n    border-radius: 125px;\n    border:2px solid #555;\n    cursor: pointer;\n    padding-bottom: 3px;\n}\n\n.sidebar__button-input.plus, .sidebar__button-input.minus {\n    display: inline-block;\n    min-width: 20px;\n}\n\n.sidebar__button-input:hover {\n  background-color: #333;\n  border:2px solid var(--sidebar-color);\n}\n\n/*\n * VALUE DISPLAY (shows a value)\n */\n\n.sidebar__value-display {}\n\n/*\n * SLIDER\n */\n\n.sidebar__slider {\n    --sidebar-slider-input-height: 3px;\n}\n\n.sidebar__slider-input-wrapper {\n    width: 100%;\n\n    margin-top: 8px;\n    position: relative;\n}\n\n.sidebar__slider-input {\n    -webkit-appearance: none;\n    appearance: none;\n    margin: 0;\n    width: 100%;\n    height: var(--sidebar-slider-input-height);\n    background: #555;\n    cursor: pointer;\n    outline: 0;\n\n    -webkit-transition: .2s;\n    transition: background-color .2s;\n    border: none;\n}\n\n.sidebar__slider-input:focus, .sidebar__slider-input:hover {\n    border: none;\n}\n\n.sidebar__slider-input-active-track {\n    user-select: none;\n    position: absolute;\n    z-index: 11;\n    top: 0;\n    left: 0;\n    background-color: var(--sidebar-color);\n    pointer-events: none;\n    height: var(--sidebar-slider-input-height);\n    max-width: 100%;\n}\n\n/* Mouse-over effects */\n.sidebar__slider-input:hover {\n    /*background-color: #444444;*/\n}\n\n/*.sidebar__slider-input::-webkit-progress-value {*/\n/*    background-color: green;*/\n/*    color:green;*/\n\n/*    }*/\n\n/* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */\n\n.sidebar__slider-input::-moz-range-thumb\n{\n    position: absolute;\n    height: 15px;\n    width: 15px;\n    z-index: 900 !important;\n    border-radius: 20px !important;\n    cursor: pointer;\n    background: var(--sidebar-color) !important;\n    user-select: none;\n\n}\n\n.sidebar__slider-input::-webkit-slider-thumb\n{\n    position: relative;\n    appearance: none;\n    -webkit-appearance: none;\n    user-select: none;\n    height: 15px;\n    width: 15px;\n    display: block;\n    z-index: 900 !important;\n    border: 0;\n    border-radius: 20px !important;\n    cursor: pointer;\n    background: #777 !important;\n}\n\n.sidebar__slider-input:hover ::-webkit-slider-thumb {\n    background-color: #EEEEEE !important;\n}\n\n/*.sidebar__slider-input::-moz-range-thumb {*/\n\n/*    width: 0 !important;*/\n/*    height: var(--sidebar-slider-input-height);*/\n/*    background: #EEEEEE;*/\n/*    cursor: pointer;*/\n/*    border-radius: 0 !important;*/\n/*    border: none;*/\n/*    outline: 0;*/\n/*    z-index: 100 !important;*/\n/*}*/\n\n.sidebar__slider-input::-moz-range-track {\n    background-color: transparent;\n    z-index: 11;\n}\n\n/*.sidebar__slider-input::-moz-range-thumb:hover {*/\n  /* background-color: #EEEEEE; */\n/*}*/\n\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input-active-track {*/\n/*    background-color: #EEEEEE;*/\n/*}*/\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input::-moz-range-thumb {*/\n/*    background-color: #fff !important;*/\n/*}*/\n\n/*.sidebar__slider-input-wrapper:hover .sidebar__slider-input::-webkit-slider-thumb {*/\n/*    background-color: #EEEEEE;*/\n/*}*/\n\n.sidebar__slider input[type=text],\n.sidebar__slider input[type=paddword]\n{\n    box-sizing: border-box;\n    /*background-color: #333333;*/\n    text-align: right;\n    color: #BBBBBB;\n    display: inline-block;\n    background-color: transparent !important;\n\n    width: 40%;\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n}\n\n.sidebar__slider input[type=text]:active,\n.sidebar__slider input[type=text]:focus,\n.sidebar__slider input[type=text]:hover\n.sidebar__slider input[type=password]:active,\n.sidebar__slider input[type=password]:focus,\n.sidebar__slider input[type=password]:hover\n{\n\n    color: #EEEEEE;\n}\n\n/*\n * TEXT / DESCRIPTION\n */\n\n.sidebar__text .sidebar__item-label {\n    width: auto;\n    display: block;\n    max-height: none;\n    margin-right: 0;\n    line-height: 1.1em;\n}\n\n/*\n * SIDEBAR INPUT\n */\n.sidebar__text-input textarea,\n.sidebar__text-input input[type=text],\n.sidebar__text-input input[type=password] {\n    box-sizing: border-box;\n    background-color: #333333;\n    color: #BBBBBB;\n    display: inline-block;\n    width: 50%;\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    border:1px solid #666;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n}\n\n.sidebar__text-input textarea:focus::placeholder {\n  color: transparent;\n}\n\n.sidebar__color-picker .sidebar__item-label\n{\n    width:45%;\n}\n\n.sidebar__text-input textarea,\n.sidebar__text-input input[type=text]:active,\n.sidebar__text-input input[type=text]:focus,\n.sidebar__text-input input[type=text]:hover,\n.sidebar__text-input input[type=password]:active,\n.sidebar__text-input input[type=password]:focus,\n.sidebar__text-input input[type=password]:hover {\n    background-color: transparent;\n    color: #EEEEEE;\n}\n\n.sidebar__text-input textarea\n{\n    margin-top:10px;\n    height:60px;\n    width:100%;\n}\n\n/*\n * SIDEBAR SELECT\n */\n\n\n\n .sidebar__select {}\n .sidebar__select-select {\n    color: #BBBBBB;\n    /*-webkit-appearance: none;*/\n    /*-moz-appearance: none;*/\n    appearance: none;\n    /*box-sizing: border-box;*/\n    width: 50%;\n    /*height: 20px;*/\n    background-color: #333333;\n    /*background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4ODg4ODgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0iZmVhdGhlciBmZWF0aGVyLWNoZXZyb24tZG93biI+PHBvbHlsaW5lIHBvaW50cz0iNiA5IDEyIDE1IDE4IDkiPjwvcG9seWxpbmU+PC9zdmc+);*/\n    background-repeat: no-repeat;\n    background-position: right center;\n    background-size: 16px 16px;\n    margin: 0;\n    /*padding: 0 2 2 6px;*/\n    border-radius: 5px;\n    border: 1px solid #777;\n    background-color: #444;\n    cursor: pointer;\n    outline: none;\n    padding-left: 5px;\n\n }\n\n.sidebar__select-select:hover,\n.sidebar__select-select:active,\n.sidebar__select-select:inactive {\n    background-color: #444444;\n    color: #EEEEEE;\n}\n\n/*.sidebar__select-select option*/\n/*{*/\n/*    background-color: #444444;*/\n/*    color: #bbb;*/\n/*}*/\n\n.sidebar__select-select option:checked\n{\n    background-color: #000;\n    color: #FFF;\n}\n\n\n/*\n * COLOR PICKER\n */\n\n\n .sidebar__color-picker input[type=text] {\n    box-sizing: border-box;\n    background-color: #333333;\n    color: #BBBBBB;\n    display: inline-block;\n    width: calc(50% - 21px); /* 50% minus space of picker circle */\n    height: 18px;\n    outline: none;\n    border: none;\n    border-radius: 0;\n    padding: 0 0 0 4px !important;\n    margin: 0;\n    margin-right: 7px;\n}\n\n.sidebar__color-picker input[type=text]:active,\n.sidebar__color-picker input[type=text]:focus,\n.sidebar__color-picker input[type=text]:hover {\n    background-color: #444444;\n    color: #EEEEEE;\n}\n\ndiv.sidebar__color-picker-color-input,\n.sidebar__color-picker input[type=color],\n.sidebar__palette-picker input[type=color] {\n    display: inline-block;\n    border-radius: 100%;\n    height: 14px;\n    width: 14px;\n\n    padding: 0;\n    border: none;\n    /*border:2px solid red;*/\n    border-color: transparent;\n    outline: none;\n    background: none;\n    appearance: none;\n    -moz-appearance: none;\n    -webkit-appearance: none;\n    cursor: pointer;\n    position: relative;\n    top: 3px;\n}\n.sidebar__color-picker input[type=color]:focus,\n.sidebar__palette-picker input[type=color]:focus {\n    outline: none;\n}\n.sidebar__color-picker input[type=color]::-moz-color-swatch,\n.sidebar__palette-picker input[type=color]::-moz-color-swatch {\n    border: none;\n}\n.sidebar__color-picker input[type=color]::-webkit-color-swatch-wrapper,\n.sidebar__palette-picker input[type=color]::-webkit-color-swatch-wrapper {\n    padding: 0;\n}\n.sidebar__color-picker input[type=color]::-webkit-color-swatch,\n.sidebar__palette-picker input[type=color]::-webkit-color-swatch {\n    border: none;\n    border-radius: 100%;\n}\n\n/*\n * Palette Picker\n */\n.sidebar__palette-picker .sidebar__palette-picker-color-input.first {\n    margin-left: 0;\n}\n.sidebar__palette-picker .sidebar__palette-picker-color-input.last {\n    margin-right: 0;\n}\n.sidebar__palette-picker .sidebar__palette-picker-color-input {\n    margin: 0 4px;\n}\n\n.sidebar__palette-picker .circlebutton {\n    width: 14px;\n    height: 14px;\n    border-radius: 1em;\n    display: inline-block;\n    top: 3px;\n    position: relative;\n}\n\n/*\n * Preset\n */\n.sidebar__item-presets-preset\n{\n    padding:4px;\n    cursor:pointer;\n    padding-left:8px;\n    padding-right:8px;\n    margin-right:4px;\n    background-color:#444;\n}\n\n.sidebar__item-presets-preset:hover\n{\n    background-color:#666;\n}\n\n.sidebar__greyout\n{\n    background: #222;\n    opacity: 0.8;\n    width: 100%;\n    height: 100%;\n    position: absolute;\n    z-index: 1000;\n    right: 0;\n    top: 0;\n}\n\n.sidebar_tabs\n{\n    background-color: #151515;\n    padding-bottom: 0px;\n}\n\n.sidebar_switchs\n{\n    float: right;\n}\n\n.sidebar_tab\n{\n    float:left;\n    background-color: #151515;\n    border-bottom:1px solid transparent;\n    padding-right:7px;\n    padding-left:7px;\n    padding-bottom: 5px;\n    padding-top: 5px;\n    cursor:pointer;\n}\n\n.sidebar_tab_active\n{\n    background-color: #272727;\n    color:white;\n}\n\n.sidebar_tab:hover\n{\n    border-bottom:1px solid #777;\n    color:white;\n}\n\n\n.sidebar_switch\n{\n    float:left;\n    background-color: #444;\n    padding-right:7px;\n    padding-left:7px;\n    padding-bottom: 5px;\n    padding-top: 5px;\n    cursor:pointer;\n}\n\n.sidebar_switch:last-child\n{\n    border-top-right-radius: 7px;\n    border-bottom-right-radius: 7px;\n}\n\n.sidebar_switch:first-child\n{\n    border-top-left-radius: 7px;\n    border-bottom-left-radius: 7px;\n}\n\n\n.sidebar_switch_active\n{\n    background-color: #999;\n    color:white;\n}\n\n.sidebar_switch:hover\n{\n    color:white;\n}\n\n",};
 // vars
 const CSS_ELEMENT_CLASS = "cables-sidebar-style"; /* class for the style element to be generated */
 const CSS_ELEMENT_DYNAMIC_CLASS = "cables-sidebar-dynamic-style"; /* things which can be set via op-port, but not attached to the elements themselves, e.g. minimized opacity */
@@ -1153,7 +622,7 @@ const minimizedOpacityPort = op.inValueSlider("Minimized Opacity", 0.5);
 const undoButtonPort = op.inValueBool("Show undo button", false);
 const inMinimize = op.inValueBool("Show Minimize", false);
 
-const inTitle = op.inString("Title", "Sidebar");
+const inTitle = op.inString("Title", "");
 const side = op.inValueBool("Side");
 
 // outputs
@@ -1597,13 +1066,12 @@ op.dynOut = op.addOutPort(new CABLES.Port(op, "create port out", CABLES.OP_PORT_
 const dataStr = op.addInPort(new CABLES.Port(op, "dataStr", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
 op.patchId = op.addInPort(new CABLES.Port(op, "patchId", CABLES.OP_PORT_TYPE_VALUE, { "display": "readonly" }));
 
-if (CABLES.UI && CABLES.sandbox.isDevEnv())
-{
-    const inMakeBp = op.inTriggerButton("Create Blueprint");
-    inMakeBp.setUiAttribs({ "hidePort": true });
-
-    inMakeBp.onTriggered = makeBlueprint;
-}
+// if (CABLES.UI && CABLES.sandbox.isDevEnv())
+// {
+//     const inMakeBp = op.inTriggerButton("Create Blueprint");
+//     inMakeBp.setUiAttribs({ "hidePort": true });
+//     inMakeBp.onTriggered = makeBlueprint;
+// }
 
 dataStr.setUiAttribs({ "hideParam": true });
 op.patchId.setUiAttribs({ "hideParam": true });
@@ -2109,11 +1577,11 @@ CABLES.OPS["321419d9-69c7-4310-a327-93d310bc2b8e"]={f:Ops.Vars.VarGetObject_v2,o
 
 // **************************************************************
 // 
-// Ops.Cables.CustomOp_v2
+// Ops.Deprecated.Cables.CustomOp_v2
 // 
 // **************************************************************
 
-Ops.Cables.CustomOp_v2 = function()
+Ops.Deprecated.Cables.CustomOp_v2 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -2320,7 +1788,7 @@ const execute = () =>
                     port.links.forEach((link) =>
                     {
                         const linkInfo = {
-                            "op": link.portOut.parent,
+                            "op": link.portOut.op,
                             "portName": link.portOut.name
                         };
                         oldLinksIn[port.name].push(linkInfo);
@@ -2334,7 +1802,7 @@ const execute = () =>
                 port.links.forEach((link) =>
                 {
                     const linkInfo = {
-                        "op": link.portIn.parent,
+                        "op": link.portIn.op,
                         "portName": link.portIn.name
                     };
                     oldLinksOut[port.name].push(linkInfo);
@@ -2468,7 +1936,7 @@ function savePortData()
             port.links.forEach((link) =>
             {
                 const linkData = {
-                    "objOut": link.portOut.parent.id,
+                    "objOut": link.portOut.op.id,
                     "portOut": link.portOut.name
                 };
                 portData.links.push(linkData);
@@ -2494,7 +1962,7 @@ function savePortData()
             port.links.forEach((link) =>
             {
                 const linkData = {
-                    "objIn": link.portIn.parent.id,
+                    "objIn": link.portIn.op.id,
                     "portIn": link.portIn.name
                 };
                 portData.links.push(linkData);
@@ -2608,8 +2076,8 @@ const restorePorts = () =>
 
 };
 
-Ops.Cables.CustomOp_v2.prototype = new CABLES.Op();
-CABLES.OPS["19166505-2619-4012-ad85-d2de60f27274"]={f:Ops.Cables.CustomOp_v2,objName:"Ops.Cables.CustomOp_v2"};
+Ops.Deprecated.Cables.CustomOp_v2.prototype = new CABLES.Op();
+CABLES.OPS["19166505-2619-4012-ad85-d2de60f27274"]={f:Ops.Deprecated.Cables.CustomOp_v2,objName:"Ops.Deprecated.Cables.CustomOp_v2"};
 
 
 
@@ -2926,7 +2394,8 @@ function update()
 {
     if (CABLES.UI)
     {
-        gui.setStateUnsaved({ "op": op });
+        // gui.setStateUnsaved({ "op": op });
+        gui.savedState.setUnSaved("areaOp");
         op.uiAttr(
             {
                 "comment_title": inTitle.get() || " "
@@ -3760,120 +3229,6 @@ CABLES.OPS["6afea9f4-728d-4f3c-9e75-62ddc1448bf0"]={f:Ops.String.StringCompose_v
 
 // **************************************************************
 // 
-// Ops.Html.CSS_v2
-// 
-// **************************************************************
-
-Ops.Html.CSS_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const code = op.inStringEditor("css code");
-
-code.setUiAttribs(
-    {
-        "editorSyntax": "css",
-        "ignoreBigPort": true
-    });
-
-let styleEle = null;
-const eleId = "css_" + CABLES.uuid();
-
-code.onChange = update;
-update();
-
-function getCssContent()
-{
-    let css = code.get();
-    if (css)
-    {
-        let patchId = null;
-        if (op.storage && op.storage.blueprint && op.storage.blueprint.patchId)
-        {
-            patchId = op.storage.blueprint.patchId;
-        }
-        css = css.replace(new RegExp("{{ASSETPATH}}", "g"), op.patch.getAssetPath(patchId));
-    }
-    return css;
-}
-
-function update()
-{
-    styleEle = document.getElementById(eleId);
-
-    if (styleEle)
-    {
-        styleEle.textContent = getCssContent();
-    }
-    else
-    {
-        styleEle = document.createElement("style");
-        styleEle.type = "text/css";
-        styleEle.id = eleId;
-        styleEle.textContent = attachments.css_spinner;
-
-        const head = document.getElementsByTagName("body")[0];
-        head.appendChild(styleEle);
-    }
-}
-
-op.onDelete = function ()
-{
-    styleEle = document.getElementById(eleId);
-    if (styleEle)styleEle.remove();
-};
-
-
-};
-
-Ops.Html.CSS_v2.prototype = new CABLES.Op();
-CABLES.OPS["a56d3edd-06ad-44ed-9810-dbf714600c67"]={f:Ops.Html.CSS_v2,objName:"Ops.Html.CSS_v2"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.String.StringEditor
-// 
-// **************************************************************
-
-Ops.String.StringEditor = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    v = op.inStringEditor("value", ""),
-    syntax = op.inValueSelect("Syntax", ["text", "glsl", "css", "html", "xml", "json", "javascript", "inline-css", "sql"], "text"),
-    result = op.outString("Result");
-
-syntax.onChange = updateSyntax;
-
-function updateSyntax()
-{
-    let s = syntax.get();
-    if (s == "javascript")s = "js";
-    v.setUiAttribs({ "editorSyntax": s });
-}
-
-v.onChange = function ()
-{
-    result.set(v.get());
-};
-
-
-};
-
-Ops.String.StringEditor.prototype = new CABLES.Op();
-CABLES.OPS["6468b7c1-f63e-4db4-b809-4b203d27ead3"]={f:Ops.String.StringEditor,objName:"Ops.String.StringEditor"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Devices.Mouse.Mouse_v3
 // 
 // **************************************************************
@@ -3884,7 +3239,7 @@ CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    inCoords = op.inSwitch("Coordinates", ["Pixel", "Pixel Display", "-1 to 1", "0 to 1"], "-1 to 1"),
+    inCoords = op.inSwitch("Coordinates", ["-1 to 1", "Pixel Display", "Pixel", "0 to 1"], "-1 to 1"),
     area = op.inValueSelect("Area", ["Canvas", "Document", "Parent Element", "Canvas Area"], "Canvas"),
     flipY = op.inValueBool("flip y", true),
     rightClickPrevDef = op.inBool("right click prevent default", true),
@@ -3956,6 +3311,8 @@ function setValue(x, y)
         {
             let xx = (x / w * 2.0 - 1.0);
             let yy = (y / h * 2.0 - 1.0);
+            xx = CABLES.clamp(xx, -1, 1);
+            yy = CABLES.clamp(yy, -1, 1);
 
             outMouseX.set(xx);
             outMouseY.set(yy);
@@ -3965,6 +3322,9 @@ function setValue(x, y)
             let xx = x / w;
             let yy = y / h;
 
+            xx = CABLES.clamp(xx, 0, 1);
+            yy = CABLES.clamp(yy, 0, 1);
+
             outMouseX.set(xx);
             outMouseY.set(yy);
         }
@@ -3973,18 +3333,14 @@ function setValue(x, y)
 
 function checkHovering(e)
 {
-    if (area.get() === "Canvas Area")
-    {
-        const r = sizeElement.getBoundingClientRect();
+    const r = sizeElement.getBoundingClientRect();
 
-        return (
-            e.clientX > r.left &&
-            e.clientX < r.left + r.width &&
-            e.clientY > r.top &&
-            e.clientY < r.top + r.height
-        );
-    }
-    return true;
+    return (
+        e.clientX > r.left &&
+        e.clientX < r.left + r.width &&
+        e.clientY > r.top &&
+        e.clientY < r.top + r.height
+    );
 }
 
 touchscreen.onChange = function ()
@@ -4004,7 +3360,7 @@ function updateCoordNormalizing()
     if (inCoords.get() == "Pixel")normalize = 0;
     else if (inCoords.get() == "-1 to 1")normalize = 1;
     else if (inCoords.get() == "0 to 1")normalize = 2;
-    else if (inCoords.get() == "Pixel CSS")normalize = 3;
+    else if (inCoords.get() == "Pixel Display")normalize = 3;
 }
 
 function onMouseEnter(e)
@@ -4185,38 +3541,6 @@ CABLES.OPS["385197e1-8b34-4d1c-897f-d1386d99e3b3"]={f:Ops.Boolean.TriggerChanged
 
 // **************************************************************
 // 
-// Ops.String.NumberToString_v2
-// 
-// **************************************************************
-
-Ops.String.NumberToString_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    val = op.inValue("Number"),
-    result = op.outString("Result");
-
-val.onChange = update;
-update();
-
-function update()
-{
-    result.set(String(val.get() || 0));
-}
-
-
-};
-
-Ops.String.NumberToString_v2.prototype = new CABLES.Op();
-CABLES.OPS["5c6d375a-82db-4366-8013-93f56b4061a9"]={f:Ops.String.NumberToString_v2,objName:"Ops.String.NumberToString_v2"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Boolean.And
 // 
 // **************************************************************
@@ -4250,11 +3574,11 @@ CABLES.OPS["c26e6ce0-8047-44bb-9bc8-5a4f911ed8ad"]={f:Ops.Boolean.And,objName:"O
 
 // **************************************************************
 // 
-// Ops.Trigger.SetNumberOnTrigger
+// Ops.Trigger.TriggerNumber
 // 
 // **************************************************************
 
-Ops.Trigger.SetNumberOnTrigger = function()
+Ops.Trigger.TriggerNumber = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -4276,8 +3600,8 @@ setValuePort.onTriggered = function ()
 
 };
 
-Ops.Trigger.SetNumberOnTrigger.prototype = new CABLES.Op();
-CABLES.OPS["9989b1c0-1073-4d5f-bfa0-36dd98b66e27"]={f:Ops.Trigger.SetNumberOnTrigger,objName:"Ops.Trigger.SetNumberOnTrigger"};
+Ops.Trigger.TriggerNumber.prototype = new CABLES.Op();
+CABLES.OPS["9989b1c0-1073-4d5f-bfa0-36dd98b66e27"]={f:Ops.Trigger.TriggerNumber,objName:"Ops.Trigger.TriggerNumber"};
 
 
 
@@ -4600,14 +3924,13 @@ CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
 const
-    v=op.inString("value",""),
-    result=op.outString("String");
+    v = op.inString("value", ""),
+    result = op.outString("String");
 
-v.onChange=function()
+v.onChange = function ()
 {
     result.set(v.get());
 };
-
 
 
 };
@@ -6123,11 +5446,11 @@ CABLES.OPS["f0c8e4de-8900-47a1-bc8c-407370907128"]={f:Ops.User.rambodc.BeautifyJ
 
 // **************************************************************
 // 
-// Ops.Trigger.TriggerNumber
+// Ops.Trigger.NumberByTrigger
 // 
 // **************************************************************
 
-Ops.Trigger.TriggerNumber = function()
+Ops.Trigger.NumberByTrigger = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -6158,8 +5481,8 @@ exe7.onTriggered = function () { number.set(7); outTrig.trigger(); };
 
 };
 
-Ops.Trigger.TriggerNumber.prototype = new CABLES.Op();
-CABLES.OPS["43ed1123-1312-4383-b843-27b8ec540c09"]={f:Ops.Trigger.TriggerNumber,objName:"Ops.Trigger.TriggerNumber"};
+Ops.Trigger.NumberByTrigger.prototype = new CABLES.Op();
+CABLES.OPS["43ed1123-1312-4383-b843-27b8ec540c09"]={f:Ops.Trigger.NumberByTrigger,objName:"Ops.Trigger.NumberByTrigger"};
 
 
 
@@ -6454,11 +5777,11 @@ CABLES.OPS["ff2092f0-e117-4bb7-9750-d2a60dd89814"]={f:Ops.User.rambodc.Button_Gr
 
 // **************************************************************
 // 
-// Ops.Boolean.TriggerBoolean
+// Ops.Boolean.BoolByTrigger
 // 
 // **************************************************************
 
-Ops.Boolean.TriggerBoolean = function()
+Ops.Boolean.BoolByTrigger = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
@@ -6481,8 +5804,8 @@ inTriggerFalse.onTriggered = function ()
 
 };
 
-Ops.Boolean.TriggerBoolean.prototype = new CABLES.Op();
-CABLES.OPS["31f65abe-9d6c-4ba6-a291-ef2de41d2087"]={f:Ops.Boolean.TriggerBoolean,objName:"Ops.Boolean.TriggerBoolean"};
+Ops.Boolean.BoolByTrigger.prototype = new CABLES.Op();
+CABLES.OPS["31f65abe-9d6c-4ba6-a291-ef2de41d2087"]={f:Ops.Boolean.BoolByTrigger,objName:"Ops.Boolean.BoolByTrigger"};
 
 
 
@@ -7871,9 +7194,14 @@ function onKeyUp(e)
 {
     if (e.keyCode == learnedKeyCode.get())
     {
-        // op.log("Key released, key code: " + e.keyCode);
-        onRelease.trigger();
-        outPressed.set(false);
+        let doTrigger = true;
+        if (modKey.get() == "alt" && e.altKey != true) doTrigger = false;
+
+        if (doTrigger)
+        {
+            onRelease.trigger();
+            outPressed.set(false);
+        }
     }
 }
 
@@ -7965,6 +7293,45 @@ addCanvasListener();
 
 Ops.Devices.Keyboard.KeyPressLearn.prototype = new CABLES.Op();
 CABLES.OPS["f069c0db-4051-4eae-989e-6ef7953787fd"]={f:Ops.Devices.Keyboard.KeyPressLearn,objName:"Ops.Devices.Keyboard.KeyPressLearn"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.StringEditor
+// 
+// **************************************************************
+
+Ops.String.StringEditor = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    v = op.inStringEditor("value", ""),
+    syntax = op.inValueSelect("Syntax", ["text", "glsl", "css", "html", "xml", "json", "javascript", "inline-css", "sql"], "text"),
+    result = op.outString("Result");
+
+syntax.onChange = updateSyntax;
+
+function updateSyntax()
+{
+    let s = syntax.get();
+    if (s == "javascript")s = "js";
+    v.setUiAttribs({ "editorSyntax": s });
+}
+
+v.onChange = function ()
+{
+    result.set(v.get());
+};
+
+
+};
+
+Ops.String.StringEditor.prototype = new CABLES.Op();
+CABLES.OPS["6468b7c1-f63e-4db4-b809-4b203d27ead3"]={f:Ops.String.StringEditor,objName:"Ops.String.StringEditor"};
 
 
 
@@ -8583,6 +7950,149 @@ CABLES.OPS["ea7da1f4-a432-4c33-8de6-c0b40910262a"]={f:Ops.User.rambodc.Veriff_in
 
 // **************************************************************
 // 
+// Ops.Gl.Matrix.Transform
+// 
+// **************************************************************
+
+Ops.Gl.Matrix.Transform = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    render = op.inTrigger("render"),
+    posX = op.inValue("posX", 0),
+    posY = op.inValue("posY", 0),
+    posZ = op.inValue("posZ", 0),
+    scale = op.inValue("scale", 1),
+    rotX = op.inValue("rotX", 0),
+    rotY = op.inValue("rotY", 0),
+    rotZ = op.inValue("rotZ", 0),
+    trigger = op.outTrigger("trigger");
+
+op.setPortGroup("Rotation", [rotX, rotY, rotZ]);
+op.setPortGroup("Position", [posX, posY, posZ]);
+op.setPortGroup("Scale", [scale]);
+op.setUiAxisPorts(posX, posY, posZ);
+
+op.toWorkPortsNeedToBeLinked(render, trigger);
+
+const vPos = vec3.create();
+const vScale = vec3.create();
+const transMatrix = mat4.create();
+mat4.identity(transMatrix);
+
+let
+    doScale = false,
+    doTranslate = false,
+    translationChanged = true,
+    scaleChanged = true,
+    rotChanged = true;
+
+rotX.onChange = rotY.onChange = rotZ.onChange = setRotChanged;
+posX.onChange = posY.onChange = posZ.onChange = setTranslateChanged;
+scale.onChange = setScaleChanged;
+
+render.onTriggered = function ()
+{
+    // if(!CGL.TextureEffect.checkOpNotInTextureEffect(op)) return;
+
+    let updateMatrix = false;
+    if (translationChanged)
+    {
+        updateTranslation();
+        updateMatrix = true;
+    }
+    if (scaleChanged)
+    {
+        updateScale();
+        updateMatrix = true;
+    }
+    if (rotChanged) updateMatrix = true;
+
+    if (updateMatrix) doUpdateMatrix();
+
+    const cg = op.patch.cgl;
+    cg.pushModelMatrix();
+    mat4.multiply(cg.mMatrix, cg.mMatrix, transMatrix);
+
+    trigger.trigger();
+    cg.popModelMatrix();
+
+    if (CABLES.UI && CABLES.UI.showCanvasTransforms) gui.setTransform(op.id, posX.get(), posY.get(), posZ.get());
+
+    if (op.isCurrentUiOp())
+        gui.setTransformGizmo(
+            {
+                "posX": posX,
+                "posY": posY,
+                "posZ": posZ,
+            });
+};
+
+op.transform3d = function ()
+{
+    return { "pos": [posX, posY, posZ] };
+};
+
+function doUpdateMatrix()
+{
+    mat4.identity(transMatrix);
+    if (doTranslate)mat4.translate(transMatrix, transMatrix, vPos);
+
+    if (rotX.get() !== 0)mat4.rotateX(transMatrix, transMatrix, rotX.get() * CGL.DEG2RAD);
+    if (rotY.get() !== 0)mat4.rotateY(transMatrix, transMatrix, rotY.get() * CGL.DEG2RAD);
+    if (rotZ.get() !== 0)mat4.rotateZ(transMatrix, transMatrix, rotZ.get() * CGL.DEG2RAD);
+
+    if (doScale)mat4.scale(transMatrix, transMatrix, vScale);
+    rotChanged = false;
+}
+
+function updateTranslation()
+{
+    doTranslate = false;
+    if (posX.get() !== 0.0 || posY.get() !== 0.0 || posZ.get() !== 0.0) doTranslate = true;
+    vec3.set(vPos, posX.get(), posY.get(), posZ.get());
+    translationChanged = false;
+}
+
+function updateScale()
+{
+    // doScale=false;
+    // if(scale.get()!==0.0)
+    doScale = true;
+    vec3.set(vScale, scale.get(), scale.get(), scale.get());
+    scaleChanged = false;
+}
+
+function setTranslateChanged()
+{
+    translationChanged = true;
+}
+
+function setScaleChanged()
+{
+    scaleChanged = true;
+}
+
+function setRotChanged()
+{
+    rotChanged = true;
+}
+
+doUpdateMatrix();
+
+
+};
+
+Ops.Gl.Matrix.Transform.prototype = new CABLES.Op();
+CABLES.OPS["650baeb1-db2d-4781-9af6-ab4e9d4277be"]={f:Ops.Gl.Matrix.Transform,objName:"Ops.Gl.Matrix.Transform"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.User.rambodc.SideBarSwitch_Tabs
 // 
 // **************************************************************
@@ -8795,59 +8305,6 @@ function removeElementFromDOM(el)
 
 Ops.User.rambodc.SideBarSwitch_Tabs.prototype = new CABLES.Op();
 CABLES.OPS["0f44c345-4f5c-4e76-a918-6dc212398cdb"]={f:Ops.User.rambodc.SideBarSwitch_Tabs,objName:"Ops.User.rambodc.SideBarSwitch_Tabs"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.User.rambodc.Min_Max_Value
-// 
-// **************************************************************
-
-Ops.User.rambodc.Min_Max_Value = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// Inputs
-const value = op.inValue("Value", 0); // Default value 0
-const max = op.inValue("Max", 1); // Default max 1
-const min = op.inValue("Min", 0); // Default min 0
-
-// Outputs
-const result = op.outNumber("Result");
-
-// OnChange triggers
-value.onChange = max.onChange = min.onChange = checkValue;
-
-// Initial check
-checkValue();
-
-// Function to check if value is between min and max
-function checkValue()
-{
-    let v = value.get();
-    let minValue = min.get();
-    let maxValue = max.get();
-
-    if (v > maxValue)
-    {
-        v = maxValue;
-    }
-    else if (v < minValue)
-    {
-        v = minValue;
-    }
-
-    result.set(v);
-}
-
-
-};
-
-Ops.User.rambodc.Min_Max_Value.prototype = new CABLES.Op();
-CABLES.OPS["7699501a-fd1d-4300-93d4-35715f250fa3"]={f:Ops.User.rambodc.Min_Max_Value,objName:"Ops.User.rambodc.Min_Max_Value"};
 
 
 
@@ -9130,16 +8587,16 @@ const
 
 exe.onTriggered = exec;
 
-let b = false;
+// let b = false;
 
-boolean.onChange = () =>
-{
-    b = boolean.get();
-};
+// boolean.onChange = () =>
+// {
+//     b = boolean.get();
+// };
 
 function exec()
 {
-    if (b) triggerThen.trigger();
+    if (boolean.get()) triggerThen.trigger();
     else triggerElse.trigger();
 }
 
@@ -9846,7 +9303,7 @@ function warning()
 {
     if (inClass.get() && inStyle.get())
     {
-        op.setUiError("error", "DIV uses external and inline CSS", 1);
+        op.setUiError("error", "Element uses external and inline CSS", 1);
     }
     else
     {
@@ -10350,6 +9807,38 @@ triggerCheckEquality.onTriggered =
 
 Ops.User.rambodc.StringEquals_Triggers.prototype = new CABLES.Op();
 CABLES.OPS["bf09a225-d7da-43cb-9b34-a457846defe2"]={f:Ops.User.rambodc.StringEquals_Triggers,objName:"Ops.User.rambodc.StringEquals_Triggers"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.NumberToString_v2
+// 
+// **************************************************************
+
+Ops.String.NumberToString_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    val = op.inValue("Number"),
+    result = op.outString("Result");
+
+val.onChange = update;
+update();
+
+function update()
+{
+    result.set(String(val.get() || 0));
+}
+
+
+};
+
+Ops.String.NumberToString_v2.prototype = new CABLES.Op();
+CABLES.OPS["5c6d375a-82db-4366-8013-93f56b4061a9"]={f:Ops.String.NumberToString_v2,objName:"Ops.String.NumberToString_v2"};
 
 
 
@@ -12001,6 +11490,81 @@ CABLES.OPS["4d16ae29-1e59-489c-b582-14213a3f4ff6"]={f:Ops.User.rambodc.Sidebar_T
 
 // **************************************************************
 // 
+// Ops.Html.CSS_v2
+// 
+// **************************************************************
+
+Ops.Html.CSS_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const code = op.inStringEditor("css code");
+
+code.setUiAttribs(
+    {
+        "editorSyntax": "css",
+        "ignoreBigPort": true
+    });
+
+let styleEle = null;
+const eleId = "css_" + CABLES.uuid();
+
+code.onChange = update;
+update();
+
+function getCssContent()
+{
+    let css = code.get();
+    if (css)
+    {
+        let patchId = null;
+        if (op.storage && op.storage.blueprint && op.storage.blueprint.patchId)
+        {
+            patchId = op.storage.blueprint.patchId;
+        }
+        css = css.replace(new RegExp("{{ASSETPATH}}", "g"), op.patch.getAssetPath(patchId));
+    }
+    return css;
+}
+
+function update()
+{
+    styleEle = document.getElementById(eleId);
+
+    if (styleEle)
+    {
+        styleEle.textContent = getCssContent();
+    }
+    else
+    {
+        styleEle = document.createElement("style");
+        styleEle.type = "text/css";
+        styleEle.id = eleId;
+        styleEle.textContent = attachments.css_spinner;
+
+        const head = document.getElementsByTagName("body")[0];
+        head.appendChild(styleEle);
+    }
+}
+
+op.onDelete = function ()
+{
+    styleEle = document.getElementById(eleId);
+    if (styleEle)styleEle.remove();
+};
+
+
+};
+
+Ops.Html.CSS_v2.prototype = new CABLES.Op();
+CABLES.OPS["a56d3edd-06ad-44ed-9810-dbf714600c67"]={f:Ops.Html.CSS_v2,objName:"Ops.Html.CSS_v2"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.Json.ObjectToArray
 // 
 // **************************************************************
@@ -12643,8 +12207,9 @@ function getCellValue(v)
 
     if (typeof v == "string")
     {
-        if (CABLES.UTILS.isNumeric(v)) str = "\"" + v + "\"";
-        else str = v;
+        // if (CABLES.UTILS.isNumeric(v)) str = "\"" + v + "\"";
+        // else str = v;
+        str = "\"" + v + "\"";
     }
     else if (CABLES.UTILS.isNumeric(v)) str = String(Math.round(v * 10000) / 10000);
     else if (Array.isArray(v))
@@ -13943,16 +13508,17 @@ key.onChange = function ()
 
 function exec()
 {
-    if (data.get())
+    const d = data.get();
+    if (d)
     {
-        const val = data.get()[key.get()];
-        result.set(val);
+        const val = d[key.get()];
+        result.set(parseFloat(val));
         if (val === undefined) outFound.set(0);
         else outFound.set(1);
     }
     else
     {
-        result.set(null);
+        result.set(0);
         outFound.set(0);
     }
 }
@@ -14535,414 +14101,6 @@ CABLES.OPS["d41e676e-d8a7-4a1e-8abf-f1bddfc982d5"]={f:Ops.Gl.Matrix.Billboard,ob
 
 // **************************************************************
 // 
-// Ops.Gl.Matrix.OrbitControls
-// 
-// **************************************************************
-
-Ops.Gl.Matrix.OrbitControls = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    render = op.inTrigger("render"),
-    minDist = op.inValueFloat("min distance"),
-    maxDist = op.inValueFloat("max distance"),
-
-    minRotY = op.inValue("min rot y", 0),
-    maxRotY = op.inValue("max rot y", 0),
-
-    initialRadius = op.inValue("initial radius", 0),
-    initialAxis = op.inValueSlider("initial axis y"),
-    initialX = op.inValueSlider("initial axis x"),
-
-    mul = op.inValueFloat("mul"),
-    smoothness = op.inValueSlider("Smoothness", 1.0),
-    speedX = op.inValue("Speed X", 1),
-    speedY = op.inValue("Speed Y", 1),
-
-    active = op.inValueBool("Active", true),
-
-    allowPanning = op.inValueBool("Allow Panning", true),
-    allowZooming = op.inValueBool("Allow Zooming", true),
-    allowRotation = op.inValueBool("Allow Rotation", true),
-    restricted = op.inValueBool("restricted", true),
-
-    trigger = op.outTrigger("trigger"),
-    outRadius = op.outNumber("radius"),
-    outXDeg = op.outNumber("Rot X"),
-    outYDeg = op.outNumber("Rot Y"),
-
-    inReset = op.inTriggerButton("Reset");
-
-op.setPortGroup("Initial Values", [initialAxis, initialX, initialRadius]);
-op.setPortGroup("Interaction", [mul, smoothness, speedX, speedY]);
-op.setPortGroup("Boundaries", [minRotY, maxRotY, minDist, maxDist]);
-
-mul.set(1);
-minDist.set(0.05);
-maxDist.set(99999);
-
-inReset.onTriggered = reset;
-
-let eye = vec3.create();
-const vUp = vec3.create();
-const vCenter = vec3.create();
-const viewMatrix = mat4.create();
-const tempViewMatrix = mat4.create();
-const vOffset = vec3.create();
-const finalEyeAbs = vec3.create();
-
-initialAxis.set(0.5);
-
-let mouseDown = false;
-let radius = 5;
-outRadius.set(radius);
-
-let lastMouseX = 0, lastMouseY = 0;
-let percX = 0, percY = 0;
-
-vec3.set(vCenter, 0, 0, 0);
-vec3.set(vUp, 0, 1, 0);
-
-const tempEye = vec3.create();
-const finalEye = vec3.create();
-const tempCenter = vec3.create();
-const finalCenter = vec3.create();
-
-let px = 0;
-let py = 0;
-
-let divisor = 1;
-let element = null;
-updateSmoothness();
-
-op.onDelete = unbind;
-
-const halfCircle = Math.PI;
-const fullCircle = Math.PI * 2;
-
-function reset()
-{
-    let off = 0;
-
-    if (px % fullCircle < -halfCircle)
-    {
-        off = -fullCircle;
-        px %= -fullCircle;
-    }
-    else
-    if (px % fullCircle > halfCircle)
-    {
-        off = fullCircle;
-        px %= fullCircle;
-    }
-    else px %= fullCircle;
-
-    py %= (Math.PI);
-
-    vec3.set(vOffset, 0, 0, 0);
-    vec3.set(vCenter, 0, 0, 0);
-    vec3.set(vUp, 0, 1, 0);
-
-    percX = (initialX.get() * Math.PI * 2 + off);
-    percY = (initialAxis.get() - 0.5);
-
-    radius = initialRadius.get();
-    eye = circlePos(percY);
-}
-
-function updateSmoothness()
-{
-    divisor = smoothness.get() * 10 + 1.0;
-}
-
-smoothness.onChange = updateSmoothness;
-
-let initializing = true;
-
-function ip(val, goal)
-{
-    if (initializing) return goal;
-    return val + (goal - val) / divisor;
-}
-
-let lastPy = 0;
-const lastPx = 0;
-
-render.onTriggered = function ()
-{
-    const cgl = op.patch.cg;
-
-    if (!element)
-    {
-        setElement(cgl.canvas);
-        bind();
-    }
-
-    cgl.pushViewMatrix();
-
-    px = ip(px, percX);
-    py = ip(py, percY);
-
-    let degY = (py + 0.5) * 180;
-
-    if (minRotY.get() !== 0 && degY < minRotY.get())
-    {
-        degY = minRotY.get();
-        py = lastPy;
-    }
-    else if (maxRotY.get() !== 0 && degY > maxRotY.get())
-    {
-        degY = maxRotY.get();
-        py = lastPy;
-    }
-    else
-    {
-        lastPy = py;
-    }
-
-    const degX = (px) * CGL.RAD2DEG;
-
-    outYDeg.set(degY);
-    outXDeg.set(degX);
-
-    circlePosi(eye, py);
-
-    vec3.add(tempEye, eye, vOffset);
-    vec3.add(tempCenter, vCenter, vOffset);
-
-    finalEye[0] = ip(finalEye[0], tempEye[0]);
-    finalEye[1] = ip(finalEye[1], tempEye[1]);
-    finalEye[2] = ip(finalEye[2], tempEye[2]);
-
-    finalCenter[0] = ip(finalCenter[0], tempCenter[0]);
-    finalCenter[1] = ip(finalCenter[1], tempCenter[1]);
-    finalCenter[2] = ip(finalCenter[2], tempCenter[2]);
-
-    const empty = vec3.create();
-
-    mat4.lookAt(viewMatrix, finalEye, finalCenter, vUp);
-    mat4.rotate(viewMatrix, viewMatrix, px, vUp);
-
-    // finaly multiply current scene viewmatrix
-    mat4.multiply(cgl.vMatrix, cgl.vMatrix, viewMatrix);
-
-    trigger.trigger();
-    cgl.popViewMatrix();
-    initializing = false;
-};
-
-function circlePosi(vec, perc)
-{
-    const mmul = mul.get();
-    if (radius < minDist.get() * mmul) radius = minDist.get() * mmul;
-    if (radius > maxDist.get() * mmul) radius = maxDist.get() * mmul;
-
-    outRadius.set(radius * mmul);
-
-    let i = 0, degInRad = 0;
-
-    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
-    vec3.set(vec,
-        Math.cos(degInRad) * radius * mmul,
-        Math.sin(degInRad) * radius * mmul,
-        0);
-    return vec;
-}
-
-function circlePos(perc)
-{
-    const mmul = mul.get();
-    if (radius < minDist.get() * mmul)radius = minDist.get() * mmul;
-    if (radius > maxDist.get() * mmul)radius = maxDist.get() * mmul;
-
-    outRadius.set(radius * mmul);
-
-    let i = 0, degInRad = 0;
-    const vec = vec3.create();
-    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
-    vec3.set(vec,
-        Math.cos(degInRad) * radius * mmul,
-        Math.sin(degInRad) * radius * mmul,
-        0);
-    return vec;
-}
-
-function onmousemove(event)
-{
-    if (!mouseDown) return;
-
-    const x = event.clientX;
-    const y = event.clientY;
-
-    let movementX = (x - lastMouseX);
-    let movementY = (y - lastMouseY);
-
-    movementX *= speedX.get();
-    movementY *= speedY.get();
-
-    if (event.buttons == 2 && allowPanning.get())
-    {
-        vOffset[2] += movementX * 0.01 * mul.get();
-        vOffset[1] += movementY * 0.01 * mul.get();
-    }
-    else
-    if (event.buttons == 4 && allowZooming.get())
-    {
-        radius += movementY * 0.05;
-        eye = circlePos(percY);
-    }
-    else
-    {
-        if (allowRotation.get())
-        {
-            percX += movementX * 0.003;
-            percY += movementY * 0.002;
-
-            if (restricted.get())
-            {
-                if (percY > 0.5)percY = 0.5;
-                if (percY < -0.5)percY = -0.5;
-            }
-        }
-    }
-
-    lastMouseX = x;
-    lastMouseY = y;
-}
-
-function onMouseDown(event)
-{
-    lastMouseX = event.clientX;
-    lastMouseY = event.clientY;
-    mouseDown = true;
-
-    try { element.setPointerCapture(event.pointerId); }
-    catch (e) {}
-}
-
-function onMouseUp(e)
-{
-    mouseDown = false;
-    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
-
-    try { element.releasePointerCapture(e.pointerId); }
-    catch (e) {}
-}
-
-function lockChange()
-{
-    const el = op.patch.cg.canvas;
-
-    if (document.pointerLockElement === el || document.mozPointerLockElement === el || document.webkitPointerLockElement === el)
-    {
-        document.addEventListener("mousemove", onmousemove, false);
-    }
-}
-
-function onMouseEnter(e)
-{
-    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
-}
-
-initialRadius.onChange = function ()
-{
-    radius = initialRadius.get();
-    reset();
-};
-
-initialX.onChange = function ()
-{
-    px = percX = (initialX.get() * Math.PI * 2);
-};
-
-initialAxis.onChange = function ()
-{
-    py = percY = (initialAxis.get() - 0.5);
-    eye = circlePos(percY);
-};
-
-const onMouseWheel = function (event)
-{
-    if (allowZooming.get())
-    {
-        const delta = CGL.getWheelSpeed(event) * 0.06;
-        radius += (parseFloat(delta)) * 1.2;
-
-        eye = circlePos(percY);
-    }
-};
-
-const ontouchstart = function (event)
-{
-    if (event.touches && event.touches.length > 0) onMouseDown(event.touches[0]);
-};
-
-const ontouchend = function (event)
-{
-    onMouseUp();
-};
-
-const ontouchmove = function (event)
-{
-    if (event.touches && event.touches.length > 0) onmousemove(event.touches[0]);
-};
-
-active.onChange = function ()
-{
-    if (active.get())bind();
-    else unbind();
-};
-
-function setElement(ele)
-{
-    unbind();
-    element = ele;
-    bind();
-}
-
-function bind()
-{
-    if (!element) return;
-
-    element.addEventListener("pointermove", onmousemove);
-    element.addEventListener("pointerdown", onMouseDown);
-    element.addEventListener("pointerup", onMouseUp);
-    element.addEventListener("pointerleave", onMouseUp);
-    element.addEventListener("pointerenter", onMouseEnter);
-    element.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-    element.addEventListener("wheel", onMouseWheel, { "passive": true });
-}
-
-function unbind()
-{
-    if (!element) return;
-
-    element.removeEventListener("pointermove", onmousemove);
-    element.removeEventListener("pointerdown", onMouseDown);
-    element.removeEventListener("pointerup", onMouseUp);
-    element.removeEventListener("pointerleave", onMouseUp);
-    element.removeEventListener("pointerenter", onMouseUp);
-    element.removeEventListener("wheel", onMouseWheel);
-}
-
-eye = circlePos(0);
-
-initialX.set(0.25);
-initialRadius.set(0.05);
-
-
-};
-
-Ops.Gl.Matrix.OrbitControls.prototype = new CABLES.Op();
-CABLES.OPS["eaf4f7ce-08a3-4d1b-b9f4-ebc0b7b1cde1"]={f:Ops.Gl.Matrix.OrbitControls,objName:"Ops.Gl.Matrix.OrbitControls"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.Graphics.Geometry.GeometryAttributes
 // 
 // **************************************************************
@@ -15075,7 +14233,7 @@ function clean()
 
                 removeLinks.push(triggers[i].links[j]);
                 const otherPort = triggers[i].links[j].getOtherPort(triggers[i]);
-                op.patch.link(op, "trigger " + count, otherPort.parent, otherPort.name);
+                op.patch.link(op, "trigger " + count, otherPort.op, otherPort.name);
                 count++;
             }
 
@@ -15860,7 +15018,7 @@ Ops.Gl.Shader.PointMaterial_v4 = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
-const attachments={"pointmat_frag":"\n{{MODULES_HEAD}}\n\nUNI vec4 color;\n// IN vec2 pointCoord;\nIN float ps;\n\n#ifdef HAS_TEXTURE_DIFFUSE\n    UNI sampler2D diffTex;\n#endif\n#ifdef HAS_TEXTURE_MASK\n    UNI sampler2D texMask;\n#endif\n#ifdef HAS_TEXTURE_COLORIZE\n    IN vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    IN float opacity;\n#endif\n#ifdef VERTEX_COLORS\n    IN vec4 vertexColor;\n#endif\n\nvoid main()\n{\n    #ifdef FLIP_TEX\n        vec2 pointCoord=vec2(gl_PointCoord.x,(1.0-gl_PointCoord.y));\n    #endif\n    #ifndef FLIP_TEX\n        vec2 pointCoord=gl_PointCoord;\n    #endif\n    {{MODULE_BEGIN_FRAG}}\n\n    if(ps<1.0)discard;\n\n    vec4 col=color;\n\n    #ifdef HAS_TEXTURE_MASK\n        float mask;\n        #ifdef TEXTURE_MASK_R\n            mask=texture(texMask,pointCoord).r;\n        #endif\n        #ifdef TEXTURE_MASK_A\n            mask=texture(texMask,pointCoord).a;\n        #endif\n        #ifdef TEXTURE_MASK_LUMI\n        \tvec3 lumcoeff = vec3(0.299,0.587,0.114);\n        \tmask = dot(texture(texMask,pointCoord).rgb, lumcoeff);\n        #endif\n\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        col=texture(diffTex,pointCoord);\n        #ifdef COLORIZE_TEXTURE\n          col.rgb*=color.rgb;\n        #endif\n    #endif\n    col.a*=color.a;\n\n\n    #ifdef MAKE_ROUND\n\n        #ifndef MAKE_ROUNDAA\n            if ((gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5) > 0.25) discard; //col.a=0.0;\n        #endif\n\n        #ifdef MAKE_ROUNDAA\n            float circ=(gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5);\n\n            float a=smoothstep(0.25,0.25-fwidth(gl_PointCoord.x),circ);\n            if(a==0.0)discard;\n            col.a=a*color.a;\n        #endif\n    #endif\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    #ifdef TEXTURE_COLORIZE_MUL\n        col*=color;\n    #endif\n\n    #ifdef HAS_TEXTURE_MASK\n        col.a*=mask;\n    #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        col.a*=opacity;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col.rgb = vertexColor.rgb;\n        col.a *= vertexColor.a;\n    #endif\n\n    if (col.a <= 0.0) discard;\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n}\n","pointmat_vert":"{{MODULES_HEAD}}\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\nIN float attrPointSize;\n\n#ifdef VERTEX_COLORS\n    IN vec4 attrVertColor;\n    OUT vec4 vertexColor;\n#endif\n\nOUT vec3 norm;\nOUT float ps;\n\nOUT vec2 texCoord;\n\n\n#ifdef HAS_TEXTURES\n#endif\n\n#ifdef HAS_TEXTURE_COLORIZE\n   UNI sampler2D texColorize;\n   OUT vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    UNI sampler2D texOpacity;\n    OUT float opacity;\n#endif\n\n#ifdef HAS_TEXTURE_POINTSIZE\n   UNI sampler2D texPointSize;\n   UNI float texPointSizeMul;\n#endif\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nUNI float pointSize;\nUNI vec3 camPos;\n\nUNI float canvasWidth;\nUNI float canvasHeight;\nUNI float camDistMul;\nUNI float randomSize;\n\nIN float attrVertIndex;\n\n\n\nfloat rand(float n){return fract(sin(n) * 5711.5711123);}\n\n#define POINTMATERIAL\n\nvoid main()\n{\n    norm=attrVertNormal;\n    #ifdef PIXELSIZE\n        float psMul=1.0;\n    #endif\n\n    #ifndef PIXELSIZE\n        float psMul=sqrt(canvasWidth/canvasHeight)+0.00000000001;\n    #endif\n\n    // float sizeMultiply=1.0;\n\n    vec3 tangent=attrTangent;\n    vec3 bitangent=attrBiTangent;\n\n\n    #ifdef VERTEX_COLORS\n        vertexColor=attrVertColor;\n    #endif\n\n    // #ifdef HAS_TEXTURES\n        texCoord=attrTexCoord;\n    // #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        // opacity=texture(texOpacity,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex))).r;\n        opacity=texture(texOpacity,texCoord).r;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        #ifdef RANDOM_COLORIZE\n            colorize=texture(texColorize,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex)));\n        #endif\n        #ifndef RANDOM_COLORIZE\n            colorize=texture(texColorize,texCoord);\n        #endif\n    #endif\n\n\n\n\n\n    mat4 mMatrix=modelMatrix;\n    vec4 pos = vec4( vPosition, 1. );\n\n    gl_PointSize=0.0;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    vec4 model=mMatrix * pos;\n\n    psMul+=rand(texCoord.x*texCoord.y+texCoord.y*3.0+texCoord.x*2.0+attrVertIndex)*randomSize;\n    // psMul*=sizeMultiply;\n\n    float addPointSize=0.0;\n    #ifdef HAS_TEXTURE_POINTSIZE\n\n        #ifdef POINTSIZE_CHAN_R\n            addPointSize=texture(texPointSize,texCoord).r;\n        #endif\n        #ifdef POINTSIZE_CHAN_G\n            addPointSize=texture(texPointSize,texCoord).g;\n        #endif\n        #ifdef POINTSIZE_CHAN_B\n            addPointSize=texture(texPointSize,texCoord).b;\n        #endif\n\n\n        #ifdef DOTSIZEREMAPABS\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n\n            addPointSize=1.0-(distance(addPointSize,0.5)*2.0);\n            // addPointSize=abs(1.0-(distance(addPointSize,0.5)*2.0));\n            addPointSize=addPointSize*addPointSize*addPointSize*2.0;\n\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n        #endif\n\n        addPointSize*=texPointSizeMul;\n\n    #endif\n\n    ps=0.0;\n    #ifndef SCALE_BY_DISTANCE\n        ps = (pointSize+addPointSize+attrPointSize) * psMul;\n    #endif\n    #ifdef SCALE_BY_DISTANCE\n        float cameraDist = distance(model.xyz, camPos);\n        ps = ( (pointSize+addPointSize+attrPointSize) / cameraDist) * psMul;\n    #endif\n\n    gl_PointSize += ps;\n\n\n    gl_Position = projMatrix * viewMatrix * model;\n}\n",};
+const attachments={"pointmat_frag":"\n{{MODULES_HEAD}}\n\nUNI vec4 color;\nUNI float atlasNumX;\n\n// IN vec2 pointCoord;\nIN float ps;\n\n#ifdef ATLAS_NUMX\nIN float randAtlas;\n#endif\n\n#ifdef HAS_TEXTURE_DIFFUSE\n    UNI sampler2D diffTex;\n#endif\n#ifdef HAS_TEXTURE_MASK\n    UNI sampler2D texMask;\n#endif\n#ifdef HAS_TEXTURE_COLORIZE\n    IN vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    IN float opacity;\n#endif\n#ifdef VERTEX_COLORS\n    IN vec4 vertexColor;\n#endif\n\nvoid main()\n{\n    #ifdef FLIP_TEX\n        vec2 pointCoord=vec2(gl_PointCoord.x,(1.0-gl_PointCoord.y));\n    #endif\n    #ifndef FLIP_TEX\n        vec2 pointCoord=gl_PointCoord;\n    #endif\n\n    // #ifdef repeatedTexture\n    #ifdef ATLAS_NUMX\n    pointCoord.x=pointCoord.x/atlasNumX+randAtlas*(1.0/atlasNumX);\n    #endif\n    // #endif\n\n    {{MODULE_BEGIN_FRAG}}\n\n    if(ps<1.0)discard;\n\n    vec4 col=color;\n\n    #ifdef HAS_TEXTURE_MASK\n        float mask;\n        #ifdef TEXTURE_MASK_R\n            mask=texture(texMask,pointCoord).r;\n        #endif\n        #ifdef TEXTURE_MASK_A\n            mask=texture(texMask,pointCoord).a;\n        #endif\n        #ifdef TEXTURE_MASK_LUMI\n        \tvec3 lumcoeff = vec3(0.299,0.587,0.114);\n        \tmask = dot(texture(texMask,pointCoord).rgb, lumcoeff);\n        #endif\n\n    #endif\n\n    #ifdef HAS_TEXTURE_DIFFUSE\n        col=texture(diffTex,pointCoord);\n        #ifdef COLORIZE_TEXTURE\n          col.rgb*=color.rgb;\n        #endif\n    #endif\n    col.a*=color.a;\n\n\n    #ifdef MAKE_ROUND\n\n        #ifndef MAKE_ROUNDAA\n            if ((gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5) > 0.25) discard; //col.a=0.0;\n        #endif\n\n        #ifdef MAKE_ROUNDAA\n            float circ=(gl_PointCoord.x-0.5)*(gl_PointCoord.x-0.5) + (gl_PointCoord.y-0.5)*(gl_PointCoord.y-0.5);\n\n            float a=smoothstep(0.25,0.25-fwidth(gl_PointCoord.x),circ);\n            if(a==0.0)discard;\n            col.a=a*color.a;\n        #endif\n    #endif\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    #ifdef TEXTURE_COLORIZE_MUL\n        col*=color;\n    #endif\n\n    #ifdef HAS_TEXTURE_MASK\n        col.a*=mask;\n    #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        col.a*=opacity;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col.rgb = vertexColor.rgb;\n        col.a *= vertexColor.a;\n    #endif\n\n    if (col.a <= 0.0) discard;\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        col*=colorize;\n    #endif\n\n    {{MODULE_COLOR}}\n\n    outColor = col;\n}\n","pointmat_vert":"{{MODULES_HEAD}}\nIN vec3 vPosition;\nIN vec2 attrTexCoord;\nIN vec3 attrVertNormal;\nIN vec3 attrTangent;\nIN vec3 attrBiTangent;\nIN float attrPointSize;\n\n#ifdef VERTEX_COLORS\n    IN vec4 attrVertColor;\n    OUT vec4 vertexColor;\n#endif\n\nOUT vec3 norm;\nOUT float ps;\n\nOUT vec2 texCoord;\n\n\n#ifdef HAS_TEXTURES\n#endif\n\n#ifdef HAS_TEXTURE_COLORIZE\n   UNI sampler2D texColorize;\n   OUT vec4 colorize;\n#endif\n#ifdef HAS_TEXTURE_OPACITY\n    UNI sampler2D texOpacity;\n    OUT float opacity;\n#endif\n\n#ifdef HAS_TEXTURE_POINTSIZE\n   UNI sampler2D texPointSize;\n   UNI float texPointSizeMul;\n#endif\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\nUNI float pointSize;\nUNI vec3 camPos;\n\nUNI float canvasWidth;\nUNI float canvasHeight;\nUNI float camDistMul;\nUNI float randomSize;\n\nIN float attrVertIndex;\n\nUNI float atlasNumX;\n\n#ifdef ATLAS_NUMX\n    OUT float randAtlas;\n#endif\n\nfloat rand(float n){return fract(sin(n) * 5711.5711123);}\n\n#define POINTMATERIAL\n\nvoid main()\n{\n    norm=attrVertNormal;\n    #ifdef PIXELSIZE\n        float psMul=1.0;\n    #endif\n\n    #ifndef PIXELSIZE\n        float psMul=sqrt(canvasWidth/canvasHeight)+0.00000000001;\n    #endif\n\n#ifdef ATLAS_NUMX\nrandAtlas=floor(atlasNumX*rand(attrVertIndex));\n#endif\n\n    // float sizeMultiply=1.0;\n\n    vec3 tangent=attrTangent;\n    vec3 bitangent=attrBiTangent;\n\n\n    #ifdef VERTEX_COLORS\n        vertexColor=attrVertColor;\n    #endif\n\n    // #ifdef HAS_TEXTURES\n        texCoord=attrTexCoord;\n    // #endif\n\n    #ifdef HAS_TEXTURE_OPACITY\n        // opacity=texture(texOpacity,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex))).r;\n        opacity=texture(texOpacity,texCoord).r;\n    #endif\n\n\n    #ifdef HAS_TEXTURE_COLORIZE\n        #ifdef RANDOM_COLORIZE\n            colorize=texture(texColorize,vec2(rand(attrVertIndex+texCoord.x*texCoord.y+texCoord.y+texCoord.x),rand(texCoord.y*texCoord.x-texCoord.x-texCoord.y-attrVertIndex)));\n        #endif\n        #ifndef RANDOM_COLORIZE\n            colorize=texture(texColorize,texCoord);\n        #endif\n    #endif\n\n\n\n\n\n    mat4 mMatrix=modelMatrix;\n    vec4 pos = vec4( vPosition, 1. );\n\n    gl_PointSize=0.0;\n\n    {{MODULE_VERTEX_POSITION}}\n\n    vec4 model=mMatrix * pos;\n\n    psMul+=rand(texCoord.x*texCoord.y+texCoord.y*3.0+texCoord.x*2.0+attrVertIndex)*randomSize;\n    // psMul*=sizeMultiply;\n\n    float addPointSize=0.0;\n    #ifdef HAS_TEXTURE_POINTSIZE\n\n        #ifdef POINTSIZE_CHAN_R\n            addPointSize=texture(texPointSize,texCoord).r;\n        #endif\n        #ifdef POINTSIZE_CHAN_G\n            addPointSize=texture(texPointSize,texCoord).g;\n        #endif\n        #ifdef POINTSIZE_CHAN_B\n            addPointSize=texture(texPointSize,texCoord).b;\n        #endif\n\n\n        #ifdef DOTSIZEREMAPABS\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n\n            addPointSize=1.0-(distance(addPointSize,0.5)*2.0);\n            // addPointSize=abs(1.0-(distance(addPointSize,0.5)*2.0));\n            addPointSize=addPointSize*addPointSize*addPointSize*2.0;\n\n            // addPointSize=(( (texture(texPointSize,texCoord).r) * texPointSizeMul)-0.5)*2.0;\n        #endif\n\n        addPointSize*=texPointSizeMul;\n\n    #endif\n\n    ps=0.0;\n    #ifndef SCALE_BY_DISTANCE\n        ps = (pointSize+addPointSize+attrPointSize) * psMul;\n    #endif\n    #ifdef SCALE_BY_DISTANCE\n        float cameraDist = distance(model.xyz, camPos);\n        ps = ( (pointSize+addPointSize+attrPointSize) / cameraDist) * psMul;\n    #endif\n\n    gl_PointSize += ps;\n\n\n    gl_Position = projMatrix * viewMatrix * model;\n}\n",};
 const cgl = op.patch.cgl;
 
 const
@@ -15889,6 +15047,9 @@ const
     texturePointSizeMap = op.inSwitch("Map Size 0", ["Black", "Grey"], "Black"),
     flipTex = op.inValueBool("Flip Texture", false),
 
+    inRandAtlas = op.inBool("Random Atlas"),
+    inRandAtlasX = op.inFloat("Atlas Repeat X", 4),
+
     trigger = op.outTrigger("trigger"),
     shaderOut = op.outObject("shader", null, "shader");
 
@@ -15908,6 +15069,8 @@ const
     texturePointSizeMulUniform = new CGL.Uniform(shader, "f", "texPointSizeMul", texturePointSizeMul),
     uniRandomSize = new CGL.Uniform(shader, "f", "randomSize", randomSize),
     uniColor = new CGL.Uniform(shader, "4f", "color", r, g, b, a),
+    uniRandAtlasX = new CGL.Uniform(shader, "f", "atlasNumX", inRandAtlasX),
+
     uniWidth = new CGL.Uniform(shader, "f", "canvasWidth", cgl.canvasWidth),
     uniHeight = new CGL.Uniform(shader, "f", "canvasHeight", cgl.canvasHeight),
     textureUniform = new CGL.Uniform(shader, "t", "diffTex"),
@@ -15924,6 +15087,7 @@ shaderOut.ignoreValueSerialize = true;
 
 render.onTriggered = doRender;
 doScale.onChange =
+inRandAtlas.onChange =
     makeRound.onChange =
     makeRoundAA.onChange =
     texture.onChange =
@@ -15968,6 +15132,7 @@ function doRender()
 
 function updateUi()
 {
+    inRandAtlasX.setUiAttribs({ "greyout": !inRandAtlas.get() });
     texMaskChan.setUiAttribs({ "greyout": !textureMask.isLinked() });
 
     texturePointSizeChannel.setUiAttribs({ "greyout": !texturePointSize.isLinked() });
@@ -15977,6 +15142,8 @@ function updateUi()
 
 function updateDefines()
 {
+    shader.toggleDefine("ATLAS_NUMX", inRandAtlas.get());
+
     shader.toggleDefine("SCALE_BY_DISTANCE", doScale.get());
     shader.toggleDefine("MAKE_ROUND", makeRound.get());
     shader.toggleDefine("MAKE_ROUNDAA", makeRoundAA.get());
@@ -16073,7 +15240,7 @@ inSyncTimeline.onChange = function ()
     reset.setUiAttribs({ "greyout": syncTimeline });
 };
 
-op.onAnimFrame = function (tt)
+op.onAnimFrame = function (tt, frameNum, deltaMs)
 {
     if (timer.isPlaying())
     {
@@ -16195,246 +15362,6 @@ function exec()
 
 Ops.Math.Max.prototype = new CABLES.Op();
 CABLES.OPS["07f0be49-c226-4029-8039-3b620145dc2a"]={f:Ops.Math.Max,objName:"Ops.Math.Max"};
-
-
-
-
-// **************************************************************
-// 
-// Ops.Gl.Texture_v2
-// 
-// **************************************************************
-
-Ops.Gl.Texture_v2 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-const
-    filename = op.inUrl("File", [".jpg", ".png", ".webp", ".jpeg", ".avif"]),
-    tfilter = op.inSwitch("Filter", ["nearest", "linear", "mipmap"]),
-    wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
-    aniso = op.inSwitch("Anisotropic", ["0", "1", "2", "4", "8", "16"], "0"),
-    flip = op.inValueBool("Flip", false),
-    unpackAlpha = op.inValueBool("Pre Multiplied Alpha", false),
-    active = op.inValueBool("Active", true),
-    inFreeMemory = op.inBool("Save Memory", true),
-    textureOut = op.outTexture("Texture"),
-    width = op.outNumber("Width"),
-    height = op.outNumber("Height"),
-    ratio = op.outNumber("Aspect Ratio"),
-    loaded = op.outNumber("Loaded", false),
-    loading = op.outNumber("Loading", false);
-
-const cgl = op.patch.cgl;
-
-op.toWorkPortsNeedToBeLinked(textureOut);
-op.setPortGroup("Size", [width, height]);
-
-let loadedFilename = null;
-let loadingId = null;
-let tex = null;
-let cgl_filter = CGL.Texture.FILTER_MIPMAP;
-let cgl_wrap = CGL.Texture.WRAP_REPEAT;
-let cgl_aniso = 0;
-let timedLoader = 0;
-
-unpackAlpha.setUiAttribs({ "hidePort": true });
-unpackAlpha.onChange =
-    filename.onChange =
-    flip.onChange = reloadSoon;
-aniso.onChange = tfilter.onChange = onFilterChange;
-wrap.onChange = onWrapChange;
-
-tfilter.set("mipmap");
-wrap.set("repeat");
-
-textureOut.set(CGL.Texture.getEmptyTexture(cgl));
-
-active.onChange = function ()
-{
-    if (active.get())
-    {
-        if (loadedFilename != filename.get() || !tex) reloadSoon();
-        else textureOut.set(tex);
-    }
-    else
-    {
-        textureOut.set(CGL.Texture.getEmptyTexture(cgl));
-        width.set(CGL.Texture.getEmptyTexture(cgl).width);
-        height.set(CGL.Texture.getEmptyTexture(cgl).height);
-        if (tex)tex.delete();
-        op.setUiAttrib({ "extendTitle": "" });
-        tex = null;
-    }
-};
-
-const setTempTexture = function ()
-{
-    const t = CGL.Texture.getTempTexture(cgl);
-    textureOut.set(t);
-};
-
-function reloadSoon(nocache)
-{
-    clearTimeout(timedLoader);
-    timedLoader = setTimeout(function ()
-    {
-        realReload(nocache);
-    }, 30);
-}
-
-function realReload(nocache)
-{
-    if (!active.get()) return;
-    // if (filename.get() === null) return;
-    if (loadingId)loadingId = cgl.patch.loading.finished(loadingId);
-    loadingId = cgl.patch.loading.start("textureOp", filename.get(), op);
-
-    let url = op.patch.getFilePath(String(filename.get()));
-
-    if (nocache)url += "?rnd=" + CABLES.uuid();
-
-    if (String(filename.get()).indexOf("data:") == 0) url = filename.get();
-
-    let needsRefresh = false;
-    if (loadedFilename != filename.get()) needsRefresh = true;
-    loadedFilename = filename.get();
-
-    if ((filename.get() && filename.get().length > 1))
-    {
-        loaded.set(false);
-        loading.set(true);
-
-        const fileToLoad = filename.get();
-
-        op.setUiAttrib({ "extendTitle": CABLES.basename(url) });
-        if (needsRefresh) op.refreshParams();
-
-        cgl.patch.loading.addAssetLoadingTask(() =>
-        {
-            op.setUiError("urlerror", null);
-
-            CGL.Texture.load(cgl, url,
-                function (err, newTex)
-                {
-                    cgl.checkFrameStarted("texture inittexture");
-
-                    if (filename.get() != fileToLoad)
-                    {
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                        return;
-                    }
-
-                    if (err)
-                    {
-                        setTempTexture();
-                        op.setUiError("urlerror", "could not load texture: \"" + filename.get() + "\"", 2);
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                        return;
-                    }
-
-                    textureOut.set(newTex);
-
-                    width.set(newTex.width);
-                    height.set(newTex.height);
-                    ratio.set(newTex.width / newTex.height);
-
-                    // if (!newTex.isPowerOfTwo()) op.setUiError("npot", "Texture dimensions not power of two! - Texture filtering will not work in WebGL 1.", 0);
-                    // else op.setUiError("npot", null);
-
-                    if (tex)tex.delete();
-                    tex = newTex;
-                    // textureOut.set(null);
-                    textureOut.setRef(tex);
-
-                    loading.set(false);
-                    loaded.set(true);
-
-                    if (inFreeMemory.get()) tex.image = null;
-
-                    if (loadingId)
-                    {
-                        cgl.patch.loading.finished(loadingId);
-                        loadingId = null;
-                    }
-                    // testTexture();
-                }, {
-                    "anisotropic": cgl_aniso,
-                    "wrap": cgl_wrap,
-                    "flip": flip.get(),
-                    "unpackAlpha": unpackAlpha.get(),
-                    "filter": cgl_filter
-                });
-
-            // textureOut.set(null);
-            // textureOut.set(tex);
-        });
-    }
-    else
-    {
-        cgl.patch.loading.finished(loadingId);
-        loadingId = null;
-        setTempTexture();
-    }
-}
-
-function onFilterChange()
-{
-    if (tfilter.get() == "nearest") cgl_filter = CGL.Texture.FILTER_NEAREST;
-    else if (tfilter.get() == "linear") cgl_filter = CGL.Texture.FILTER_LINEAR;
-    else if (tfilter.get() == "mipmap") cgl_filter = CGL.Texture.FILTER_MIPMAP;
-    else if (tfilter.get() == "Anisotropic") cgl_filter = CGL.Texture.FILTER_ANISOTROPIC;
-
-    aniso.setUiAttribs({ "greyout": cgl_filter != CGL.Texture.FILTER_MIPMAP });
-
-    cgl_aniso = parseFloat(aniso.get());
-
-    reloadSoon();
-}
-
-function onWrapChange()
-{
-    if (wrap.get() == "repeat") cgl_wrap = CGL.Texture.WRAP_REPEAT;
-    if (wrap.get() == "mirrored repeat") cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
-    if (wrap.get() == "clamp to edge") cgl_wrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
-
-    reloadSoon();
-}
-
-op.onFileChanged = function (fn)
-{
-    if (filename.get() && filename.get().indexOf(fn) > -1)
-    {
-        textureOut.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
-        textureOut.set(CGL.Texture.getTempTexture(cgl));
-        realReload(true);
-    }
-};
-
-// function testTexture()
-// {
-//     cgl.setTexture(0, tex.tex);
-
-//     const filter = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_MIN_FILTER);
-//     const wrap = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_WRAP_S);
-
-//     if (cgl_filter === CGL.Texture.FILTER_MIPMAP && filter != cgl.gl.LINEAR_MIPMAP_LINEAR) console.log("wrong texture filter!", filename.get());
-//     if (cgl_filter === CGL.Texture.FILTER_NEAREST && filter != cgl.gl.NEAREST) console.log("wrong texture filter!", filename.get());
-//     if (cgl_filter === CGL.Texture.FILTER_LINEAR && filter != cgl.gl.LINEAR) console.log("wrong texture filter!", filename.get());
-
-//     if (cgl_wrap === CGL.Texture.WRAP_REPEAT && wrap != cgl.gl.REPEAT) console.log("wrong texture wrap1!", filename.get());
-//     if (cgl_wrap === CGL.Texture.WRAP_MIRRORED_REPEAT && wrap != cgl.gl.MIRRORED_REPEAT) console.log("wrong texture wrap2!", filename.get());
-//     if (cgl_wrap === CGL.Texture.WRAP_CLAMP_TO_EDGE && wrap != cgl.gl.CLAMP_TO_EDGE) console.log("wrong texture wrap3!", filename.get());
-// }
-
-
-};
-
-Ops.Gl.Texture_v2.prototype = new CABLES.Op();
-CABLES.OPS["790f3702-9833-464e-8e37-6f0f813f7e16"]={f:Ops.Gl.Texture_v2,objName:"Ops.Gl.Texture_v2"};
 
 
 
@@ -16675,6 +15602,204 @@ CABLES.OPS["8db7e954-81f4-4b34-a938-0155097410de"]={f:Ops.Gl.Meshes.Polyhedron,o
 
 // **************************************************************
 // 
+// Ops.Gl.Shader.BasicMaterial_v3
+// 
+// **************************************************************
+
+Ops.Gl.Shader.BasicMaterial_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={"basicmaterial_frag":"{{MODULES_HEAD}}\n\nIN vec2 texCoord;\n\n#ifdef VERTEX_COLORS\nIN vec4 vertCol;\n#endif\n\n#ifdef HAS_TEXTURES\n    IN vec2 texCoordOrig;\n    #ifdef HAS_TEXTURE_DIFFUSE\n        UNI sampler2D tex;\n    #endif\n    #ifdef HAS_TEXTURE_OPACITY\n        UNI sampler2D texOpacity;\n   #endif\n#endif\n\n\n\nvoid main()\n{\n    {{MODULE_BEGIN_FRAG}}\n    vec4 col=color;\n\n\n    #ifdef HAS_TEXTURES\n        vec2 uv=texCoord;\n\n        #ifdef CROP_TEXCOORDS\n            if(uv.x<0.0 || uv.x>1.0 || uv.y<0.0 || uv.y>1.0) discard;\n        #endif\n\n        #ifdef HAS_TEXTURE_DIFFUSE\n            col=texture(tex,uv);\n\n            #ifdef COLORIZE_TEXTURE\n                col.r*=color.r;\n                col.g*=color.g;\n                col.b*=color.b;\n            #endif\n        #endif\n        col.a*=color.a;\n        #ifdef HAS_TEXTURE_OPACITY\n            #ifdef TRANSFORMALPHATEXCOORDS\n                uv=texCoordOrig;\n            #endif\n            #ifdef ALPHA_MASK_IALPHA\n                col.a*=1.0-texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_ALPHA\n                col.a*=texture(texOpacity,uv).a;\n            #endif\n            #ifdef ALPHA_MASK_LUMI\n                col.a*=dot(vec3(0.2126,0.7152,0.0722), texture(texOpacity,uv).rgb);\n            #endif\n            #ifdef ALPHA_MASK_R\n                col.a*=texture(texOpacity,uv).r;\n            #endif\n            #ifdef ALPHA_MASK_G\n                col.a*=texture(texOpacity,uv).g;\n            #endif\n            #ifdef ALPHA_MASK_B\n                col.a*=texture(texOpacity,uv).b;\n            #endif\n            // #endif\n        #endif\n    #endif\n\n    {{MODULE_COLOR}}\n\n    #ifdef DISCARDTRANS\n        if(col.a<0.2) discard;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        col*=vertCol;\n    #endif\n\n    outColor = col;\n}\n","basicmaterial_vert":"\n{{MODULES_HEAD}}\n\nOUT vec2 texCoord;\nOUT vec2 texCoordOrig;\n\nUNI mat4 projMatrix;\nUNI mat4 modelMatrix;\nUNI mat4 viewMatrix;\n\n#ifdef HAS_TEXTURES\n    UNI float diffuseRepeatX;\n    UNI float diffuseRepeatY;\n    UNI float texOffsetX;\n    UNI float texOffsetY;\n#endif\n\n#ifdef VERTEX_COLORS\n    in vec4 attrVertColor;\n    out vec4 vertCol;\n\n#endif\n\n\nvoid main()\n{\n    mat4 mMatrix=modelMatrix;\n    mat4 mvMatrix;\n\n    norm=attrVertNormal;\n    texCoordOrig=attrTexCoord;\n    texCoord=attrTexCoord;\n    #ifdef HAS_TEXTURES\n        texCoord.x=texCoord.x*diffuseRepeatX+texOffsetX;\n        texCoord.y=(1.0-texCoord.y)*diffuseRepeatY+texOffsetY;\n    #endif\n\n    #ifdef VERTEX_COLORS\n        vertCol=attrVertColor;\n    #endif\n\n    vec4 pos = vec4(vPosition, 1.0);\n\n    #ifdef BILLBOARD\n       vec3 position=vPosition;\n       mvMatrix=viewMatrix*modelMatrix;\n\n       gl_Position = projMatrix * mvMatrix * vec4((\n           position.x * vec3(\n               mvMatrix[0][0],\n               mvMatrix[1][0],\n               mvMatrix[2][0] ) +\n           position.y * vec3(\n               mvMatrix[0][1],\n               mvMatrix[1][1],\n               mvMatrix[2][1]) ), 1.0);\n    #endif\n\n    {{MODULE_VERTEX_POSITION}}\n\n    #ifndef BILLBOARD\n        mvMatrix=viewMatrix * mMatrix;\n    #endif\n\n\n    #ifndef BILLBOARD\n        // gl_Position = projMatrix * viewMatrix * modelMatrix * pos;\n        gl_Position = projMatrix * mvMatrix * pos;\n    #endif\n}\n",};
+const render = op.inTrigger("render");
+
+const trigger = op.outTrigger("trigger");
+const shaderOut = op.outObject("shader", null, "shader");
+
+shaderOut.ignoreValueSerialize = true;
+
+op.toWorkPortsNeedToBeLinked(render);
+op.toWorkShouldNotBeChild("Ops.Gl.TextureEffects.ImageCompose", CABLES.OP_PORT_TYPE_FUNCTION);
+
+const cgl = op.patch.cgl;
+const shader = new CGL.Shader(cgl, "basicmaterialnew");
+shader.addAttribute({ "type": "vec3", "name": "vPosition" });
+shader.addAttribute({ "type": "vec2", "name": "attrTexCoord" });
+shader.addAttribute({ "type": "vec3", "name": "attrVertNormal", "nameFrag": "norm" });
+shader.addAttribute({ "type": "float", "name": "attrVertIndex" });
+
+shader.setModules(["MODULE_VERTEX_POSITION", "MODULE_COLOR", "MODULE_BEGIN_FRAG"]);
+
+shader.setSource(attachments.basicmaterial_vert, attachments.basicmaterial_frag);
+
+shaderOut.setRef(shader);
+
+render.onTriggered = doRender;
+
+// rgba colors
+const r = op.inValueSlider("r", Math.random());
+const g = op.inValueSlider("g", Math.random());
+const b = op.inValueSlider("b", Math.random());
+const a = op.inValueSlider("a", 1);
+r.setUiAttribs({ "colorPick": true });
+
+// const uniColor=new CGL.Uniform(shader,'4f','color',r,g,b,a);
+const colUni = shader.addUniformFrag("4f", "color", r, g, b, a);
+
+shader.uniformColorDiffuse = colUni;
+
+// diffuse outTexture
+
+const diffuseTexture = op.inTexture("texture");
+let diffuseTextureUniform = null;
+diffuseTexture.onChange = updateDiffuseTexture;
+
+const colorizeTexture = op.inValueBool("colorizeTexture", false);
+const vertexColors = op.inValueBool("Vertex Colors", false);
+
+// opacity texture
+const textureOpacity = op.inTexture("textureOpacity");
+let textureOpacityUniform = null;
+
+const alphaMaskSource = op.inSwitch("Alpha Mask Source", ["Luminance", "R", "G", "B", "A", "1-A"], "Luminance");
+alphaMaskSource.setUiAttribs({ "greyout": true });
+textureOpacity.onChange = updateOpacity;
+
+const texCoordAlpha = op.inValueBool("Opacity TexCoords Transform", false);
+const discardTransPxl = op.inValueBool("Discard Transparent Pixels");
+
+// texture coords
+const
+    diffuseRepeatX = op.inValue("diffuseRepeatX", 1),
+    diffuseRepeatY = op.inValue("diffuseRepeatY", 1),
+    diffuseOffsetX = op.inValue("Tex Offset X", 0),
+    diffuseOffsetY = op.inValue("Tex Offset Y", 0),
+    cropRepeat = op.inBool("Crop TexCoords", false);
+
+shader.addUniformFrag("f", "diffuseRepeatX", diffuseRepeatX);
+shader.addUniformFrag("f", "diffuseRepeatY", diffuseRepeatY);
+shader.addUniformFrag("f", "texOffsetX", diffuseOffsetX);
+shader.addUniformFrag("f", "texOffsetY", diffuseOffsetY);
+
+const doBillboard = op.inValueBool("billboard", false);
+
+alphaMaskSource.onChange =
+    doBillboard.onChange =
+    discardTransPxl.onChange =
+    texCoordAlpha.onChange =
+    cropRepeat.onChange =
+    vertexColors.onChange =
+    colorizeTexture.onChange = updateDefines;
+
+op.setPortGroup("Color", [r, g, b, a]);
+op.setPortGroup("Color Texture", [diffuseTexture, vertexColors, colorizeTexture]);
+op.setPortGroup("Opacity", [textureOpacity, alphaMaskSource, discardTransPxl, texCoordAlpha]);
+op.setPortGroup("Texture Transform", [diffuseRepeatX, diffuseRepeatY, diffuseOffsetX, diffuseOffsetY, cropRepeat]);
+
+updateOpacity();
+updateDiffuseTexture();
+
+op.preRender = function ()
+{
+    shader.bind();
+    doRender();
+};
+
+function doRender()
+{
+    if (!shader) return;
+
+    cgl.pushShader(shader);
+    shader.popTextures();
+
+    if (diffuseTextureUniform && diffuseTexture.get()) shader.pushTexture(diffuseTextureUniform, diffuseTexture.get());
+    if (textureOpacityUniform && textureOpacity.get()) shader.pushTexture(textureOpacityUniform, textureOpacity.get());
+
+    trigger.trigger();
+
+    cgl.popShader();
+}
+
+function updateOpacity()
+{
+    if (textureOpacity.get())
+    {
+        if (textureOpacityUniform !== null) return;
+        shader.removeUniform("texOpacity");
+        shader.define("HAS_TEXTURE_OPACITY");
+        if (!textureOpacityUniform)textureOpacityUniform = new CGL.Uniform(shader, "t", "texOpacity");
+
+        alphaMaskSource.setUiAttribs({ "greyout": false });
+        texCoordAlpha.setUiAttribs({ "greyout": false });
+    }
+    else
+    {
+        shader.removeUniform("texOpacity");
+        shader.removeDefine("HAS_TEXTURE_OPACITY");
+        textureOpacityUniform = null;
+
+        alphaMaskSource.setUiAttribs({ "greyout": true });
+        texCoordAlpha.setUiAttribs({ "greyout": true });
+    }
+
+    updateDefines();
+}
+
+function updateDiffuseTexture()
+{
+    if (diffuseTexture.get())
+    {
+        if (!shader.hasDefine("HAS_TEXTURE_DIFFUSE"))shader.define("HAS_TEXTURE_DIFFUSE");
+        if (!diffuseTextureUniform)diffuseTextureUniform = new CGL.Uniform(shader, "t", "texDiffuse");
+
+        diffuseRepeatX.setUiAttribs({ "greyout": false });
+        diffuseRepeatY.setUiAttribs({ "greyout": false });
+        diffuseOffsetX.setUiAttribs({ "greyout": false });
+        diffuseOffsetY.setUiAttribs({ "greyout": false });
+        colorizeTexture.setUiAttribs({ "greyout": false });
+    }
+    else
+    {
+        shader.removeUniform("texDiffuse");
+        shader.removeDefine("HAS_TEXTURE_DIFFUSE");
+        diffuseTextureUniform = null;
+
+        diffuseRepeatX.setUiAttribs({ "greyout": true });
+        diffuseRepeatY.setUiAttribs({ "greyout": true });
+        diffuseOffsetX.setUiAttribs({ "greyout": true });
+        diffuseOffsetY.setUiAttribs({ "greyout": true });
+        colorizeTexture.setUiAttribs({ "greyout": true });
+    }
+}
+
+function updateDefines()
+{
+    shader.toggleDefine("VERTEX_COLORS", vertexColors.get());
+    shader.toggleDefine("CROP_TEXCOORDS", cropRepeat.get());
+    shader.toggleDefine("COLORIZE_TEXTURE", colorizeTexture.get());
+    shader.toggleDefine("TRANSFORMALPHATEXCOORDS", texCoordAlpha.get());
+    shader.toggleDefine("DISCARDTRANS", discardTransPxl.get());
+    shader.toggleDefine("BILLBOARD", doBillboard.get());
+
+    shader.toggleDefine("ALPHA_MASK_ALPHA", alphaMaskSource.get() == "A");
+    shader.toggleDefine("ALPHA_MASK_IALPHA", alphaMaskSource.get() == "1-A");
+    shader.toggleDefine("ALPHA_MASK_LUMI", alphaMaskSource.get() == "Luminance");
+    shader.toggleDefine("ALPHA_MASK_R", alphaMaskSource.get() == "R");
+    shader.toggleDefine("ALPHA_MASK_G", alphaMaskSource.get() == "G");
+    shader.toggleDefine("ALPHA_MASK_B", alphaMaskSource.get() == "B");
+}
+
+
+};
+
+Ops.Gl.Shader.BasicMaterial_v3.prototype = new CABLES.Op();
+CABLES.OPS["ec55d252-3843-41b1-b731-0482dbd9e72b"]={f:Ops.Gl.Shader.BasicMaterial_v3,objName:"Ops.Gl.Shader.BasicMaterial_v3"};
+
+
+
+
+// **************************************************************
+// 
 // Ops.Gl.Meshes.Rectangle_v3
 // 
 // **************************************************************
@@ -16879,6 +16004,656 @@ function rebuild()
 
 Ops.Gl.Meshes.Rectangle_v3.prototype = new CABLES.Op();
 CABLES.OPS["82bb2f8a-77f4-4218-a3ae-8f158f1b7fb1"]={f:Ops.Gl.Meshes.Rectangle_v3,objName:"Ops.Gl.Meshes.Rectangle_v3"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Texture_v2
+// 
+// **************************************************************
+
+Ops.Gl.Texture_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    filename = op.inUrl("File", [".jpg", ".png", ".webp", ".jpeg", ".avif"]),
+    tfilter = op.inSwitch("Filter", ["nearest", "linear", "mipmap"]),
+    wrap = op.inValueSelect("Wrap", ["repeat", "mirrored repeat", "clamp to edge"], "clamp to edge"),
+    aniso = op.inSwitch("Anisotropic", ["0", "1", "2", "4", "8", "16"], "0"),
+    flip = op.inValueBool("Flip", false),
+    unpackAlpha = op.inValueBool("Pre Multiplied Alpha", false),
+    active = op.inValueBool("Active", true),
+    inFreeMemory = op.inBool("Save Memory", true),
+    textureOut = op.outTexture("Texture"),
+    width = op.outNumber("Width"),
+    height = op.outNumber("Height"),
+    ratio = op.outNumber("Aspect Ratio"),
+    loaded = op.outNumber("Loaded", false),
+    loading = op.outNumber("Loading", false);
+
+const cgl = op.patch.cgl;
+
+op.toWorkPortsNeedToBeLinked(textureOut);
+op.setPortGroup("Size", [width, height]);
+
+let loadedFilename = null;
+let loadingId = null;
+let tex = null;
+let cgl_filter = CGL.Texture.FILTER_MIPMAP;
+let cgl_wrap = CGL.Texture.WRAP_REPEAT;
+let cgl_aniso = 0;
+let timedLoader = 0;
+
+unpackAlpha.setUiAttribs({ "hidePort": true });
+unpackAlpha.onChange =
+    filename.onChange =
+    flip.onChange = reloadSoon;
+aniso.onChange = tfilter.onChange = onFilterChange;
+wrap.onChange = onWrapChange;
+
+tfilter.set("mipmap");
+wrap.set("repeat");
+
+textureOut.set(CGL.Texture.getEmptyTexture(cgl));
+
+active.onChange = function ()
+{
+    if (active.get())
+    {
+        if (loadedFilename != filename.get() || !tex) reloadSoon();
+        else textureOut.set(tex);
+    }
+    else
+    {
+        textureOut.set(CGL.Texture.getEmptyTexture(cgl));
+        width.set(CGL.Texture.getEmptyTexture(cgl).width);
+        height.set(CGL.Texture.getEmptyTexture(cgl).height);
+        if (tex)tex.delete();
+        op.setUiAttrib({ "extendTitle": "" });
+        tex = null;
+    }
+};
+
+const setTempTexture = function ()
+{
+    const t = CGL.Texture.getTempTexture(cgl);
+    textureOut.set(t);
+};
+
+function reloadSoon(nocache)
+{
+    clearTimeout(timedLoader);
+    timedLoader = setTimeout(function ()
+    {
+        realReload(nocache);
+    }, 30);
+}
+
+function realReload(nocache)
+{
+    if (!active.get()) return;
+    // if (filename.get() === null) return;
+    if (loadingId)loadingId = cgl.patch.loading.finished(loadingId);
+    loadingId = cgl.patch.loading.start("textureOp", filename.get(), op);
+
+    let url = op.patch.getFilePath(String(filename.get()));
+
+    if (nocache)url += "?rnd=" + CABLES.uuid();
+
+    if (String(filename.get()).indexOf("data:") == 0) url = filename.get();
+
+    let needsRefresh = false;
+    if (loadedFilename != filename.get()) needsRefresh = true;
+    loadedFilename = filename.get();
+
+    if ((filename.get() && filename.get().length > 1))
+    {
+        loaded.set(false);
+        loading.set(true);
+
+        const fileToLoad = filename.get();
+
+        op.setUiAttrib({ "extendTitle": CABLES.basename(url) });
+        if (needsRefresh) op.refreshParams();
+
+        cgl.patch.loading.addAssetLoadingTask(() =>
+        {
+            op.setUiError("urlerror", null);
+
+            CGL.Texture.load(cgl, url,
+                function (err, newTex)
+                {
+                    cgl.checkFrameStarted("texture inittexture");
+
+                    if (filename.get() != fileToLoad)
+                    {
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                        return;
+                    }
+
+                    if (err)
+                    {
+                        const t = CGL.Texture.getErrorTexture(cgl);
+                        textureOut.set(t);
+
+                        op.setUiError("urlerror", "could not load texture: \"" + filename.get() + "\"", 2);
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                        return;
+                    }
+
+                    textureOut.set(newTex);
+
+                    width.set(newTex.width);
+                    height.set(newTex.height);
+                    ratio.set(newTex.width / newTex.height);
+
+                    // if (!newTex.isPowerOfTwo()) op.setUiError("npot", "Texture dimensions not power of two! - Texture filtering will not work in WebGL 1.", 0);
+                    // else op.setUiError("npot", null);
+
+                    if (tex)tex.delete();
+                    tex = newTex;
+                    // textureOut.set(null);
+                    textureOut.setRef(tex);
+
+                    loading.set(false);
+                    loaded.set(true);
+
+                    if (inFreeMemory.get()) tex.image = null;
+
+                    if (loadingId)
+                    {
+                        cgl.patch.loading.finished(loadingId);
+                        loadingId = null;
+                    }
+                    // testTexture();
+                }, {
+                    "anisotropic": cgl_aniso,
+                    "wrap": cgl_wrap,
+                    "flip": flip.get(),
+                    "unpackAlpha": unpackAlpha.get(),
+                    "filter": cgl_filter
+                });
+
+            // textureOut.set(null);
+            // textureOut.set(tex);
+        });
+    }
+    else
+    {
+        cgl.patch.loading.finished(loadingId);
+        loadingId = null;
+        setTempTexture();
+    }
+}
+
+function onFilterChange()
+{
+    if (tfilter.get() == "nearest") cgl_filter = CGL.Texture.FILTER_NEAREST;
+    else if (tfilter.get() == "linear") cgl_filter = CGL.Texture.FILTER_LINEAR;
+    else if (tfilter.get() == "mipmap") cgl_filter = CGL.Texture.FILTER_MIPMAP;
+    else if (tfilter.get() == "Anisotropic") cgl_filter = CGL.Texture.FILTER_ANISOTROPIC;
+
+    aniso.setUiAttribs({ "greyout": cgl_filter != CGL.Texture.FILTER_MIPMAP });
+
+    cgl_aniso = parseFloat(aniso.get());
+
+    reloadSoon();
+}
+
+function onWrapChange()
+{
+    if (wrap.get() == "repeat") cgl_wrap = CGL.Texture.WRAP_REPEAT;
+    if (wrap.get() == "mirrored repeat") cgl_wrap = CGL.Texture.WRAP_MIRRORED_REPEAT;
+    if (wrap.get() == "clamp to edge") cgl_wrap = CGL.Texture.WRAP_CLAMP_TO_EDGE;
+
+    reloadSoon();
+}
+
+op.onFileChanged = function (fn)
+{
+    if (filename.get() && filename.get().indexOf(fn) > -1)
+    {
+        textureOut.set(CGL.Texture.getEmptyTexture(op.patch.cgl));
+        textureOut.set(CGL.Texture.getTempTexture(cgl));
+        realReload(true);
+    }
+};
+
+// function testTexture()
+// {
+//     cgl.setTexture(0, tex.tex);
+
+//     const filter = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_MIN_FILTER);
+//     const wrap = cgl.gl.getTexParameter(cgl.gl.TEXTURE_2D, cgl.gl.TEXTURE_WRAP_S);
+
+//     if (cgl_filter === CGL.Texture.FILTER_MIPMAP && filter != cgl.gl.LINEAR_MIPMAP_LINEAR) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_NEAREST && filter != cgl.gl.NEAREST) console.log("wrong texture filter!", filename.get());
+//     if (cgl_filter === CGL.Texture.FILTER_LINEAR && filter != cgl.gl.LINEAR) console.log("wrong texture filter!", filename.get());
+
+//     if (cgl_wrap === CGL.Texture.WRAP_REPEAT && wrap != cgl.gl.REPEAT) console.log("wrong texture wrap1!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_MIRRORED_REPEAT && wrap != cgl.gl.MIRRORED_REPEAT) console.log("wrong texture wrap2!", filename.get());
+//     if (cgl_wrap === CGL.Texture.WRAP_CLAMP_TO_EDGE && wrap != cgl.gl.CLAMP_TO_EDGE) console.log("wrong texture wrap3!", filename.get());
+// }
+
+
+};
+
+Ops.Gl.Texture_v2.prototype = new CABLES.Op();
+CABLES.OPS["790f3702-9833-464e-8e37-6f0f813f7e16"]={f:Ops.Gl.Texture_v2,objName:"Ops.Gl.Texture_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Gl.Matrix.OrbitControls
+// 
+// **************************************************************
+
+Ops.Gl.Matrix.OrbitControls = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    render = op.inTrigger("render"),
+    minDist = op.inValueFloat("min distance"),
+    maxDist = op.inValueFloat("max distance"),
+
+    minRotY = op.inValue("min rot y", 0),
+    maxRotY = op.inValue("max rot y", 0),
+
+    initialRadius = op.inValue("initial radius", 0),
+    initialAxis = op.inValueSlider("initial axis y"),
+    initialX = op.inValueSlider("initial axis x"),
+
+    mul = op.inValueFloat("mul"),
+    smoothness = op.inValueSlider("Smoothness", 1.0),
+    speedX = op.inValue("Speed X", 1),
+    speedY = op.inValue("Speed Y", 1),
+
+    active = op.inValueBool("Active", true),
+
+    allowPanning = op.inValueBool("Allow Panning", true),
+    allowZooming = op.inValueBool("Allow Zooming", true),
+    allowRotation = op.inValueBool("Allow Rotation", true),
+    restricted = op.inValueBool("restricted", true),
+
+    trigger = op.outTrigger("trigger"),
+    outRadius = op.outNumber("radius"),
+    outXDeg = op.outNumber("Rot X"),
+    outYDeg = op.outNumber("Rot Y"),
+
+    inReset = op.inTriggerButton("Reset");
+
+op.setPortGroup("Initial Values", [initialAxis, initialX, initialRadius]);
+op.setPortGroup("Interaction", [mul, smoothness, speedX, speedY]);
+op.setPortGroup("Boundaries", [minRotY, maxRotY, minDist, maxDist]);
+
+mul.set(1);
+minDist.set(0.05);
+maxDist.set(99999);
+
+inReset.onTriggered = reset;
+
+let eye = vec3.create();
+const vUp = vec3.create();
+const vCenter = vec3.create();
+const viewMatrix = mat4.create();
+const tempViewMatrix = mat4.create();
+const vOffset = vec3.create();
+const finalEyeAbs = vec3.create();
+
+initialAxis.set(0.5);
+
+let mouseDown = false;
+let radius = 5;
+outRadius.set(radius);
+
+let lastMouseX = 0, lastMouseY = 0;
+let percX = 0, percY = 0;
+
+vec3.set(vCenter, 0, 0, 0);
+vec3.set(vUp, 0, 1, 0);
+
+const tempEye = vec3.create();
+const finalEye = vec3.create();
+const tempCenter = vec3.create();
+const finalCenter = vec3.create();
+
+let px = 0;
+let py = 0;
+
+let divisor = 1;
+let element = null;
+updateSmoothness();
+
+op.onDelete = unbind;
+
+const halfCircle = Math.PI;
+const fullCircle = Math.PI * 2;
+
+function reset()
+{
+    let off = 0;
+
+    if (px % fullCircle < -halfCircle)
+    {
+        off = -fullCircle;
+        px %= -fullCircle;
+    }
+    else
+    if (px % fullCircle > halfCircle)
+    {
+        off = fullCircle;
+        px %= fullCircle;
+    }
+    else px %= fullCircle;
+
+    py %= (Math.PI);
+
+    vec3.set(vOffset, 0, 0, 0);
+    vec3.set(vCenter, 0, 0, 0);
+    vec3.set(vUp, 0, 1, 0);
+
+    percX = (initialX.get() * Math.PI * 2 + off);
+    percY = (initialAxis.get() - 0.5);
+
+    radius = initialRadius.get();
+    eye = circlePos(percY);
+}
+
+function updateSmoothness()
+{
+    divisor = smoothness.get() * 10 + 1.0;
+}
+
+smoothness.onChange = updateSmoothness;
+
+let initializing = true;
+
+function ip(val, goal)
+{
+    if (initializing) return goal;
+    return val + (goal - val) / divisor;
+}
+
+let lastPy = 0;
+const lastPx = 0;
+
+render.onTriggered = function ()
+{
+    const cgl = op.patch.cg;
+
+    if (!element)
+    {
+        setElement(cgl.canvas);
+        bind();
+    }
+
+    cgl.pushViewMatrix();
+
+    px = ip(px, percX);
+    py = ip(py, percY);
+
+    let degY = (py + 0.5) * 180;
+
+    if (minRotY.get() !== 0 && degY < minRotY.get())
+    {
+        degY = minRotY.get();
+        py = lastPy;
+    }
+    else if (maxRotY.get() !== 0 && degY > maxRotY.get())
+    {
+        degY = maxRotY.get();
+        py = lastPy;
+    }
+    else
+    {
+        lastPy = py;
+    }
+
+    const degX = (px) * CGL.RAD2DEG;
+
+    outYDeg.set(degY);
+    outXDeg.set(degX);
+
+    circlePosi(eye, py);
+
+    vec3.add(tempEye, eye, vOffset);
+    vec3.add(tempCenter, vCenter, vOffset);
+
+    finalEye[0] = ip(finalEye[0], tempEye[0]);
+    finalEye[1] = ip(finalEye[1], tempEye[1]);
+    finalEye[2] = ip(finalEye[2], tempEye[2]);
+
+    finalCenter[0] = ip(finalCenter[0], tempCenter[0]);
+    finalCenter[1] = ip(finalCenter[1], tempCenter[1]);
+    finalCenter[2] = ip(finalCenter[2], tempCenter[2]);
+
+    const empty = vec3.create();
+
+    mat4.lookAt(viewMatrix, finalEye, finalCenter, vUp);
+    mat4.rotate(viewMatrix, viewMatrix, px, vUp);
+
+    // finaly multiply current scene viewmatrix
+    mat4.multiply(cgl.vMatrix, cgl.vMatrix, viewMatrix);
+
+    trigger.trigger();
+    cgl.popViewMatrix();
+    initializing = false;
+};
+
+function circlePosi(vec, perc)
+{
+    const mmul = mul.get();
+    if (radius < minDist.get() * mmul) radius = minDist.get() * mmul;
+    if (radius > maxDist.get() * mmul) radius = maxDist.get() * mmul;
+
+    outRadius.set(radius * mmul);
+
+    let i = 0, degInRad = 0;
+
+    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
+    vec3.set(vec,
+        Math.cos(degInRad) * radius * mmul,
+        Math.sin(degInRad) * radius * mmul,
+        0);
+    return vec;
+}
+
+function circlePos(perc)
+{
+    const mmul = mul.get();
+    if (radius < minDist.get() * mmul)radius = minDist.get() * mmul;
+    if (radius > maxDist.get() * mmul)radius = maxDist.get() * mmul;
+
+    outRadius.set(radius * mmul);
+
+    let i = 0, degInRad = 0;
+    const vec = vec3.create();
+    degInRad = 360 * perc / 2 * CGL.DEG2RAD;
+    vec3.set(vec,
+        Math.cos(degInRad) * radius * mmul,
+        Math.sin(degInRad) * radius * mmul,
+        0);
+    return vec;
+}
+
+function onmousemove(event)
+{
+    if (!mouseDown) return;
+
+    const x = event.clientX;
+    const y = event.clientY;
+
+    let movementX = (x - lastMouseX);
+    let movementY = (y - lastMouseY);
+
+    movementX *= speedX.get();
+    movementY *= speedY.get();
+
+    if (event.buttons == 2 && allowPanning.get())
+    {
+        vOffset[2] += movementX * 0.01 * mul.get();
+        vOffset[1] += movementY * 0.01 * mul.get();
+    }
+    else
+    if (event.buttons == 4 && allowZooming.get())
+    {
+        radius += movementY * 0.05;
+        eye = circlePos(percY);
+    }
+    else
+    {
+        if (allowRotation.get())
+        {
+            percX += movementX * 0.003;
+            percY += movementY * 0.002;
+
+            if (restricted.get())
+            {
+                if (percY > 0.5)percY = 0.5;
+                if (percY < -0.5)percY = -0.5;
+            }
+        }
+    }
+
+    lastMouseX = x;
+    lastMouseY = y;
+}
+
+function onMouseDown(event)
+{
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+    mouseDown = true;
+
+    try { element.setPointerCapture(event.pointerId); }
+    catch (e) {}
+}
+
+function onMouseUp(e)
+{
+    mouseDown = false;
+    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
+
+    try { element.releasePointerCapture(e.pointerId); }
+    catch (e) {}
+}
+
+function lockChange()
+{
+    const el = op.patch.cg.canvas;
+
+    if (document.pointerLockElement === el || document.mozPointerLockElement === el || document.webkitPointerLockElement === el)
+    {
+        document.addEventListener("mousemove", onmousemove, false);
+    }
+}
+
+function onMouseEnter(e)
+{
+    // cgl.canvas.style.cursor='url(/ui/img/rotate.png),pointer';
+}
+
+initialRadius.onChange = function ()
+{
+    radius = initialRadius.get();
+    reset();
+};
+
+initialX.onChange = function ()
+{
+    px = percX = (initialX.get() * Math.PI * 2);
+};
+
+initialAxis.onChange = function ()
+{
+    py = percY = (initialAxis.get() - 0.5);
+    eye = circlePos(percY);
+};
+
+const onMouseWheel = function (event)
+{
+    if (allowZooming.get())
+    {
+        const delta = CGL.getWheelSpeed(event) * 0.06;
+        radius += (parseFloat(delta)) * 1.2;
+
+        eye = circlePos(percY);
+    }
+};
+
+const ontouchstart = function (event)
+{
+    if (event.touches && event.touches.length > 0) onMouseDown(event.touches[0]);
+};
+
+const ontouchend = function (event)
+{
+    onMouseUp();
+};
+
+const ontouchmove = function (event)
+{
+    if (event.touches && event.touches.length > 0) onmousemove(event.touches[0]);
+};
+
+active.onChange = function ()
+{
+    if (active.get())bind();
+    else unbind();
+};
+
+function setElement(ele)
+{
+    unbind();
+    element = ele;
+    bind();
+}
+
+function bind()
+{
+    if (!element) return;
+
+    element.addEventListener("pointermove", onmousemove);
+    element.addEventListener("pointerdown", onMouseDown);
+    element.addEventListener("pointerup", onMouseUp);
+    element.addEventListener("pointerleave", onMouseUp);
+    element.addEventListener("pointerenter", onMouseEnter);
+    element.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    element.addEventListener("wheel", onMouseWheel, { "passive": true });
+}
+
+function unbind()
+{
+    if (!element) return;
+
+    element.removeEventListener("pointermove", onmousemove);
+    element.removeEventListener("pointerdown", onMouseDown);
+    element.removeEventListener("pointerup", onMouseUp);
+    element.removeEventListener("pointerleave", onMouseUp);
+    element.removeEventListener("pointerenter", onMouseUp);
+    element.removeEventListener("wheel", onMouseWheel);
+}
+
+eye = circlePos(0);
+
+initialX.set(0.25);
+initialRadius.set(0.05);
+
+
+};
+
+Ops.Gl.Matrix.OrbitControls.prototype = new CABLES.Op();
+CABLES.OPS["eaf4f7ce-08a3-4d1b-b9f4-ebc0b7b1cde1"]={f:Ops.Gl.Matrix.OrbitControls,objName:"Ops.Gl.Matrix.OrbitControls"};
 
 
 
@@ -18347,115 +18122,6 @@ CABLES.OPS["cbc9601c-a030-4f14-af18-dd5169b30eb4"]={f:Ops.User.rambodc.XRPL_tx,o
 
 // **************************************************************
 // 
-// Ops.User.rambodc.FBQueryAllDocuments1
-// 
-// **************************************************************
-
-Ops.User.rambodc.FBQueryAllDocuments1 = function()
-{
-CABLES.Op.apply(this,arguments);
-const op=this;
-const attachments={};
-// input
-const inTrigger = op.inTriggerButton("Trigger");
-const inCollectionName = op.inString("Collection name");
-const inUseQuery = op.inBool("Use Query");
-const inQueryField = op.inString("Query Field");
-const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="]);
-const inQueryValueAs = op.inDropDown("Query Value As", ["String", "Number", "Boolean", "Array", "Object"]);
-const inQueryValueString = op.inString("Query Value String");
-const inQueryValueNumber = op.inValue("Query Value Number");
-const inQueryValueBool = op.inBool("Query Value Boolean");
-const inQueryValueArray = op.inArray("Query Value Array");
-const inQueryValueObject = op.inObject("Query Value Object");
-const inFilterOnOrOff = op.inBool("Filter On or Off");
-const inFilterKey = op.inString("Filter Key");
-const inValueMustBe = op.inString("Value Must Be");
-
-// output
-const outSuccess = op.outTrigger("Success");
-const outError = op.outTrigger("Error");
-const outErrorMessage = op.outString("Error Message");
-const outDocumentNotFound = op.outBool("Document Not Found");
-const outDocuments = op.outArray("Documents");
-
-// events
-inTrigger.onTriggered = getDocuments;
-
-function getDocuments() {
-  const db = firebase.firestore();
-  let docRef = db.collection(inCollectionName.get());
-
-  if (inUseQuery.get()) {
-    if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get()) {
-      outErrorMessage.set(
-        "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
-      );
-      outError.trigger();
-      outDocuments.set(null);
-      outDocumentNotFound.set(false);
-      return;
-    }
-    let value = getValue();
-    docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
-  }
-
-  if (inFilterOnOrOff.get()) {
-    docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
-  }
-
-  docRef.get().then((querySnapshot) => {
-    if (!querySnapshot.empty) {
-      let documents = [];
-      querySnapshot.forEach((doc) => {
-        let docData = doc.data();
-        docData.id = doc.id; // Add this line
-        documents.push(docData);
-      });
-      outDocuments.set(documents);
-      outDocumentNotFound.set(false);
-      outSuccess.trigger();
-    } else {
-      outDocuments.set(null);
-      outDocumentNotFound.set(true);
-      outError.trigger();
-    }
-  }).catch((error) => {
-    outErrorMessage.set(error.message);
-    outError.trigger();
-  });
-}
-
-function getValue() {
-  let valueAs = inQueryValueAs.get();
-  if (valueAs === "String") {
-    return inQueryValueString.get();
-  }
-  if (valueAs === "Number") {
-    return Number(inQueryValueNumber.get()); // Convert to number
-  }
-  if (valueAs === "Boolean") {
-    return inQueryValueBool.get();
-  }
-  if (valueAs === "Array") {
-    return inQueryValueArray.get();
-  }
-  if (valueAs === "Object") {
-    return inQueryValueObject.get();
-  }
-}
-
-
-};
-
-Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
-CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
-
-
-
-
-// **************************************************************
-// 
 // Ops.User.rambodc.Not_Outbool
 // 
 // **************************************************************
@@ -18579,49 +18245,246 @@ CABLES.OPS["6a531dcf-1085-4eee-9f84-585bd40c3293"]={f:Ops.User.rambodc.XRPL_NFTo
 
 // **************************************************************
 // 
-// Ops.Sidebar.Button_v2
+// Ops.User.rambodc.WindowScrollTo
 // 
 // **************************************************************
 
-Ops.Sidebar.Button_v2 = function()
+Ops.User.rambodc.WindowScrollTo = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-// inputs
-const parentPort = op.inObject("link");
-const buttonTextPort = op.inString("Text", "Button");
+const triggerScrollToTop = op.inTriggerButton("Scroll To Top");
 
-// outputs
-const siblingsPort = op.outObject("childs");
-const buttonPressedPort = op.outTrigger("Pressed Trigger");
+triggerScrollToTop.onTriggered = function() {
+    window.scrollToTop(); // Call the function defined in index.js
+};
 
-const inGreyOut = op.inBool("Grey Out", false);
-const inVisible = op.inBool("Visible", true);
 
-// vars
+};
+
+Ops.User.rambodc.WindowScrollTo.prototype = new CABLES.Op();
+CABLES.OPS["6b7bcfeb-a93c-42ad-9033-8e1f1806e94e"]={f:Ops.User.rambodc.WindowScrollTo,objName:"Ops.User.rambodc.WindowScrollTo"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBQueryAllDocuments1
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBQueryAllDocuments1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inUseQuery = op.inBool("Use Query");
+const inQueryField = op.inString("Query Field");
+const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="], "==");
+const inQueryValueAs = op.inDropDown("Query Value As", ["String", "Number", "Boolean", "Array", "Object"], "String");
+const inQueryValueString = op.inString("Query Value String");
+const inQueryValueNumber = op.inValue("Query Value Number");
+const inQueryValueBool = op.inBool("Query Value Boolean");
+const inQueryValueArray = op.inArray("Query Value Array");
+const inQueryValueObject = op.inObject("Query Value Object");
+const inFilterOnOrOff = op.inBool("Filter On or Off");
+const inFilterKey = op.inString("Filter Key");
+const inValueMustBe = op.inString("Value Must Be");
+
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+const outDocumentNotFound = op.outBool("Document Not Found");
+const outDocuments = op.outArray("Documents");
+
+// events
+inTrigger.onTriggered = getDocuments;
+
+function getDocuments() {
+  const db = firebase.firestore();
+  let docRef = db.collection(inCollectionName.get());
+
+  if (inUseQuery.get()) {
+    if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get()) {
+      outErrorMessage.set(
+        "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
+      );
+      outError.trigger();
+      outDocuments.set(null);
+      outDocumentNotFound.set(false);
+      return;
+    }
+    let value = getValue();
+    docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
+  }
+
+  if (inFilterOnOrOff.get()) {
+    docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
+  }
+
+  docRef.get().then((querySnapshot) => {
+    if (!querySnapshot.empty) {
+      let documents = [];
+      querySnapshot.forEach((doc) => {
+        let docData = doc.data();
+        docData.id = doc.id; // Add this line
+        documents.push(docData);
+      });
+      outDocuments.set(documents);
+      outDocumentNotFound.set(false);
+      outSuccess.trigger();
+    } else {
+      outDocuments.set(null);
+      outDocumentNotFound.set(true);
+      outError.trigger();
+    }
+  }).catch((error) => {
+    outErrorMessage.set(error.message);
+    outError.trigger();
+  });
+}
+
+function getValue() {
+  let valueAs = inQueryValueAs.get();
+  if (valueAs === "String") {
+    return inQueryValueString.get();
+  }
+  if (valueAs === "Number") {
+    return Number(inQueryValueNumber.get()); // Convert to number
+  }
+  if (valueAs === "Boolean") {
+    return inQueryValueBool.get();
+  }
+  if (valueAs === "Array") {
+    return inQueryValueArray.get();
+  }
+  if (valueAs === "Object") {
+    return inQueryValueObject.get();
+  }
+}
+
+
+};
+
+Ops.User.rambodc.FBQueryAllDocuments1.prototype = new CABLES.Op();
+CABLES.OPS["91e23fdd-6b9b-4ec5-adf1-49560eb2d388"]={f:Ops.User.rambodc.FBQueryAllDocuments1,objName:"Ops.User.rambodc.FBQueryAllDocuments1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Sidebar.TextInput_v2
+// 
+// **************************************************************
+
+Ops.Sidebar.TextInput_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    parentPort = op.inObject("Link"),
+    labelPort = op.inString("Text", "Text"),
+    defaultValuePort = op.inString("Default", ""),
+    inPlaceholder = op.inString("Placeholder", ""),
+    inType = op.inSwitch("Type", ["text", "password"], "text"),
+    inTextArea = op.inBool("TextArea", false),
+    inGreyOut = op.inBool("Grey Out", false),
+    inVisible = op.inBool("Visible", true),
+    inClear = op.inTriggerButton("Clear"),
+    siblingsPort = op.outObject("Children"),
+    valuePort = op.outString("Result", defaultValuePort.get()),
+    outFocus = op.outBool("Focus");
+
 const el = document.createElement("div");
 el.dataset.op = op.id;
 el.classList.add("cablesEle");
 el.classList.add("sidebar__item");
-el.classList.add("sidebar--button");
-const input = document.createElement("div");
-input.classList.add("sidebar__button-input");
-el.appendChild(input);
-input.addEventListener("click", onButtonClick);
-const inputText = document.createTextNode(buttonTextPort.get());
-input.appendChild(inputText);
-op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+el.classList.add("sidebar__text-input");
+el.classList.add("sidebar__reloadable");
 
-// events
-parentPort.onChange = onParentChanged;
-buttonTextPort.onChange = onButtonTextChanged;
-op.onDelete = onDelete;
+const label = document.createElement("div");
+label.classList.add("sidebar__item-label");
+const labelText = document.createTextNode(labelPort.get());
+label.appendChild(labelText);
+el.appendChild(label);
+
+label.addEventListener("dblclick", function ()
+{
+    valuePort.set(defaultValuePort.get());
+    input.value = defaultValuePort.get();
+});
+
+let input = null;
+creatElement();
+
+op.toWorkPortsNeedToBeLinked(parentPort);
+
+inTextArea.onChange = creatElement;
+inType.onChange = setAttribs;
+
+function setAttribs()
+{
+    input.setAttribute("type", inType.get());
+    input.setAttribute("value", defaultValuePort.get());
+    input.setAttribute("placeholder", inPlaceholder.get());
+}
+
+function creatElement()
+{
+    if (input)input.remove();
+    if (!inTextArea.get())
+    {
+        input = document.createElement("input");
+    }
+    else
+    {
+        input = document.createElement("textarea");
+        onDefaultValueChanged();
+    }
+
+    input.classList.add("sidebar__text-input-input");
+
+    setAttribs();
+
+    el.appendChild(input);
+    input.addEventListener("input", onInput);
+    input.addEventListener("focus", onFocus);
+    input.addEventListener("blur", onBlur);
+}
 
 const greyOut = document.createElement("div");
 greyOut.classList.add("sidebar__greyout");
 el.appendChild(greyOut);
 greyOut.style.display = "none";
+
+inClear.onTriggered = () =>
+{
+    input.value = "";
+    valuePort.set(input.value);
+};
+
+function onFocus()
+{
+    outFocus.set(true);
+}
+
+function onBlur()
+{
+    outFocus.set(false);
+}
+
+inPlaceholder.onChange = () =>
+{
+    input.setAttribute("placeholder", inPlaceholder.get());
+};
 
 inGreyOut.onChange = function ()
 {
@@ -18633,18 +18496,33 @@ inVisible.onChange = function ()
     el.style.display = inVisible.get() ? "block" : "none";
 };
 
-function onButtonClick()
+// events
+parentPort.onChange = onParentChanged;
+labelPort.onChange = onLabelTextChanged;
+defaultValuePort.onChange = onDefaultValueChanged;
+op.onDelete = onDelete;
+
+// functions
+
+function onInput(ev)
 {
-    buttonPressedPort.trigger();
+    valuePort.set(ev.target.value);
 }
 
-function onButtonTextChanged()
+function onDefaultValueChanged()
 {
-    const buttonText = buttonTextPort.get();
-    input.textContent = buttonText;
+    const defaultValue = defaultValuePort.get();
+    valuePort.set(defaultValue);
+    input.value = defaultValue;
+}
+
+function onLabelTextChanged()
+{
+    const labelText = labelPort.get();
+    label.textContent = labelText;
     if (CABLES.UI)
     {
-        op.setTitle("Button: " + buttonText);
+        op.setTitle("Text Input: " + labelText);
     }
 }
 
@@ -18698,34 +18576,2383 @@ function removeElementFromDOM(el)
 
 };
 
-Ops.Sidebar.Button_v2.prototype = new CABLES.Op();
-CABLES.OPS["5e9c6933-0605-4bf7-8671-a016d917f327"]={f:Ops.Sidebar.Button_v2,objName:"Ops.Sidebar.Button_v2"};
+Ops.Sidebar.TextInput_v2.prototype = new CABLES.Op();
+CABLES.OPS["6538a190-e73c-451b-964e-d010ee267aa9"]={f:Ops.Sidebar.TextInput_v2,objName:"Ops.Sidebar.TextInput_v2"};
 
 
 
 
 // **************************************************************
 // 
-// Ops.User.rambodc.WindowScrollTo
+// Ops.User.rambodc.FBQueryAllDocuments_SubColl
 // 
 // **************************************************************
 
-Ops.User.rambodc.WindowScrollTo = function()
+Ops.User.rambodc.FBQueryAllDocuments_SubColl = function()
 {
 CABLES.Op.apply(this,arguments);
 const op=this;
 const attachments={};
-const triggerScrollToTop = op.inTriggerButton("Scroll To Top");
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentId = op.inString("Document ID"); // New input for document ID
+const inSubCollectionName = op.inString("Subcollection name");
+const inUseQuery = op.inBool("Use Query");
+const inQueryField = op.inString("Query Field");
+const inQueryOperator = op.inDropDown("Query Operator", ["<", "<=", "==", ">", ">="], "==");
+const inQueryValueAs = op.inDropDown("Query Value As", ["String", "Number", "Boolean", "Array", "Object"], "String");
+const inQueryValueString = op.inString("Query Value String");
+const inQueryValueNumber = op.inValue("Query Value Number");
+const inQueryValueBool = op.inBool("Query Value Boolean");
+const inQueryValueArray = op.inArray("Query Value Array");
+const inQueryValueObject = op.inObject("Query Value Object");
+const inFilterOnOrOff = op.inBool("Filter On or Off");
+const inFilterKey = op.inString("Filter Key");
+const inValueMustBe = op.inString("Value Must Be");
 
-triggerScrollToTop.onTriggered = function() {
-    window.scrollToTop(); // Call the function defined in index.js
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+const outDocumentNotFouned = op.outValueBool("Document Not Found");
+const outDocuments = op.outArray("Documents");
+
+// events
+inTrigger.onTriggered = getDocuments;
+
+function getDocuments()
+{
+    const db = firebase.firestore();
+
+    // Check if a document ID and subcollection name are provided
+    let docId = inDocumentId.get();
+    let subCollectionName = inSubCollectionName.get();
+    let docRef = db.collection(inCollectionName.get());
+
+    if(docId && subCollectionName) {
+        docRef = docRef.doc(docId).collection(subCollectionName);
+    }
+
+    if (inUseQuery.get())
+    {
+        if (!inQueryField.get() || !inQueryOperator.get() || !inQueryValueAs.get())
+        {
+            outErrorMessage.set(
+                "Missing Arguments: Collection name, Query Field, Query Operator or Query Value is missing!"
+            );
+            outError.trigger();
+            outDocuments.set(null);
+            outDocumentNotFouned.set(false);
+            return;
+        }
+        let value = getValue();
+        docRef = docRef.where(inQueryField.get(), inQueryOperator.get(), value);
+    }
+
+    if (inFilterOnOrOff.get())
+    {
+        docRef = docRef.where(inFilterKey.get(), "==", inValueMustBe.get());
+    }
+
+    docRef.get().then((querySnapshot) =>
+    {
+        if (!querySnapshot.empty)
+        {
+            let documents = [];
+            querySnapshot.forEach((doc) =>
+            {
+                let docData = doc.data();
+                docData.id = doc.id; // Add this line
+                documents.push(docData);
+            });
+            outDocuments.set(documents);
+            outDocumentNotFouned.set(false);
+            outSuccess.trigger();
+        }
+        else
+        {
+            outDocuments.set(null);
+            outDocumentNotFouned.set(true);
+            outError.trigger();
+        }
+    }).catch((error) =>
+    {
+        outErrorMessage.set(error.message);
+        outError.trigger();
+    });
+}
+
+function getValue()
+{
+    let valueAs = inQueryValueAs.get();
+    if (valueAs === "String")
+    {
+        return inQueryValueString.get();
+    }
+    if (valueAs === "Number")
+    {
+        return inQueryValueNumber.get();
+    }
+    if (valueAs === "Boolean")
+    {
+        return inQueryValueBool.get();
+    }
+    if (valueAs === "Array")
+    {
+        return inQueryValueArray.get();
+    }
+    if (valueAs === "Object")
+    {
+        return inQueryValueObject.get();
+    }
+}
+
+
+};
+
+Ops.User.rambodc.FBQueryAllDocuments_SubColl.prototype = new CABLES.Op();
+CABLES.OPS["0feee7c7-8d32-4eb3-8f74-3afa3c13c52c"]={f:Ops.User.rambodc.FBQueryAllDocuments_SubColl,objName:"Ops.User.rambodc.FBQueryAllDocuments_SubColl"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.StringToBool
+// 
+// **************************************************************
+
+Ops.User.rambodc.StringToBool = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    // Input
+    inString = op.inString("String", "false"),
+
+    // Output
+    outBool = op.outBool("Boolean", false);
+
+// Update output when the input changes
+inString.onChange = updateOutput;
+
+function updateOutput() {
+    let stringValue = inString.get();
+
+    // Convert the string to a boolean value
+    if (stringValue.toLowerCase() === "true") {
+        outBool.set(true);
+    } else if (stringValue.toLowerCase() === "false") {
+        outBool.set(false);
+    } else {
+        // Handle invalid input, if needed
+    }
+}
+
+
+};
+
+Ops.User.rambodc.StringToBool.prototype = new CABLES.Op();
+CABLES.OPS["92882988-ab61-4c93-8faf-695f6059dc0d"]={f:Ops.User.rambodc.StringToBool,objName:"Ops.User.rambodc.StringToBool"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBDeleteDocument_IfExistsThenDelete
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBDeleteDocument_IfExistsThenDelete = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inDocumentID = op.inString("Document ID");
+const inSubCollectionName = op.inString("SubCollection name", "");
+const inSubDocumentID = op.inString("SubDocument ID", "");
+
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+
+inTrigger.onTriggered = deleteDocument;
+
+async function deleteDocument() {
+  if (!inCollectionName.get() || !inDocumentID.get()) {
+    outError.trigger();
+    outErrorMessage.set("Missing Arguments: Collection name or Document ID is missing!");
+    return;
+  }
+
+  const db = firebase.firestore();
+
+  let docRef = db.collection(inCollectionName.get()).doc(inDocumentID.get());
+
+  // if sub-collection name and sub-document ID are provided, use them
+  if (inSubCollectionName.get() && inSubDocumentID.get()) {
+    docRef = docRef.collection(inSubCollectionName.get()).doc(inSubDocumentID.get());
+  }
+
+  try {
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      outError.trigger();
+      outErrorMessage.set("Document does not exist.");
+      return;
+    }
+
+    await docRef.delete();
+    outSuccess.trigger();
+    outErrorMessage.set('');
+  } catch (error) {
+    outError.trigger();
+    outErrorMessage.set(error.message);
+  }
+}
+
+
+};
+
+Ops.User.rambodc.FBDeleteDocument_IfExistsThenDelete.prototype = new CABLES.Op();
+CABLES.OPS["5cc5232b-16bc-4e5c-93e6-efc405a87625"]={f:Ops.User.rambodc.FBDeleteDocument_IfExistsThenDelete,objName:"Ops.User.rambodc.FBDeleteDocument_IfExistsThenDelete"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.FBQueryStrings
+// 
+// **************************************************************
+
+Ops.User.rambodc.FBQueryStrings = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// input
+const inTrigger = op.inTriggerButton("Trigger");
+const inCollectionName = op.inString("Collection name");
+const inKey1 = op.inString("Key 1");
+const inValue1 = op.inString("Value 1 Equals");
+const inKey2 = op.inString("Key 2");
+const inValue2 = op.inString("Value 2 Equals");
+const inKey3 = op.inString("Key 3");
+const inValue3 = op.inString("Value 3 Equals");
+const inPageSize = op.inValue("Page Size", "10");
+const inNextPage = op.inTriggerButton("Next Page");
+const inPrevPage = op.inTriggerButton("Previous Page");
+
+// output
+const outSuccess = op.outTrigger("Success");
+const outError = op.outTrigger("Error");
+const outErrorMessage = op.outString("Error Message");
+const outDocumentNotFound = op.outBool("Document Not Found");
+const outDocuments = op.outArray("Documents");
+const outHasNextPage = op.outBool("Has Next Page");
+const outHasPrevPage = op.outBool("Has Previous Page");
+
+let lastVisible = null;
+let firstVisible = null;
+let history = [];
+
+// events
+inTrigger.onTriggered = getFirstPage;
+inNextPage.onTriggered = getNextPage;
+inPrevPage.onTriggered = getPrevPage;
+
+function applyFilters(docRef) {
+  if (inKey1.get()) {
+    docRef = docRef.where(inKey1.get(), "==", inValue1.get());
+  }
+  if (inKey2.get()) {
+    docRef = docRef.where(inKey2.get(), "==", inValue2.get());
+  }
+  if (inKey3.get()) {
+    docRef = docRef.where(inKey3.get(), "==", inValue3.get());
+  }
+  return docRef;
+}
+
+function getFirstPage() {
+  history = [];
+  const db = firebase.firestore();
+  let docRef = db.collection(inCollectionName.get());
+
+  docRef = applyFilters(docRef);
+
+  docRef.limit(inPageSize.get())
+  .get()
+  .then(handleQueryResult)
+  .catch((error) => {
+    outErrorMessage.set(error.message);
+    outError.trigger();
+  });
+}
+
+function getNextPage() {
+  if (!lastVisible) return;
+
+  history.push({ first: firstVisible, last: lastVisible });
+
+  const db = firebase.firestore();
+  let docRef = db.collection(inCollectionName.get());
+
+  docRef = applyFilters(docRef);
+
+  docRef.startAfter(lastVisible)
+    .limit(inPageSize.get())
+    .get()
+    .then(handleQueryResult)
+    .catch((error) => {
+    outErrorMessage.set(error.message);
+    outError.trigger();
+  });
+}
+
+function getPrevPage() {
+  const prevData = history.pop();
+  if (!prevData) return;
+
+  firstVisible = prevData.first;
+  lastVisible = prevData.last;
+
+  const db = firebase.firestore();
+  let docRef = db.collection(inCollectionName.get());
+
+  docRef = applyFilters(docRef);
+
+  docRef.startAt(firstVisible)
+    .limit(inPageSize.get())
+    .get()
+    .then(handleQueryResult)
+    .catch((error) => {
+    outErrorMessage.set(error.message);
+    outError.trigger();
+  });
+}
+
+function handleQueryResult(querySnapshot) {
+  if (!querySnapshot.empty) {
+    let documents = [];
+    querySnapshot.forEach((doc) => {
+      let docData = doc.data();
+      docData.id = doc.id;
+      documents.push(docData);
+    });
+
+    firstVisible = querySnapshot.docs[0];
+    lastVisible = querySnapshot.docs[querySnapshot.size - 1];
+
+    outDocuments.set(documents);
+    outDocumentNotFound.set(false);
+    outHasNextPage.set(true);
+    outHasPrevPage.set(history.length > 0);
+    outSuccess.trigger();
+  } else {
+    outDocuments.set([]);
+    outDocumentNotFound.set(true);
+    outHasNextPage.set(false);
+    outHasPrevPage.set(history.length > 0);
+    outError.trigger();
+  }
+}
+
+
+};
+
+Ops.User.rambodc.FBQueryStrings.prototype = new CABLES.Op();
+CABLES.OPS["0fb1ca99-99e2-4671-b030-9eb1e6a4ab39"]={f:Ops.User.rambodc.FBQueryStrings,objName:"Ops.User.rambodc.FBQueryStrings"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ObjectTrigger
+// 
+// **************************************************************
+
+Ops.Json.ObjectTrigger = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inTrigger = op.inTriggerButton("Trigger"),
+    inObj = op.inObject("Object"),
+    outTrigger = op.outTrigger("Next"),
+    outObj = op.outObject("Result");
+
+inTrigger.onTriggered = function ()
+{
+    outObj.setRef(inObj.get());
+    outTrigger.trigger();
 };
 
 
 };
 
-Ops.User.rambodc.WindowScrollTo.prototype = new CABLES.Op();
-CABLES.OPS["6b7bcfeb-a93c-42ad-9033-8e1f1806e94e"]={f:Ops.User.rambodc.WindowScrollTo,objName:"Ops.User.rambodc.WindowScrollTo"};
+Ops.Json.ObjectTrigger.prototype = new CABLES.Op();
+CABLES.OPS["e437c074-190f-4adb-8265-3fddea27fe33"]={f:Ops.Json.ObjectTrigger,objName:"Ops.Json.ObjectTrigger"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ObjectIsNull
+// 
+// **************************************************************
+
+Ops.Json.ObjectIsNull = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const inObj = op.inObject("Object");
+const outResult = op.outBoolNum("Result");
+
+inObj.onChange = function ()
+{
+    outResult.set(!inObj.get());
+};
+
+
+};
+
+Ops.Json.ObjectIsNull.prototype = new CABLES.Op();
+CABLES.OPS["2fd858a8-3dff-43e4-bd85-a62c7d23b5a2"]={f:Ops.Json.ObjectIsNull,objName:"Ops.Json.ObjectIsNull"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_account_currencies
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_account_currencies = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const inTrigger = op.inTriggerButton("Trigger");
+const inAccount = op.inString("Account");
+const inLedgerIndex = op.inString("Ledger Index", "validated"); // default to 'validated'
+const inWSS = op.inString("WebSocket Server (WSS)");
+
+// Outputs
+const outObject = op.outObject("Account Currencies");
+const outSuccess = op.outTrigger("Success");
+const outFailure = op.outTrigger("Failure");
+const outError = op.outString("Error");
+
+// Run the main function when the trigger input is activated
+inTrigger.onTriggered = main;
+
+async function main() {
+  const account = inAccount.get();
+  const ledgerIndex = inLedgerIndex.get();
+  const wssURL = inWSS.get();
+
+  // Construct the request payload
+  const payload = {
+    command: "account_currencies",
+    account: account,
+    ledger_index: ledgerIndex
+  };
+
+  // Make the WebSocket connection and send the request
+  const socket = new WebSocket(wssURL);
+
+  socket.onopen = () => {
+    socket.send(JSON.stringify(payload));
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    // Check for errors
+    if (data.error) {
+      outError.set(data.error + ": " + data.error_message);
+      outFailure.trigger();
+      return;
+    }
+
+    // Output the account currencies
+    outObject.set(data.result);
+    outSuccess.trigger();
+  };
+
+  socket.onerror = (error) => {
+    outError.set("WebSocket error: " + error.message);
+    outFailure.trigger();
+  };
+
+  socket.onclose = (event) => {
+    if (!event.wasClean) {
+      outError.set(`WebSocket connection closed unexpectedly: code ${event.code} reason ${event.reason}`);
+      outFailure.trigger();
+    }
+  };
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_account_currencies.prototype = new CABLES.Op();
+CABLES.OPS["9905c5cd-f421-462c-bb21-7eb06b32ede9"]={f:Ops.User.rambodc.XRPL_account_currencies,objName:"Ops.User.rambodc.XRPL_account_currencies"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Array.ArrayToString_v3
+// 
+// **************************************************************
+
+Ops.Array.ArrayToString_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inArr=op.inArray("Array"),
+    inSeperator=op.inString("Seperator",","),
+    inNewLine=op.inValueBool("New Line"),
+    outStr=op.outString("Result");
+
+inArr.onChange=
+    outStr.onChange=
+    inSeperator.onChange=
+    inNewLine.onChange=exec;
+
+
+function exec()
+{
+    var arr=inArr.get();
+    var result='';
+
+    var sep=inSeperator.get();
+    if(inNewLine.get())sep+='\n';
+
+    if(arr && arr.join)
+    {
+        result=arr.join(sep);
+    }
+
+    outStr.set(result);
+}
+
+};
+
+Ops.Array.ArrayToString_v3.prototype = new CABLES.Op();
+CABLES.OPS["7b539bb3-8e86-4367-9e00-a637d3cfd87a"]={f:Ops.Array.ArrayToString_v3,objName:"Ops.Array.ArrayToString_v3"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Array.ArrayMerge_v3
+// 
+// **************************************************************
+
+Ops.Array.ArrayMerge_v3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const numArrays = 8;
+const inArrs = [];
+
+for (let i = 0; i < numArrays; i++)
+{
+    inArrs[i] = op.inArray("Array " + i);
+    inArrs[i].onChange = function ()
+    {
+        update();
+    };
+}
+
+const
+    outArr = op.outArray("Result"),
+    outArrayLength = op.outNumber("Array length");
+
+let arr = [];
+
+function update()
+{
+    arr.length = 0;
+
+    for (let i = 0; i < numArrays; i++)
+    {
+        const ar = inArrs[i].get();
+        if (ar)arr = arr.concat(ar);
+    }
+
+    outArr.set(null);
+    outArr.set(arr);
+    outArrayLength.set(arr.length);
+}
+
+
+};
+
+Ops.Array.ArrayMerge_v3.prototype = new CABLES.Op();
+CABLES.OPS["753d053a-04a3-44c7-abf0-ae2676ced13e"]={f:Ops.Array.ArrayMerge_v3,objName:"Ops.Array.ArrayMerge_v3"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.List4
+// 
+// **************************************************************
+
+Ops.User.rambodc.List4 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const parentPort = op.inObject("link");
+const dataArrayPort = op.inArray("Data Array");
+const iconUrlPort = op.inString("Icon URL");
+
+// Title Inputs
+const titleTextPathPort = op.inString("Title Text Path");
+const titleColor = op.inString("Title Color", "rgba(255,255,255,1)");
+const titleSize = op.inString("Title Size", "16px");
+const titleLineHeight = op.inString("Title Line Height", "1.5");
+const titleIsBold = op.inBool("Title Bold", false);
+
+// Description Inputs
+const descriptionTextPathPort = op.inString("Description Text Path");
+const descriptionColor = op.inString("Description Color", "rgba(255,255,255,1)");
+const descriptionSize = op.inString("Description Size", "16px");
+const descriptionLineHeight = op.inString("Description Line Height", "1.5");
+const descriptionIsBold = op.inBool("Description Bold", false);
+
+// CSS Inputs
+const backgroundColor = op.inString("Background Color", "rgba(255,255,255,0.1)");
+const hoverColor = op.inString("Hover Color", "rgba(255,255,255,0.3)");
+const margin = op.inString("Margin", "10px");
+const padding = op.inString("Padding", "10px");
+const height = op.inString("Height", "auto");
+const width = op.inString("Width", "auto");
+
+// Outputs
+const siblingsPort = op.outObject("childs");
+const buttonPressedPort = op.outTrigger("Button Pressed");
+const buttonIndexPort = op.outValue("Button Index");
+const selectedObjectPort = op.outObject("Selected Object");
+
+// Variables
+const el = document.createElement("div");
+el.dataset.op = op.id;
+let buttons = [];
+let data = [];
+
+function initializeButtons() {
+    buttons.forEach((button) => { return el.removeChild(button); });
+    buttons = [];
+
+    data = dataArrayPort.get();
+    if (!data) return;
+
+    data.forEach((item, index) => {
+        const button = document.createElement("div");
+        button.style.cursor = 'pointer';
+        button.style.backgroundColor = backgroundColor.get();
+        button.style.margin = margin.get();
+        button.style.padding = padding.get();
+        button.style.height = height.get();
+        button.style.width = width.get();
+        button.style.display = 'flex';
+        button.style.alignItems = 'center';
+        button.addEventListener("mouseover", function() { this.style.backgroundColor = hoverColor.get(); });
+        button.addEventListener("mouseout", function() { this.style.backgroundColor = backgroundColor.get(); });
+        button.addEventListener("click", (event) => { return onButtonClick(index, event); });
+
+        const img = document.createElement("img");
+        img.src = iconUrlPort.get();
+        img.style.marginRight = "10px";
+        img.width = 50;
+        img.height = 50;
+        button.appendChild(img);
+
+        const textDiv = document.createElement("div");
+        textDiv.style.display = 'flex';
+        textDiv.style.flexDirection = 'column';
+        textDiv.style.justifyContent = 'center';
+
+        const titleTextNode = document.createTextNode(item[titleTextPathPort.get()]);
+        const titleDiv = document.createElement("div");
+        titleDiv.style.color = titleColor.get();
+        titleDiv.style.fontSize = titleSize.get();
+        titleDiv.style.lineHeight = titleLineHeight.get();
+        titleDiv.style.fontWeight = titleIsBold.get() ? 'bold' : 'normal';
+        titleDiv.appendChild(titleTextNode);
+        textDiv.appendChild(titleDiv);
+
+        const descriptionTextNode = document.createTextNode(item[descriptionTextPathPort.get()]);
+        const descriptionDiv = document.createElement("div");
+        descriptionDiv.style.color = descriptionColor.get();
+        descriptionDiv.style.fontSize = descriptionSize.get();
+        descriptionDiv.style.lineHeight = descriptionLineHeight.get();
+        descriptionDiv.style.fontWeight = descriptionIsBold.get() ? 'bold' : 'normal';
+        descriptionDiv.appendChild(descriptionTextNode);
+        textDiv.appendChild(descriptionDiv);
+
+        button.appendChild(textDiv);
+        el.appendChild(button);
+        buttons.push(button);
+    });
+}
+
+op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+
+parentPort.onChange = onParentChanged;
+dataArrayPort.onChange = initializeButtons;
+iconUrlPort.onChange = initializeButtons;
+titleTextPathPort.onChange = initializeButtons;
+titleColor.onChange = initializeButtons;
+titleSize.onChange = initializeButtons;
+titleLineHeight.onChange = initializeButtons;
+titleIsBold.onChange = initializeButtons;
+descriptionTextPathPort.onChange = initializeButtons;
+descriptionColor.onChange = initializeButtons;
+descriptionSize.onChange = initializeButtons;
+descriptionLineHeight.onChange = initializeButtons;
+descriptionIsBold.onChange = initializeButtons;
+backgroundColor.onChange = initializeButtons;
+hoverColor.onChange = initializeButtons;
+margin.onChange = initializeButtons;
+padding.onChange = initializeButtons;
+height.onChange = initializeButtons;
+width.onChange = initializeButtons;
+
+function onButtonClick(index, event) {
+    event.stopPropagation();
+    buttonIndexPort.set(index);
+    let buttonObject = data[index];
+    selectedObjectPort.set(buttonObject);
+    buttonPressedPort.trigger();
+}
+
+function onParentChanged() {
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement) {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    }
+    else {
+        if (el.parentElement) {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+op.onDelete = function () {
+    if (el.parentNode) {
+        el.parentNode.removeChild(el);
+    }
+};
+
+
+};
+
+Ops.User.rambodc.List4.prototype = new CABLES.Op();
+CABLES.OPS["c0171e9e-2652-46ad-8be6-f7aefd8822ed"]={f:Ops.User.rambodc.List4,objName:"Ops.User.rambodc.List4"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Button_icon_desc
+// 
+// **************************************************************
+
+Ops.User.rambodc.Button_icon_desc = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// inputs
+const parentPort = op.inObject("link");
+const iconPort = op.inString("Icon", "https://firebasestorage.googleapis.com/v0/b/cables-5b10a.appspot.com/o/assets%2FAccountsNodes.png?alt=media&token=36471c6c-5487-491f-ac31-76eddf2abd5d");
+const buttonTextPort = op.inString("Text", "Button");
+const buttonText2Port = op.inString("Text 2", "Second Line");
+const rightTextPort = op.inString("Text Right", "Button");
+const rightText2Port = op.inString("Text Right 2", "Second Line Right");
+const rightIconPort = op.inString("Icon Right","https://firebasestorage.googleapis.com/v0/b/cables-5b10a.appspot.com/o/assets%2Fright-arrow%20(1).png?alt=media&token=d86bbe34-2ced-42f6-b4e4-7f5d752ff5f1");
+
+// outputs
+const siblingsPort = op.outObject("childs");
+const buttonPressedPort = op.outTrigger("Pressed Trigger");
+
+const inVisible = op.inBool("Visible", true);
+
+// vars
+const el = document.createElement("div");
+el.dataset.op = op.id;
+el.style.height = "60px";
+el.style.display = "flex";
+el.style.justifyContent = "space-between";
+el.style.alignItems = "center";
+el.style.backgroundColor = "transparent";
+el.style.cursor = "pointer";
+el.style.padding = "10px 10px";
+el.style.transition = "background-color 0.3s, border-color 0.3s";
+el.style.fontSize = "16px";
+el.style.color = "white";
+el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
+el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
+
+const leftContainer = document.createElement("div");
+leftContainer.style.display = "flex";
+leftContainer.style.alignItems = "center";
+el.appendChild(leftContainer);
+
+const leftIcon = document.createElement("img");
+leftIcon.src = iconPort.get();
+leftIcon.style.width = "50px";
+leftIcon.style.height = "50px";
+leftIcon.style.padding = "10px";
+leftContainer.appendChild(leftIcon);
+
+const textContainer = document.createElement("div");
+textContainer.style.display = "flex";
+textContainer.style.flexDirection = "column";
+textContainer.style.justifyContent = "center";
+leftContainer.appendChild(textContainer);
+
+const input = document.createElement("div");
+input.style.textAlign = "left";
+input.style.fontSize = "16px";
+input.style.fontWeight = "bold";
+input.style.marginBottom = "5px";
+textContainer.appendChild(input);
+const inputText = document.createTextNode(buttonTextPort.get());
+input.appendChild(inputText);
+
+const input2 = document.createElement("div");
+input2.style.textAlign = "left";
+input2.style.fontSize = "14px";
+textContainer.appendChild(input2);
+const inputText2 = document.createTextNode(buttonText2Port.get());
+input2.appendChild(inputText2);
+
+const rightContainer = document.createElement("div");
+rightContainer.style.display = "flex";
+rightContainer.style.alignItems = "center";
+el.appendChild(rightContainer);
+
+const rightTextContainer = document.createElement("div");
+rightTextContainer.style.display = "flex";
+rightTextContainer.style.flexDirection = "column";
+rightTextContainer.style.justifyContent = "center";
+rightContainer.appendChild(rightTextContainer);
+
+const rightText = document.createElement("div");
+rightText.innerText = rightTextPort.get();
+rightText.style.fontWeight = "bold";
+rightText.style.fontSize = "16px";
+rightText.style.lineHeight = "1";
+rightText.style.marginBottom = "5px";
+rightTextContainer.appendChild(rightText);
+
+const rightText2 = document.createElement("div");
+rightText2.innerText = rightText2Port.get();
+rightText2.style.fontSize = "14px";
+rightTextContainer.appendChild(rightText2);
+
+const rightIcon = document.createElement("img");
+rightIcon.src = rightIconPort.get();
+rightIcon.style.width = "20px";
+rightIcon.style.height = "20px";
+rightIcon.style.padding = "0 10px";
+rightContainer.appendChild(rightIcon);
+
+op.toWorkNeedsParent("Ops.Sidebar.Sidebar");
+
+// Attach click event to the entire button
+el.addEventListener("click", onButtonClick);
+el.addEventListener("mouseenter", onButtonMouseEnter);
+el.addEventListener("mouseleave", onButtonMouseLeave);
+
+// events
+parentPort.onChange = onParentChanged;
+buttonTextPort.onChange = buttonText2Port.onChange = onButtonTextChanged;
+rightTextPort.onChange = rightText2Port.onChange = onRightTextChanged;
+iconPort.onChange = updateIcon;
+rightIconPort.onChange = updateRightIcon;
+op.onDelete = onDelete;
+inVisible.onChange = updateVisibility;
+
+function onButtonClick() {
+    buttonPressedPort.trigger();
+    el.style.borderColor = "rgba(255, 255, 255, 0.3)";
+}
+
+function onButtonMouseEnter() {
+    el.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
+    el.style.color = "rgba(255, 255, 255, 0.9)";
+    el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
+    el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
+}
+
+function onButtonMouseLeave() {
+    el.style.backgroundColor = "transparent";
+    el.style.color = "rgba(255, 255, 255, 0.9)";
+    el.style.borderTop = "1px solid rgba(255, 255, 255, 0.1)";
+    el.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
+}
+
+function onButtonTextChanged() {
+    input.textContent = buttonTextPort.get();
+    input2.textContent = buttonText2Port.get();
+    if (CABLES.UI) {
+        op.setTitle("Button: " + buttonTextPort.get() + "\n" + buttonText2Port.get());
+    }
+}
+
+function onRightTextChanged() {
+    rightText.innerText = rightTextPort.get();
+    rightText2.innerText = rightText2Port.get();
+}
+
+function onParentChanged() {
+    siblingsPort.set(null);
+    const parent = parentPort.get();
+    if (parent && parent.parentElement) {
+        parent.parentElement.appendChild(el);
+        siblingsPort.set(parent);
+    } else { // detach
+        if (el.parentElement) {
+            el.parentElement.removeChild(el);
+        }
+    }
+}
+
+function updateIcon() {
+    leftIcon.src = iconPort.get();
+}
+
+function updateRightIcon() {
+    rightIcon.src = rightIconPort.get();
+}
+
+function updateVisibility() {
+    el.style.display = inVisible.get() ? "flex" : "none";
+}
+
+function onDelete() {
+    removeElementFromDOM(el);
+}
+
+function removeElementFromDOM(el) {
+    if (el && el.parentNode && el.parentNode.removeChild) {
+        el.parentNode.removeChild(el);
+    }
+}
+
+
+};
+
+Ops.User.rambodc.Button_icon_desc.prototype = new CABLES.Op();
+CABLES.OPS["9da902e8-0e1c-4851-9321-3b0e1a50b32e"]={f:Ops.User.rambodc.Button_icon_desc,objName:"Ops.User.rambodc.Button_icon_desc"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Array_AddKeyValues
+// 
+// **************************************************************
+
+Ops.User.rambodc.Array_AddKeyValues = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const arrayInputPort = op.inArray("Array Input");
+const keyNamePort = op.inString("Key Name");
+
+// Additional Inputs for extra key-value pairs
+const addKey1Port = op.inString("Add Key1");
+const addValue1Port = op.inString("Add Value1");
+const addKey2Port = op.inString("Add Key2");
+const addValue2Port = op.inString("Add Value2");
+
+// Outputs
+const arrayOutputPort = op.outArray("Array");
+
+// Function to convert the array to an array of objects
+function convertArrayToObjectArray() {
+  const arrayInput = arrayInputPort.get();
+  const keyName = keyNamePort.get();
+
+  // Additional key-value pairs
+  const addKey1 = addKey1Port.get();
+  const addValue1 = addValue1Port.get();
+  const addKey2 = addKey2Port.get();
+  const addValue2 = addValue2Port.get();
+
+  // Check if both the array and key name are provided
+  if (!arrayInput || !keyName) {
+    return;
+  }
+
+  // Create a new array where each element is an object with the given key name
+  const arrayOutput = arrayInput.map(element => {
+    const obj = {};
+    obj[keyName] = element;
+
+    // Add additional key-value pairs if they are provided
+    if (addKey1 && addValue1 !== undefined) {
+      obj[addKey1] = addValue1;
+    }
+    if (addKey2 && addValue2 !== undefined) {
+      obj[addKey2] = addValue2;
+    }
+    return obj;
+  });
+
+  // Set the output array
+  arrayOutputPort.set(arrayOutput);
+}
+
+// Event handlers for changes to the input ports
+arrayInputPort.onChange = convertArrayToObjectArray;
+keyNamePort.onChange = convertArrayToObjectArray;
+addKey1Port.onChange = convertArrayToObjectArray;
+addValue1Port.onChange = convertArrayToObjectArray;
+addKey2Port.onChange = convertArrayToObjectArray;
+addValue2Port.onChange = convertArrayToObjectArray;
+
+
+};
+
+Ops.User.rambodc.Array_AddKeyValues.prototype = new CABLES.Op();
+CABLES.OPS["6348d8e4-bef4-4ad8-aaa1-ed2e7dae5af5"]={f:Ops.User.rambodc.Array_AddKeyValues,objName:"Ops.User.rambodc.Array_AddKeyValues"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.String.Lowercase_v2
+// 
+// **************************************************************
+
+Ops.String.Lowercase_v2 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inStr = op.inString("String"),
+    outStr = op.outString("Result", "");
+
+inStr.onChange = function ()
+{
+    if (inStr.get() == 0)outStr.set("");
+    else outStr.set((inStr.get() || "").toLowerCase());
+};
+
+
+};
+
+Ops.String.Lowercase_v2.prototype = new CABLES.Op();
+CABLES.OPS["bff9c3d9-e63a-46d2-a59f-932c715aceab"]={f:Ops.String.Lowercase_v2,objName:"Ops.String.Lowercase_v2"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.XRPL_Payment_XRPOnly
+// 
+// **************************************************************
+
+Ops.User.rambodc.XRPL_Payment_XRPOnly = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for XRP Payment
+const inAccount = op.inString("Account"); // The account that will send the payment
+const inDestination = op.inString("Destination"); // The account that will receive the payment
+const inXrpAmount = op.inString("XRP Amount"); // The amount of XRP to send as a string
+const inDestinationTag = op.inInt("DestinationTag"); // (Optional) Numerical tag that defines the reason for the payment
+const inInvoiceID = op.inString("InvoiceID"); // (Optional) Arbitrary 256-bit hash representing the reason for the payment
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete XRP Payment Transaction");
+
+// Trigger to add Payment fields
+const inTriggerAddPaymentFields = op.inTriggerButton("Add XRP Payment Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddPaymentFields.onTriggered = addXrpPaymentFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addXrpPaymentFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "Payment"; // Set transaction type
+
+    let account = inAccount.get();
+    let destination = inDestination.get();
+    let xrpAmount = inXrpAmount.get();
+    let destinationTag = inDestinationTag.get();
+    let invoiceID = inInvoiceID.get();
+
+    if (account) transaction.Account = account;
+    if (destination) transaction.Destination = destination;
+    if (xrpAmount) transaction.Amount = String(Math.round(parseFloat(xrpAmount) * 1000000));  // Fixed this line to properly handle fractional XRP amounts
+    if (destinationTag) transaction.DestinationTag = destinationTag;
+    if (invoiceID) transaction.InvoiceID = invoiceID;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inAccount.set(null);
+    inDestination.set(null);
+    inXrpAmount.set(null);
+    inDestinationTag.set(null);
+    inInvoiceID.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.XRPL_Payment_XRPOnly.prototype = new CABLES.Op();
+CABLES.OPS["731052df-2995-4c3e-8a5e-75d2f92306f7"]={f:Ops.User.rambodc.XRPL_Payment_XRPOnly,objName:"Ops.User.rambodc.XRPL_Payment_XRPOnly"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Array_toString
+// 
+// **************************************************************
+
+Ops.User.rambodc.Array_toString = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inArray = op.inArray("Input Array"),  // Input array
+    outString = op.outString("Output String");  // Output string
+
+function arrayToString() {
+    const inputArray = inArray.get() || [];  // Get the input array or initialize an empty array if it's null
+    const outputString = JSON.stringify(inputArray);  // Convert array to string
+    outString.set(outputString);  // Set the output string
+}
+
+// Attach the arrayToString function to the change event for the input array
+inArray.onChange = arrayToString;
+
+
+};
+
+Ops.User.rambodc.Array_toString.prototype = new CABLES.Op();
+CABLES.OPS["a434adb3-84f1-492b-8c3d-2f4320643d21"]={f:Ops.User.rambodc.Array_toString,objName:"Ops.User.rambodc.Array_toString"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Array.RouteArray
+// 
+// **************************************************************
+
+Ops.Array.RouteArray = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+
+const
+    NUM_PORTS = 10,
+    DEFAULT_ARRAY_DEFAULT = [],
+    indexPort = op.inInt('index'),
+    arrayPort = op.inArray('array in'),
+    defaultArrayPort = op.inArray('default array', DEFAULT_ARRAY_DEFAULT),
+    arrayPorts = createOutPorts(DEFAULT_ARRAY_DEFAULT);
+
+indexPort.onChange = arrayPort.onChange = defaultArrayPort.onChange = update;
+
+setDefaultValues();
+update();
+
+function createOutPorts()
+{
+    var arr = [];
+    for(var i=0; i<NUM_PORTS; i++)
+    {
+        var port = op.outArray('Index ' + i + ' array');
+        arr.push(port);
+    }
+    defaultArrayPort.set(null);
+    return arr;
+};
+
+function setDefaultValues()
+{
+    var defaultValue = defaultArrayPort.get();
+
+    arrayPorts.forEach(port => port.set(null));
+    if(defaultArrayPort.get())
+    {
+        arrayPorts.forEach(port => port.set(defaultValue));
+    }
+};
+
+function update()
+{
+    setDefaultValues();
+    var index = indexPort.get();
+    var value = arrayPort.get();
+
+    index = Math.floor(index);
+    index = clamp(index, 0, NUM_PORTS-1);
+    arrayPorts[index].set(value);
+};
+
+function clamp(value, min, max)
+{
+  return Math.min(Math.max(value, min), max);
+};
+
+
+};
+
+Ops.Array.RouteArray.prototype = new CABLES.Op();
+CABLES.OPS["6597c011-7b2a-4d7c-93f5-40fcc2047cfe"]={f:Ops.Array.RouteArray,objName:"Ops.Array.RouteArray"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Anim.BoolAnim
+// 
+// **************************************************************
+
+Ops.Anim.BoolAnim = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const anim = new CABLES.Anim();
+
+const
+    exe = op.inTrigger("exe"),
+    bool = op.inValueBool("bool"),
+    pease = anim.createPort(op, "easing"),
+    duration = op.inValue("duration", 0.5),
+    dir = op.inValueSelect("Direction", ["Both", "Only True", "Only False"], "Both"),
+    valueFalse = op.inValue("value false", 0),
+    valueTrue = op.inValue("value true", 1),
+    next = op.outTrigger("trigger"),
+    value = op.outNumber("value"),
+    finished = op.outBoolNum("finished"),
+    finishedTrigger = op.outTrigger("Finished Trigger");
+
+const startTime = CABLES.now();
+op.toWorkPortsNeedToBeLinked(exe);
+op.setPortGroup("Animation", [duration, pease]);
+op.setPortGroup("Values", [valueFalse, valueTrue]);
+
+dir.onChange = bool.onChange = valueFalse.onChange = valueTrue.onChange = duration.onChange = setAnim;
+setAnim();
+
+function setAnim()
+{
+    if (dir.get() == "Animate Both")dir.set("Both");
+    finished.set(false);
+    const now = (CABLES.now() - startTime) / 1000;
+    const oldValue = anim.getValue(now);
+    anim.clear();
+
+    anim.setValue(now, oldValue);
+
+    if (!bool.get())
+    {
+        if (dir.get() != "Only True") anim.setValue(now + duration.get(), valueFalse.get());
+        else anim.setValue(now, valueFalse.get());
+    }
+    else
+    {
+        if (dir.get() != "Only False") anim.setValue(now + duration.get(), valueTrue.get());
+        else anim.setValue(now, valueTrue.get());
+    }
+}
+
+exe.onTriggered = function ()
+{
+    const t = (CABLES.now() - startTime) / 1000;
+    value.set(anim.getValue(t));
+
+    if (anim.hasEnded(t))
+    {
+        if (!finished.get()) finishedTrigger.trigger();
+        finished.set(true);
+    }
+
+    next.trigger();
+};
+
+
+};
+
+Ops.Anim.BoolAnim.prototype = new CABLES.Op();
+CABLES.OPS["06ad9d35-ccf5-4d31-889c-e23fa062588a"]={f:Ops.Anim.BoolAnim,objName:"Ops.Anim.BoolAnim"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Min_Max_Value
+// 
+// **************************************************************
+
+Ops.User.rambodc.Min_Max_Value = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs
+const value = op.inValue("Value", 0); // Default value 0
+const max = op.inValue("Max", 1); // Default max 1
+const min = op.inValue("Min", 0); // Default min 0
+
+// Outputs
+const result = op.outNumber("Result");
+
+// OnChange triggers
+value.onChange = max.onChange = min.onChange = checkValue;
+
+// Initial check
+checkValue();
+
+// Function to check if value is between min and max
+function checkValue()
+{
+    let v = value.get();
+    let minValue = min.get();
+    let maxValue = max.get();
+
+    if (v > maxValue)
+    {
+        v = maxValue;
+    }
+    else if (v < minValue)
+    {
+        v = minValue;
+    }
+
+    result.set(v);
+}
+
+
+};
+
+Ops.User.rambodc.Min_Max_Value.prototype = new CABLES.Op();
+CABLES.OPS["7699501a-fd1d-4300-93d4-35715f250fa3"]={f:Ops.User.rambodc.Min_Max_Value,objName:"Ops.User.rambodc.Min_Max_Value"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.Object
+// 
+// **************************************************************
+
+Ops.Json.Object = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const r = op.outObject("Result");
+
+r.setRef({});
+
+
+};
+
+Ops.Json.Object.prototype = new CABLES.Op();
+CABLES.OPS["1b98cb80-8487-47d8-9a50-40a645c4e2b4"]={f:Ops.Json.Object,objName:"Ops.Json.Object"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.Json.ObjectMerge
+// 
+// **************************************************************
+
+Ops.Json.ObjectMerge = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inObj1 = op.inObject("Object 1"),
+    inObj2 = op.inObject("Object 2"),
+    outObj = op.outObject("Object Result");
+
+function copy(src, dst)
+{
+    if (!src) return;
+
+    for (const i in src)
+    {
+        dst[i] = src[i];
+    }
+}
+
+inObj1.onChange =
+inObj2.onChange = () =>
+{
+    const newObj = {};
+
+    copy(inObj1.get(), newObj);
+    copy(inObj2.get(), newObj);
+
+    outObj.setRef(newObj);
+};
+
+
+};
+
+Ops.Json.ObjectMerge.prototype = new CABLES.Op();
+CABLES.OPS["0eb48a27-6fe8-4900-93d8-de68bde44ffb"]={f:Ops.Json.ObjectMerge,objName:"Ops.Json.ObjectMerge"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Bool_ParentChild
+// 
+// **************************************************************
+
+Ops.User.rambodc.Bool_ParentChild = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Input
+const inParentBool = op.inBool("Parent Bool", false);
+const inChildBool = op.inBool("Child Bool", false);
+
+// Output
+const outNumber = op.outNumber("Number Output", 0);
+
+// Initialize
+let outputValue = 0;
+
+// Change listeners
+inParentBool.onChange = updateOutput;
+inChildBool.onChange = updateOutput;
+
+// Function to update the output based on the input conditions
+function updateOutput() {
+    if (!inParentBool.get()) {
+        // If Parent Bool is False, output is always 0
+        outputValue = 0;
+    } else {
+        // If Parent Bool is True, output is 1
+        outputValue = 1;
+
+        // If both Parent Bool and Child Bool are True, output is 2
+        if (inChildBool.get()) {
+            outputValue = 2;
+        }
+    }
+
+    // Set the output
+    outNumber.set(outputValue);
+}
+
+// Initialize the output
+updateOutput();
+
+
+};
+
+Ops.User.rambodc.Bool_ParentChild.prototype = new CABLES.Op();
+CABLES.OPS["c38db79e-5549-47b4-8ac5-081428bee85c"]={f:Ops.User.rambodc.Bool_ParentChild,objName:"Ops.User.rambodc.Bool_ParentChild"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.InputElement_Custom1
+// 
+// **************************************************************
+
+Ops.User.rambodc.InputElement_Custom1 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+/*
+
+The fix in the operator is related to the clear button that clears the output too when triggered.
+Clear" trigger clears the input fields but doesn't clear the "Value" field of the output
+
+*/
+
+
+
+
+const
+    inElType = op.inSwitch("Element", ["Input", "Textarea"], "Input"),
+    inType = op.inSwitch("Type", ["Text", "Number", "Password", "Date"], "Text"),
+    inText = op.inString("Default Value", ""),
+    inPlaceHolder = op.inString("Placeholder", "Type here..."),
+    inId = op.inString("Id"),
+    inClass = op.inString("Class"),
+    inStyle = op.inStringEditor("Style", "color:#ccc;\nbackground-color:#222;\nborder:none;\npadding:4px;\n", "inline-css"),
+
+    inAutoComplete = op.inBool("Autocomplete", false),
+    inMaxLength = op.inInt("Max Length", 0),
+
+    inInteractive = op.inValueBool("Interactive", false),
+    inVisible = op.inValueBool("Visible", true),
+
+    inFocus = op.inTriggerButton("Focus"),
+    inBlur = op.inTriggerButton("Blur"),
+    inClear = op.inTriggerButton("Clear"),
+    inSelect = op.inTriggerButton("Select"),
+
+    outElement = op.outObject("DOM Element", null, "element"),
+    outString = op.outString("Value"),
+    outHover = op.outBoolNum("Hover");
+
+let listenerElement = null;
+let prevDisplay = "block";
+let div = null;
+
+const canvas = op.patch.cgl.canvas.parentElement;
+
+createElement();
+
+inSelect.onTriggered = () =>
+{
+    div.select();
+};
+
+inClear.onTriggered = () =>
+{
+    div.value = "";  // Clear the input field
+    outString.set("");  // Clear the output value
+};
+
+inFocus.onTriggered = () =>
+{
+    div.focus();
+};
+
+inBlur.onTriggered = () =>
+{
+    div.blur();
+};
+
+inElType.onChange = () =>
+{
+    createElement();
+    updateStyle();
+};
+
+inMaxLength.onChange =
+    inType.onChange =
+    inAutoComplete.onChange =
+    inClass.onChange = updateClass;
+
+inPlaceHolder.onChange = inText.onChange = updateText;
+
+inStyle.onChange = updateStyle;
+inInteractive.onChange = updateInteractive;
+inVisible.onChange = updateVisibility;
+
+updateText();
+updateStyle();
+warning();
+updateInteractive();
+
+op.onDelete = removeElement;
+
+outElement.onLinkChanged = updateStyle;
+
+function createElement()
+{
+    removeElement();
+    div = document.createElement(inElType.get().toLowerCase());
+
+    div.addEventListener("input", () =>
+    {
+        outString.set(div.value);
+    });
+
+    div.dataset.op = op.id;
+    div.classList.add("cablesEle");
+
+    if (inId.get()) div.id = inId.get();
+
+    canvas.appendChild(div);
+    outElement.set(div);
+}
+
+function removeElement()
+{
+    if (div) removeClasses();
+    if (div && div.parentNode) div.parentNode.removeChild(div);
+    div = null;
+}
+
+function setCSSVisible(visible)
+{
+    if (!visible)
+    {
+        div.style.visibility = "hidden";
+        prevDisplay = div.style.display || "block";
+        div.style.display = "none";
+    }
+    else
+    {
+        if (prevDisplay == "none") prevDisplay = "block";
+        div.style.visibility = "visible";
+        div.style.display = prevDisplay;
+    }
+}
+
+function updateVisibility()
+{
+    setCSSVisible(inVisible.get());
+}
+
+function updateText()
+{
+    let str = inText.get();
+
+    div.setAttribute("placeholder", inPlaceHolder.get());
+    div.value = str;
+
+    outString.set(str);
+
+    outElement.setRef(div);
+}
+
+function updateStyle()
+{
+    if (!div) return;
+
+    div.setAttribute("style", inStyle.get());
+    updateVisibility();
+    outElement.set(null);
+    outElement.set(div);
+
+    if (!div.parentElement)
+    {
+        canvas.appendChild(div);
+    }
+
+    warning();
+}
+
+let oldClassesStr = "";
+
+function removeClasses()
+{
+    if (!div) return;
+
+    const classes = (inClass.get() || "").split(" ");
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i]) div.classList.remove(classes[i]);
+    }
+    oldClassesStr = "";
+}
+
+function updateClass()
+{
+    div.setAttribute("tabindex", 0);
+    div.setAttribute("maxlength", inMaxLength.get() || null);
+    div.setAttribute("type", inType.get().toLowerCase());
+
+    if (inAutoComplete.get()) div.setAttribute("autocomplete", "on");
+    else div.setAttribute("autocomplete", "off");
+
+    const classes = (inClass.get() || "").split(" ");
+    const oldClasses = (oldClassesStr || "").split(" ");
+
+    let found = false;
+
+    for (let i = 0; i < oldClasses.length; i++)
+    {
+        if (
+            oldClasses[i] &&
+            classes.indexOf(oldClasses[i].trim()) == -1)
+        {
+            found = true;
+            div.classList.remove(oldClasses[i]);
+        }
+    }
+
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i])
+        {
+            div.classList.add(classes[i].trim());
+        }
+    }
+
+    oldClassesStr = inClass.get();
+    warning();
+}
+
+function onMouseEnter(e)
+{
+    outHover.set(true);
+}
+
+function onMouseLeave(e)
+{
+    outHover.set(false);
+}
+
+function updateInteractive()
+{
+    removeListeners();
+    if (inInteractive.get()) addListeners();
+}
+
+inId.onChange = function ()
+{
+    div.id = inId.get();
+};
+
+function removeListeners()
+{
+    if (listenerElement)
+    {
+        listenerElement.removeEventListener("pointerleave", onMouseLeave);
+        listenerElement.removeEventListener("pointerenter", onMouseEnter);
+        listenerElement = null;
+    }
+}
+
+function addListeners()
+{
+    if (listenerElement)removeListeners();
+
+    listenerElement = div;
+
+    if (listenerElement)
+    {
+        listenerElement.addEventListener("pointerleave", onMouseLeave);
+        listenerElement.addEventListener("pointerenter", onMouseEnter);
+    }
+}
+
+op.addEventListener("onEnabledChange", function (enabled)
+{
+    removeElement();
+    if (enabled)
+    {
+        createElement();
+        updateStyle();
+        updateClass();
+        updateText();
+        updateInteractive();
+    }
+});
+
+function warning()
+{
+    if (inClass.get() && inStyle.get())
+    {
+        op.setUiError("error", "Element uses external and inline CSS", 1);
+    }
+    else
+    {
+        op.setUiError("error", null);
+    }
+}
+
+
+};
+
+Ops.User.rambodc.InputElement_Custom1.prototype = new CABLES.Op();
+CABLES.OPS["15b85100-7e44-4a98-a2c3-da0273102b35"]={f:Ops.User.rambodc.InputElement_Custom1,objName:"Ops.User.rambodc.InputElement_Custom1"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.DivElement_ClickFix
+// 
+// **************************************************************
+
+Ops.User.rambodc.DivElement_ClickFix = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inText = op.inString("Text", "Hello Div"),
+    inId = op.inString("Id"),
+    inClass = op.inString("Class"),
+    inStyle = op.inStringEditor("Style", "position:absolute;\nz-index:100;", "inline-css"),
+    inInteractive = op.inValueBool("Interactive", false),
+    inVisible = op.inValueBool("Visible", true),
+    inBreaks = op.inValueBool("Convert Line Breaks", false),
+    inPropagation = op.inValueBool("Propagate Click-Events", true),
+    outElement = op.outObject("DOM Element", null, "element"),
+    outHover = op.outBoolNum("Hover"),
+    outClicked = op.outTrigger("Clicked");
+
+let isHovering = false;
+let listenerElement = null;
+let oldStr = null;
+let prevDisplay = "block";
+let div = null;
+
+const canvas = op.patch.cgl.canvas.parentElement;
+
+createElement();
+
+inClass.onChange = updateClass;
+inBreaks.onChange = inText.onChange = updateText;
+inStyle.onChange = updateStyle;
+inInteractive.onChange = updateInteractive;
+inVisible.onChange = updateVisibility;
+
+updateText();
+updateStyle();
+warning();
+updateInteractive();
+
+op.onDelete = removeElement;
+
+outElement.onLinkChanged = updateStyle;
+
+function createElement()
+{
+    div = document.createElement("div");
+    div.dataset.op = op.id;
+    div.classList.add("cablesEle");
+
+    if (inId.get()) div.id = inId.get();
+
+    canvas.appendChild(div);
+    outElement.set(div);
+}
+
+function removeElement()
+{
+    if (div) removeClasses();
+    if (div && div.parentNode) div.parentNode.removeChild(div);
+    oldStr = null;
+    div = null;
+}
+
+function setCSSVisible(visible)
+{
+    if (!visible)
+    {
+        div.style.visibility = "hidden";
+        prevDisplay = div.style.display || "block";
+        div.style.display = "none";
+    }
+    else
+    {
+        // prevDisplay=div.style.display||'block';
+        if (prevDisplay == "none") prevDisplay = "block";
+        div.style.visibility = "visible";
+        div.style.display = prevDisplay;
+    }
+}
+
+function updateVisibility()
+{
+    setCSSVisible(inVisible.get());
+}
+
+function updateText()
+{
+    let str = inText.get();
+
+    if (oldStr === str) return;
+    oldStr = str;
+
+    if (str && inBreaks.get()) str = str.replace(/(?:\r\n|\r|\n)/g, "<br>");
+
+    if (div.innerHTML != str) div.innerHTML = str;
+    outElement.set(null);
+    outElement.set(div);
+}
+
+// inline css inisde div
+function updateStyle()
+{
+    if (!div) return;
+    // if (inStyle.get() != div.style)
+    // {
+    div.setAttribute("style", inStyle.get());
+    updateVisibility();
+    outElement.set(null);
+    outElement.set(div);
+    // }
+
+    if (!div.parentElement)
+    {
+        canvas.appendChild(div);
+    }
+
+    warning();
+}
+
+let oldClassesStr = "";
+
+function removeClasses()
+{
+    if (!div) return;
+
+    const classes = (inClass.get() || "").split(" ");
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i]) div.classList.remove(classes[i]);
+    }
+    oldClassesStr = "";
+}
+
+function updateClass()
+{
+    const classes = (inClass.get() || "").split(" ");
+    const oldClasses = (oldClassesStr || "").split(" ");
+
+    let found = false;
+
+    for (let i = 0; i < oldClasses.length; i++)
+    {
+        if (
+            oldClasses[i] &&
+            classes.indexOf(oldClasses[i].trim()) == -1)
+        {
+            found = true;
+            div.classList.remove(oldClasses[i]);
+        }
+    }
+
+    for (let i = 0; i < classes.length; i++)
+    {
+        if (classes[i])
+        {
+            div.classList.add(classes[i].trim());
+        }
+    }
+
+    oldClassesStr = inClass.get();
+    warning();
+}
+
+function onMouseEnter(e)
+{
+    outHover.set(true);
+    isHovering = true;
+}
+
+function onMouseLeave(e)
+{
+    outHover.set(false);
+    isHovering = false;
+}
+
+function onMouseClick(e)
+{
+    if (!inPropagation.get())
+    {
+        e.stopPropagation();
+    }
+    if (isHovering) {
+        outClicked.trigger();
+    }
+}
+
+function updateInteractive()
+{
+    removeListeners();
+    if (inInteractive.get()) addListeners();
+}
+
+inId.onChange = function ()
+{
+    div.id = inId.get();
+};
+
+function removeListeners()
+{
+    if (listenerElement)
+    {
+        listenerElement.removeEventListener("pointerdown", onMouseClick);
+        listenerElement.removeEventListener("pointerleave", onMouseLeave);
+        listenerElement.removeEventListener("pointerenter", onMouseEnter);
+        listenerElement = null;
+    }
+}
+
+function addListeners()
+{
+    if (listenerElement) removeListeners();
+
+    listenerElement = div;
+
+    if (listenerElement)
+    {
+        listenerElement.addEventListener("pointerup", onMouseClick);  // Changed from pointerdown to pointerup
+        listenerElement.addEventListener("pointerleave", onMouseLeave);
+        listenerElement.addEventListener("pointerenter", onMouseEnter);
+    }
+}
+
+op.addEventListener("onEnabledChange", function (enabled)
+{
+    removeElement();
+    if (enabled)
+    {
+        createElement();
+        updateStyle();
+        updateClass();
+        updateText();
+        updateInteractive();
+    }
+    // if(enabled) updateVisibility();
+    // else setCSSVisible(false);
+});
+
+function warning()
+{
+    if (inClass.get() && inStyle.get())
+    {
+        op.setUiError("error", "Element uses external and inline CSS", 1);
+    }
+    else
+    {
+        op.setUiError("error", null);
+    }
+}
+
+
+};
+
+Ops.User.rambodc.DivElement_ClickFix.prototype = new CABLES.Op();
+CABLES.OPS["9b76d8bc-96ea-4aee-9b91-c9b3d9056785"]={f:Ops.User.rambodc.DivElement_ClickFix,objName:"Ops.User.rambodc.DivElement_ClickFix"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Div_DropDown
+// 
+// **************************************************************
+
+Ops.User.rambodc.Div_DropDown = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+const
+    inOptions = op.inArray("Options", ["Option 1", "Option 2", "Option 3"]),
+    inId = op.inString("Id"),
+    inClass = op.inString("Class"),
+    inStyle = op.inStringEditor("Style", "color:#ccc;\nbackground-color:#222;\nborder:none;\npadding:4px;\n", "inline-css"),
+    inInteractive = op.inValueBool("Interactive", false),
+    inVisible = op.inValueBool("Visible", true),
+    inClear = op.inTriggerButton("Clear"),
+    outElement = op.outObject("DOM Element", null, "element"),
+    outString = op.outString("Value"),
+    outHover = op.outBoolNum("Hover");
+
+let listenerElement = null;
+let prevDisplay = "block";
+let select = null;
+
+const canvas = op.patch.cgl.canvas.parentElement;
+
+createElement();
+
+inClear.onTriggered = () => {
+    select.selectedIndex = -1;  // Clear the dropdown selection
+    outString.set("");  // Clear the output value
+};
+
+inOptions.onChange = updateOptions;
+inStyle.onChange = updateStyle;
+inInteractive.onChange = updateInteractive;
+inVisible.onChange = updateVisibility;
+
+updateOptions();
+updateStyle();
+updateInteractive();
+
+op.onDelete = removeElement;
+
+outElement.onLinkChanged = updateStyle;
+
+function createElement() {
+    removeElement();
+    select = document.createElement("select");
+
+    select.addEventListener("change", () => {
+        outString.set(select.value);
+    });
+
+    select.dataset.op = op.id;
+    select.classList.add("cablesEle");
+
+    if (inId.get()) select.id = inId.get();
+
+    canvas.appendChild(select);
+    outElement.set(select);
+}
+
+function removeElement() {
+    if (select && select.parentNode) select.parentNode.removeChild(select);
+    select = null;
+}
+
+function setCSSVisible(visible) {
+    if (!visible) {
+        select.style.visibility = "hidden";
+        prevDisplay = select.style.display || "block";
+        select.style.display = "none";
+    } else {
+        if (prevDisplay == "none") prevDisplay = "block";
+        select.style.visibility = "visible";
+        select.style.display = prevDisplay;
+    }
+}
+
+function updateVisibility() {
+    setCSSVisible(inVisible.get());
+}
+
+function updateOptions() {
+    const options = inOptions.get();
+    select.innerHTML = "";  // Clear existing options
+
+    options.forEach((optionText) => {
+        const option = document.createElement("option");
+        option.text = optionText;
+        option.value = optionText;
+        select.add(option);
+    });
+
+    outElement.setRef(select);
+}
+
+function updateStyle() {
+    if (!select) return;
+
+    select.setAttribute("style", inStyle.get());
+    updateVisibility();
+    outElement.set(null);
+    outElement.set(select);
+}
+
+function onMouseEnter(e) {
+    outHover.set(true);
+}
+
+function onMouseLeave(e) {
+    outHover.set(false);
+}
+
+function updateInteractive() {
+    removeListeners();
+    if (inInteractive.get()) addListeners();
+}
+
+inId.onChange = function () {
+    select.id = inId.get();
+};
+
+function removeListeners() {
+    if (listenerElement) {
+        listenerElement.removeEventListener("pointerleave", onMouseLeave);
+        listenerElement.removeEventListener("pointerenter", onMouseEnter);
+        listenerElement = null;
+    }
+}
+
+function addListeners() {
+    if (listenerElement) removeListeners();
+
+    listenerElement = select;
+
+    if (listenerElement) {
+        listenerElement.addEventListener("pointerleave", onMouseLeave);
+        listenerElement.addEventListener("pointerenter", onMouseEnter);
+    }
+}
+
+op.addEventListener("onEnabledChange", function (enabled) {
+    removeElement();
+    if (enabled) {
+        createElement();
+        updateStyle();
+        updateOptions();
+        updateInteractive();
+    }
+});
+
+
+};
+
+Ops.User.rambodc.Div_DropDown.prototype = new CABLES.Op();
+CABLES.OPS["792c5dc9-6211-4e39-82a9-1a0097675179"]={f:Ops.User.rambodc.Div_DropDown,objName:"Ops.User.rambodc.Div_DropDown"};
+
+
+
+
+// **************************************************************
+// 
+// Ops.User.rambodc.Test3
+// 
+// **************************************************************
+
+Ops.User.rambodc.Test3 = function()
+{
+CABLES.Op.apply(this,arguments);
+const op=this;
+const attachments={};
+// Inputs for AMMCreate
+const inAccount = op.inString("Account");
+
+// Inputs for Amount
+const inAmountCurrency = op.inString("Amount Currency");
+const inAmountIssuer = op.inString("Amount Issuer");
+const inAmountValue = op.inString("Amount Value");
+
+// Inputs for Amount2
+const inAmount2Currency = op.inString("Amount2 Currency");
+const inAmount2Issuer = op.inString("Amount2 Issuer");
+const inAmount2Value = op.inString("Amount2 Value");
+
+const inTradingFee = op.inInt("TradingFee");
+const inFee = op.inString("Fee");
+const inFlags = op.inInt("Flags");
+const inSequence = op.inInt("Sequence");
+
+// Additional object as input
+const inAdditionalObject = op.inObject("Additional Object");
+
+// Output
+const outTransaction = op.outObject("Complete AMMCreate Transaction");
+
+// Trigger to add AMMCreate fields
+const inTriggerAddAMMFields = op.inTriggerButton("Add AMMCreate Fields");
+
+// Clear trigger
+const inTriggerClearFields = op.inTriggerButton("Clear Fields");
+
+// Bind function to trigger
+inTriggerAddAMMFields.onTriggered = addAMMFields;
+inTriggerClearFields.onTriggered = clearFields;
+
+function addAMMFields() {
+    let transaction = inAdditionalObject.get() || {}; // If no additional object is given, initialize an empty one
+    transaction.TransactionType = "AMMCreate"; // Set transaction type
+
+    let account = inAccount.get();
+    let amount = {
+        currency: inAmountCurrency.get(),
+        issuer: inAmountIssuer.get(),
+        value: inAmountValue.get()
+    };
+    let amount2 = {
+        currency: inAmount2Currency.get(),
+        issuer: inAmount2Issuer.get(),
+        value: inAmount2Value.get()
+    };
+    let tradingFee = inTradingFee.get();
+    let fee = inFee.get();
+    let flags = inFlags.get();
+    let sequence = inSequence.get();
+
+    if (account) transaction.Account = account;
+    if (amount.currency && amount.issuer && amount.value) transaction.Amount = amount;
+    if (amount2.currency && amount2.issuer && amount2.value) transaction.Amount2 = amount2;
+    if (tradingFee) transaction.TradingFee = tradingFee;
+    if (fee) transaction.Fee = fee;
+    if (flags) transaction.Flags = flags;
+    if (sequence) transaction.Sequence = sequence;
+
+    outTransaction.set(transaction);
+}
+
+function clearFields() {
+    inAccount.set(null);
+    inAmountCurrency.set(null);
+    inAmountIssuer.set(null);
+    inAmountValue.set(null);
+    inAmount2Currency.set(null);
+    inAmount2Issuer.set(null);
+    inAmount2Value.set(null);
+    inTradingFee.set(null);
+    inFee.set(null);
+    inFlags.set(null);
+    inSequence.set(null);
+    inAdditionalObject.set(null);
+}
+
+
+};
+
+Ops.User.rambodc.Test3.prototype = new CABLES.Op();
+CABLES.OPS["a91f64f0-82ee-414a-bce0-8a86a9d71f6f"]={f:Ops.User.rambodc.Test3,objName:"Ops.User.rambodc.Test3"};
 
 
 
