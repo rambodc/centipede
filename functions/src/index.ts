@@ -13,7 +13,7 @@ const app: Express = express();
 app.use(cors({origin: true}));
 app.use(helmet());
 
-// Transaction
+// Transactions
 app.get("/payment/:destination-:feed",
     param("destination").isString(),
     param("feed").isInt(),
