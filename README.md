@@ -4,4 +4,4 @@ Centipede is an innovative Fintech Solution, uniquely positioned to drive the fu
 ## How we built it
 Centipede is designed using a blend of technologies. At its core, it's a web application built with HTML, CSS, and JavaScript. We've integrated webGL to bring live environments straight to the browser, harnessing its immense potential. Our backend leans on Google Cloud, complemented by XRP Ledger integration, several libraries including Veriff for KYC.
 
-[Try DEMO]([https://www.openai.com/](https://centipede-demo.netlify.app/)https://centipede-demo.netlify.app/)
+https://centipede-demo.netlify.app/
