@@ -5,5 +5,7 @@ Centipede is an innovative Fintech Solution, uniquely positioned to drive the fu
 Centipede is designed using a blend of technologies. At its core, it's a web application built with HTML, CSS, and JavaScript. We've integrated webGL to bring live environments straight to the browser, harnessing its immense potential. Our backend leans on Google Cloud, complemented by XRP Ledger integration, several libraries including Veriff for KYC.
 
 Try DEMO: https://centipede-demo.netlify.app/
+<br>
 Visit our website: https://www.centipedes.ca/home
+<br>
 Email us at: admin@centipedes.ca
